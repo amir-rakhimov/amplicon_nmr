@@ -1,0 +1,28 @@
+{
+    "id": "358B5204",
+    "path": "~/amir/phd_code/r-scripts/lab-notes/2022-11-15.Rmd",
+    "project_path": "2022-11-15.Rmd",
+    "type": "r_markdown",
+    "hash": "538904697",
+    "contents": "",
+    "dirty": false,
+    "created": 1668495460980.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "tempName": "Untitled1",
+        "chunk_output_type": "inline",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "82,32",
+        "scrollLine": "85"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1668756567,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1668756567577,
+    "read_only": false,
+    "read_only_alternatives": []
+}

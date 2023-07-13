@@ -1,0 +1,24 @@
+"0","qiime dada2 denoise-single \
+  --i-demultiplexed-seqs single-end-demux.qza \
+  --p-trim-left 1 \
+  --p-trunc-len 0 \
+  --o-representative-sequences rep-seqs-dada2-no-trunc.qza \
+  --o-table table-dada2-no-trunc.qza \
+  --o-denoising-stats stats-dada2-no-trunc.qza \
+  --p-n-threads 8 
+  
+######
+# visualize your dada2 stats
+qiime metadata tabulate \
+  --m-input-file stats-dada2-no-trunc.qza \
+  --o-visualization stats-dada2-no-trunc.qzv
+
+# generate feature table (frequencies)
+qiime feature-table summarize \
+  --i-table table-dada2-no-trunc.qza \
+  --o-visualization table-dada2-no-trunc.qzv
+
+# generate feature table (sequences)
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs-dada2-no-trunc.qza \
+  --o-visualization rep-seqs-dada2-no-trunc.qzv "

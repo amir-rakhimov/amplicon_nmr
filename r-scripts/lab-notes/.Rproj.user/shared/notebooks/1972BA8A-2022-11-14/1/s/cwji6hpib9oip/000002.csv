@@ -1,0 +1,6 @@
+"0","# taxa bar plots
+qiime taxa barplot \
+  --i-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza \
+  --i-taxonomy taxonomy-97-w-borderline-no-trunc-no-minmax.qza \
+  --m-metadata-file filenames.txt \
+  --o-visualization taxa-bar-plots-97-no-trunc-w-borderline-no-minmax.qzv"

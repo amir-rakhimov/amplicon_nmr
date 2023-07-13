@@ -1,0 +1,16 @@
+"0","# chimera filtering: retain borderline
+qiime feature-table filter-features \
+  --i-table table-dn-97-no-trunc.qza \
+  --m-metadata-file uchime-dn-out-97-no-trunc/chimeras.qza \
+  --p-exclude-ids \
+  --o-filtered-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza
+  
+qiime feature-table filter-seqs \
+  --i-data rep-seqs-dn-97-no-trunc.qza \
+  --m-metadata-file uchime-dn-out-97-no-trunc/chimeras.qza \
+  --p-exclude-ids \
+  --o-filtered-data uchime-dn-out-97-no-trunc/rep-seqs-nonchimeric-w-borderline-97-no-trunc.qza
+  
+qiime feature-table summarize \
+  --i-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza \
+  --o-visualization uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qzv"

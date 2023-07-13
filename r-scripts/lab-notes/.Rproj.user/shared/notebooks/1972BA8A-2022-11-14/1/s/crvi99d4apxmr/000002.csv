@@ -1,0 +1,15 @@
+"0","# train the classifier
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads ref-seqs.qza \
+  --i-reference-taxonomy ref-taxonomy.qza \
+  --o-classifier classifier.qza
+
+# test the classifier
+qiime feature-classifier classify-sklearn \
+  --i-classifier classifier.qza \
+  --i-reads uchime-dn-out-97-no-trunc/rep-seqs-nonchimeric-w-borderline-97-no-trunc.qza \
+  --o-classification taxonomy-97-w-borderline-no-trunc-no-minmax.qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy-97-w-borderline-no-trunc-no-minmax.qza \
+  --o-visualization taxonomy-97-w-borderline-no-trunc-no-minmax.qzv"

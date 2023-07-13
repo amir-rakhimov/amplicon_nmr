@@ -1,0 +1,9 @@
+"0","# extract reference reads: no truncation, no min or max length filtering
+qiime feature-classifier extract-reads \
+  --i-sequences 97_otus.qza \
+  --p-f-primer CCTACGGGNGGCWGCAG \
+  --p-r-primer GACTACHVGGGTATCTAATCC \
+  --p-trunc-len -1 \
+  --p-min-length 0 \
+  --p-max-length 0 \
+  --o-reads ref-seqs.qza"

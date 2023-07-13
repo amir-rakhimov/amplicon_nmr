@@ -1,0 +1,195 @@
+---
+title: "Lab report"
+author: "Amir Rakhimov"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+subtitle: National Institute of Genetics, Biological networks lab
+---
+
+# Goals
+1. Reproduce results from *Biagi et al.* (2017) as close as possible  
+2. Obtain taxonomic composition  
+
+# Methodology
+## Software 
+1. Ubuntu 20.04 LTS (Windows subsystem for Linux)
+2. conda v22.9.0
+3. Qiime2 v2022.8-py38-linux-conda
+
+## Experimental workflow
+### 1. Import pandaseq demultiplexed single-end reads as **SingleEndFastqManifestPhred33V2**
+
+```{bash, eval=FALSE}
+qiime tools import \
+  --type  'SampleData[SequencesWithQuality]' \
+  --input-path filenames.txt \
+  --output-path single-end-demux.qza \
+  --input-format SingleEndFastqManifestPhred33V2 
+  
+# quality scores: 1 722 650 reads in total
+qiime demux summarize \
+  --i-data single-end-demux.qza \
+  --o-visualization single-end-demux.qzv
+# Min: 48678; Max: 49499; Mean: 49218.571429
+```
+
+### 2. Denoise with DADA2:
+  + no truncation, trim on position 1
+  
+```{bash, eval=FALSE}
+qiime dada2 denoise-single \
+  --i-demultiplexed-seqs single-end-demux.qza \
+  --p-trim-left 1 \
+  --p-trunc-len 0 \
+  --o-representative-sequences rep-seqs-dada2-no-trunc.qza \
+  --o-table table-dada2-no-trunc.qza \
+  --o-denoising-stats stats-dada2-no-trunc.qza \
+  --p-n-threads 8 
+  
+######
+# visualize your dada2 stats
+qiime metadata tabulate \
+  --m-input-file stats-dada2-no-trunc.qza \
+  --o-visualization stats-dada2-no-trunc.qzv
+
+# generate feature table (frequencies)
+qiime feature-table summarize \
+  --i-table table-dada2-no-trunc.qza \
+  --o-visualization table-dada2-no-trunc.qzv
+
+# generate feature table (sequences)
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs-dada2-no-trunc.qza \
+  --o-visualization rep-seqs-dada2-no-trunc.qzv 
+```
+
+### 3. Cluster into 97% identical OTUs
+```{bash, eval=FALSE}
+qiime vsearch cluster-features-de-novo \
+  --i-table table-dada2-no-trunc.qza \
+  --i-sequences rep-seqs-dada2-no-trunc.qza \
+  --p-perc-identity 0.97 \
+  --o-clustered-table table-dn-97-no-trunc.qza \
+  --o-clustered-sequences rep-seqs-dn-97-no-trunc.qza
+
+## visualize clustering results
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs-dn-97-no-trunc.qza \
+  --o-visualization rep-seqs-dn-97-no-trunc.qzv 
+```
+
+### 4. Chimera check and filter
+  + de novo check with uchime
+
+
+```{bash, eval = FALSE}
+# chimera check: de novo with uchime
+qiime vsearch uchime-denovo \
+  --i-table table-dn-97-no-trunc.qza \
+  --i-sequences rep-seqs-dn-97-no-trunc.qza \
+  --output-dir uchime-dn-out-97-no-trunc
+  
+## visualize summary stats
+qiime metadata tabulate \
+  --m-input-file uchime-dn-out-97-no-trunc/stats.qza \
+  --o-visualization uchime-dn-out-97-no-trunc/stats.qzv
+```
+
+
+  + filter chimeras but retain borderline chimeras
+```{bash, eval = FALSE}
+# chimera filtering: retain borderline
+qiime feature-table filter-features \
+  --i-table table-dn-97-no-trunc.qza \
+  --m-metadata-file uchime-dn-out-97-no-trunc/chimeras.qza \
+  --p-exclude-ids \
+  --o-filtered-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza
+  
+qiime feature-table filter-seqs \
+  --i-data rep-seqs-dn-97-no-trunc.qza \
+  --m-metadata-file uchime-dn-out-97-no-trunc/chimeras.qza \
+  --p-exclude-ids \
+  --o-filtered-data uchime-dn-out-97-no-trunc/rep-seqs-nonchimeric-w-borderline-97-no-trunc.qza
+  
+qiime feature-table summarize \
+  --i-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza \
+  --o-visualization uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qzv
+```
+
+### 5. Taxonomic classification
+  + Use Greengenes 13_5 database with 97% identical OTUs
+  + Import FASTA sequences of OTUs as a QIIME artifact
+```{bash, eval = FALSE}
+# import otus
+qiime tools import \
+  --type 'FeatureData[Sequence]' \
+  --input-path ./gg_13_5_otus/rep_set/97_otus.fasta \
+  --output-path 97_otus.qza
+```
+
+  + Import taxonomical information as HeaderlessTSVTaxonomyFormat
+
+```{bash, eval = FALSE}
+# import taxonomy
+qiime tools import \
+  --type 'FeatureData[Taxonomy]' \
+  --input-format HeaderlessTSVTaxonomyFormat \
+  --input-path ./gg_13_5_otus/taxonomy/97_otu_taxonomy.txt \
+  --output-path ref-taxonomy.qza
+```
+  
+  + Extract reference reads for classification : no truncation, no minimal/maximal length filtering
+```{bash, eval = FALSE}
+# extract reference reads: no truncation, no min or max length filtering
+qiime feature-classifier extract-reads \
+  --i-sequences 97_otus.qza \
+  --p-f-primer CCTACGGGNGGCWGCAG \
+  --p-r-primer GACTACHVGGGTATCTAATCC \
+  --p-trunc-len -1 \
+  --p-min-length 0 \
+  --p-max-length 0 \
+  --o-reads ref-seqs.qza
+```  
+
+Primers: S-D-Bact-0341-b-S-17 (5'-CCTACGGGNGGCWGCAG-3') and S-D-Bact-0785-a-A-21 (5'-GACTACHVGGGTATCTAATCC-3') 
+
+  + Train the Naive Bayes classifier
+```{bash, eval = FALSE}
+# train the classifier
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads ref-seqs.qza \
+  --i-reference-taxonomy ref-taxonomy.qza \
+  --o-classifier classifier.qza
+
+# test the classifier
+qiime feature-classifier classify-sklearn \
+  --i-classifier classifier.qza \
+  --i-reads uchime-dn-out-97-no-trunc/rep-seqs-nonchimeric-w-borderline-97-no-trunc.qza \
+  --o-classification taxonomy-97-w-borderline-no-trunc-no-minmax.qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy-97-w-borderline-no-trunc-no-minmax.qza \
+  --o-visualization taxonomy-97-w-borderline-no-trunc-no-minmax.qzv
+```
+
+
+  + Generate taxa bar plots
+```{bash, eval = FALSE}
+# taxa bar plots
+qiime taxa barplot \
+  --i-table uchime-dn-out-97-no-trunc/table-nonchimeric-w-borderline-97-no-trunc.qza \
+  --i-taxonomy taxonomy-97-w-borderline-no-trunc-no-minmax.qza \
+  --m-metadata-file filenames.txt \
+  --o-visualization taxa-bar-plots-97-no-trunc-w-borderline-no-minmax.qzv
+```
+
+# Results:
+1 722 650 reads in total
+Min: 48678; Max: 49499; Mean: 49218.571429
+
+![](../../qiime-scripts/biagi-nmr/images/2022-11-14-taxa-barplot.png)
+
+I am too tired to do a clean R version. I'll do it tomorrow.
