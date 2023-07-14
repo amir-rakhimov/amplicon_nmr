@@ -68,6 +68,7 @@ p
 # df[c('First', 'Last')] <- str_split_fixed(df$player, '_', 2)
 
 # foo <- str_split_fixed(enz_abundance$predicted.function, '\\.', 4)
+foo<-enz_abundance[rowSums(enz_abundance[,-1] == 0) <= 3, ]
 
 enzymes.long<-enz_abundance%>%
   pivot_longer(!predicted.function,names_to = "Sample",values_to = "Abundance")
