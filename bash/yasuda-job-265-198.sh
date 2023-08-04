@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 conda activate qiime2
 qiime dada2 denoise-paired \
   --i-demultiplexed-seqs yasuda-trimmed-paired-end.qza \
@@ -61,3 +62,9 @@ qiime taxa barplot \
   --i-taxonomy yasuda-taxonomy-trimmed-dada2-265-198.qza \
   --m-metadata-file filenames-yasuda.tsv \
   --o-visualization yasuda-taxa-bar-plots-trimmed-dada2-265-198.qzv
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences yasuda-rep-seqs-trimmed-dada2-265-198.qza \
+  --o-alignment yasuda-aligned-rep-seqs-265-198.qza \
+  --o-masked-alignment yasuda-masked-aligned-rep-seqs-265-198.qza \
+  --o-tree yasuda-unrooted-tree-265-198.qza \
+  --o-rooted-tree yasuda-rooted-tree-265-198.qza
