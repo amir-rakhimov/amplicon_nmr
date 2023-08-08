@@ -7,10 +7,10 @@ library(vegan)
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 # load("./rdafiles/yashliu-dada2-284-203-Genus-138-1-phyloseq-workspace.RData")
+read.end.type<-"single"
 
-load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
-
 
 custom.levels<-c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit")
 

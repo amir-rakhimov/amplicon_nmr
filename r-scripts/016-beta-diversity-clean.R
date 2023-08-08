@@ -9,7 +9,9 @@ truncationlvl<-"234"
 agglom.rank<-"Genus"
 # load("./rdafiles/yashliu-dada2-284-203-Genus-138-1-phyloseq-workspace.RData")
 
-load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
+read.end.type<-"single"
+
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
 pretty.facet.labels<-
@@ -29,7 +31,8 @@ pretty.facet.labels<-
     # "harecontrol" = "*Lepus europaeus*",
     # "ntccontrol" = "Non-treatment<br>control"
 )
-custom.levels<-names(pretty.facet.labels)
+
+custom.levels<-names(pretty.facet.labels) #intersect(names(pretty.facet.labels),custom.md$class)
 
 # Using Polychrome package
 set.seed(1)
@@ -124,13 +127,14 @@ if(dist.metric=="jaccard"){
 }else if(dist.metric=="aitchison"){
   # dist.tfm<-decostand(x = ps.q.df.wide,"clr",pseudocount=1)
   dist<-avgdist(ps.q.df.wide,
-                dmethod="aitchison",
+                dmethod="robust.aitchison",
                 sample=min.n_seqs.all,
-                iterations = 1000,
-                pseudocount=1)
+                iterations = 1000
+                # ,
+                # pseudocount=1
+                )
 }
 set.seed(1)
-
 
 dist.df<-dist%>% # convert distances into tibble
   as.matrix()%>%

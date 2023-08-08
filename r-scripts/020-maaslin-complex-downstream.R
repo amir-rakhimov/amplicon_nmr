@@ -12,7 +12,9 @@ source("r-scripts/make_features_pretty.R")
 custom.levels<-c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit")
 rare.status<-"rarefied"
 rare.status<-"nonrarefied"
-load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
+read.end.type<-"single"
+
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 load(paste0("./rdafiles/maaslin-",rare.status,"-","filtered-",
             paste(custom.levels,collapse = '-'),

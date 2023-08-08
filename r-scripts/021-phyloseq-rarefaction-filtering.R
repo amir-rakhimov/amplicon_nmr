@@ -5,8 +5,9 @@ library(vegan)
 # "274-203"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
+read.end.type<-"single"
 
-load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
 custom.levels<-c("NMR","SPFmouse")

@@ -6,7 +6,15 @@ library(tidyverse)
 library(ggprism)
 library(patchwork)
 library(ggh4x)
-
+split.ec.levels<-function(ec.df){
+  ec.levels<-data.frame(do.call('rbind', 
+                                strsplit(as.character(ec.df$predicted.function),'.',
+                                         fixed=TRUE)))
+  colnames(ec.levels)<-paste0("EC.level.",1:ncol(ec.levels))
+  ec.levels$EC.level.1<-gsub("EC\\:","",ec.levels$EC.level.1)
+  ec.df.with.lvls<-cbind(ec.df,ec.levels)
+  return(ec.df.with.lvls)
+}
 
 # EC without conversions: turn ko_to_kegg to FALSE. ####
 
@@ -64,7 +72,6 @@ p <- pathway_errorbar(abundance = enz_abundance %>% column_to_rownames("predicte
 p
 
 
-
 # df[c('First', 'Last')] <- str_split_fixed(df$player, '_', 2)
 
 # foo <- str_split_fixed(enz_abundance$predicted.function, '\\.', 4)
@@ -74,15 +81,7 @@ enzymes.long<-enz_abundance%>%
   pivot_longer(!predicted.function,names_to = "Sample",values_to = "Abundance")
 
 
-split.ec.levels<-function(ec.df){
-  ec.levels<-data.frame(do.call('rbind', 
-                     strsplit(as.character(ec.df$predicted.function),'.',
-                              fixed=TRUE)))
-  colnames(ec.levels)<-paste0("EC.level.",1:ncol(ec.levels))
-  ec.levels$EC.level.1<-gsub("EC\\:","",ec.levels$EC.level.1)
-  ec.df.with.lvls<-cbind(ec.df,ec.levels)
-  return(ec.df.with.lvls)
-}
+
 # ec.levels<-split.ec.levels(enzymes.long)
 # ec.levels<-split.ec.levels(enz_abundance)
 # ec.levels<-
@@ -147,3 +146,26 @@ p <- pathway_errorbar(abundance = enz_abundance %>% column_to_rownames("predicte
                       x_lab = "description")
 
 p
+
+
+
+
+
+
+
+freqs<-rowSums(enz_abundance[,-1]!=0)
+df<-data.frame(enz_abundance$predicted.function,freqs)
+df<-df[order(df$freqs,decreasing = T),]
+counts<-df$freqs
+names(counts)<-df$enz_abundance.predicted.function
+barplot(counts)  
+barplot(table(counts))
+axis(1,1:23,labels=1:23)
+
+enzymes.long%>%
+  filter(Abundance!=0)%>%
+  group_by(predicted.function)%>%
+  count(predicted.function,sort = T)%>%
+  tail()
+  ggplot(.,aes(n))+
+  geom_bar()

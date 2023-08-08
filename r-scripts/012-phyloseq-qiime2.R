@@ -13,20 +13,20 @@ authorname<-"alldir"
 directory<-paste0("./data/",authorname,"-data/")
 qiimedir<-paste0(directory,"qiime/")
 agglom.rank<-"Genus"
+read.end.type<-"single"
 source("./r-scripts/make_ps_pretty.R")
 
 # Import qza files and convert them into a phyloseq object ####
 ps.q<-qza_to_phyloseq(
   # metadata = paste0(qiimedir,"filenames-",authorname,"-supercomp.tsv"),
-  features = paste0(qiimedir,"pooled","-table-trimmed-dada2-",
+  features = paste0(qiimedir,"pooled-",read.end.type,"-filtered-table-trimmed-dada2-",
                     truncationlvl,".qza"),
-  taxonomy = paste0(qiimedir,"pooled","-taxonomy-trimmed-dada2-",
+  taxonomy = paste0(qiimedir,"pooled-",read.end.type,"-taxonomy-trimmed-dada2-",
                     truncationlvl,".qza"),
-  tree = paste0(qiimedir,"pooled","-rooted-tree-trimmed-dada2-",
+  tree = paste0(qiimedir,"pooled-",read.end.type,"-rooted-tree-trimmed-dada2-",
                 truncationlvl,".qza")
 )
-ps.q<-subset_taxa(ps.q, Family!="Mitochondria")
-ps.q<-subset_taxa(ps.q, Family!="Chloroplast")
+
 # add custom metadata cause previous command loses metadata for some reason
 # custom.md<-read.table(paste0("./data/alldir-data/","filenames-pooled-final-supercomp.tsv"),
 #                       header = T)
@@ -41,6 +41,11 @@ sample_data(ps.q)<-custom.md
 # custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','pvo','tx',
 #                                               'ntccontrol','rabbitcontrol',
 #                                               'harecontrol'),]
+custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','tx'),]
+custom.md<-custom.md[!rownames(custom.md) %in%
+                       intersect(names(which(colSums(ps.q@otu_table)<20000)),
+                                 rownames(custom.md)),]
+
 
 ## Construct the phyloseq object directly from dada2 output ####
 # we combine qza with new metadata
@@ -150,5 +155,5 @@ ps.q.agg.abs.pretty<-make_ps_pretty(ps.q.agg.abs,"Genus")
 ps.q.agg.abs<-ps.q.agg.abs.pretty
 rm(ps.q.agg.abs.pretty)
 
-save.image(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
+save.image(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
                   "-phyloseq-workspace.RData"))

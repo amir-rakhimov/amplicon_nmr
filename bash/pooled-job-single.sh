@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-trunc_len=0
+trunc_len=234
 front_primer=CCTACGGGNGGCWGCAG
 rev_primer=GACTACHVGGGTATCTAATCC
 front_primer_position=341f
 metadata_file="filenames-single-pooled-raw-supercomp.tsv"
-ref_db_trunc_len=0
+ref_db_trunc_len=234
 conda activate qiime2
 qiime tools import \
   --type  'SampleData[SequencesWithQuality]' \
@@ -101,6 +101,10 @@ qiime feature-table summarize \
   --m-sample-metadata-file ${metadata_file} \
   --o-visualization pooled-single-filtered-table-trimmed-dada2-${trunc_len}-nomitchlorarch.qzv
 mv pooled-single-filtered-table-trimmed-dada2-${trunc_len}-nomitchlorarch.qza pooled-single-filtered-table-trimmed-dada2-${trunc_len}.qza
+qiime feature-table summarize \
+  --i-table pooled-single-filtered-table-trimmed-dada2-${trunc_len}.qza \
+  --m-sample-metadata-file ${metadata_file} \
+  --o-visualization pooled-single-filtered-table-trimmed-dada2-${trunc_len}-finalfiltercheck.qzv
 qiime taxa filter-seqs \
   --i-sequences pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}.qza \
   --i-taxonomy pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
@@ -110,6 +114,9 @@ qiime feature-table tabulate-seqs \
   --i-data pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch.qza \
   --o-visualization pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch.qzv
 mv pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch.qza pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}.qza
+qiime feature-table tabulate-seqs \
+  --i-data pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}.qza \
+  --o-visualization pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-finalfiltercheck.qzv
 qiime metadata tabulate \
   --m-input-file pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
   --o-visualization pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qzv

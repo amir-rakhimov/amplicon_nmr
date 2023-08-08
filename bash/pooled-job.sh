@@ -100,12 +100,16 @@ qiime taxa filter-table \
   --i-table pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --i-taxonomy pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --p-exclude mitochondria,chloroplast,archaea \
-  --o-filtered-table pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza
+  --o-filtered-table pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza
 qiime feature-table summarize \
-  --i-table pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza \
+  --i-table pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza \
   --m-sample-metadata-file ${metadata_file} \
-  --o-visualization pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qzv
-mv pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
+  --o-visualization pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qzv
+mv pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
+qiime feature-table summarize \
+  --i-table pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --m-sample-metadata-file ${metadata_file} \
+  --o-visualization pooled-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-finalfiltercheck.qzv
 qiime taxa filter-seqs \
   --i-sequences pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --i-taxonomy pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
@@ -115,6 +119,9 @@ qiime feature-table tabulate-seqs \
   --i-data pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza \
   --o-visualization pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qzv
 mv pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-nomitchlorarch.qza pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
+qiime feature-table tabulate-seqs \
+  --i-data pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --o-visualization pooled-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}-finalfiltercheck.qzv
 qiime metadata tabulate \
   --m-input-file pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --o-visualization pooled-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv
