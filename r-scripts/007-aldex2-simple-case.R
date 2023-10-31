@@ -15,8 +15,8 @@ load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
 
 pretty.facet.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-    "SPFmouse" = "SPF mouse, B6",
-    "FukomysDamarensis" = "*Fukomys Damarensis*",
+    "B6mouse" = "SPF mouse, B6",
+    "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
@@ -54,7 +54,7 @@ ps.q.df <-ps.q.agg.abs%>%
   filter(Abundance!=0)
 
 ps.q.df<-ps.q.df%>%
-  filter(class %in% c("NMR","SPFmouse"))
+  filter(class %in% c("NMR","B6mouse"))
 
 
 # convert the data frame into wide format
@@ -71,8 +71,8 @@ ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]
 # # Rarefaction ####
 # # find the smallest sample size
 # min.n_seqs.all<-ps.q.agg.abs%>%
-#   # filter(class %in% c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit"))%>%
-#   filter(class %in% c("NMR","SPFmouse"))%>%
+#   # filter(class %in% c("NMR","B6mouse","spalax","DMR","rabbit"))%>%
+#   filter(class %in% c("NMR","B6mouse"))%>%
 #   select(Sample,OTU,Abundance)%>%
 #   group_by(Sample)%>%
 #   summarize(n_seqs=sum(Abundance))%>%
@@ -88,7 +88,7 @@ ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]
 #   inner_join(unique(ps.q.agg.abs[,c("Sample","class")]),
 #              by="Sample")%>%
 #   rename(Taxon=name,Abundance=value)
-# condsNMR condsrabbit condsspalax condsSPFmouse
+# condsNMR condsrabbit condsspalax condsB6mouse
 ps.q.df.wide<-t(ps.q.df.wide)
 covariates<-custom.md$class[match(colnames(ps.q.df.wide),rownames(custom.md))]
 

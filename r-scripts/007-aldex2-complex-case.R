@@ -6,26 +6,30 @@ library(vegan)
 # "274-203"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
-# load("./rdafiles/yashliu-dada2-284-203-Genus-138-1-phyloseq-workspace.RData")
 read.end.type<-"single"
 
 load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
-custom.levels<-c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit")
-
+custom.levels<-c("NMR",
+                 "B6mouse",
+                 "MSMmouse",
+                 "FVBNmouse",
+                 "DMR",
+                 "hare",
+                 "rabbit",
+                 "spalax",
+                 "pvo")
 # Import data ####
-rare.status<-"rarefied"
-rare.status<-"nonrarefied"
-if (rare.status=="rarefied"){
-  ps.q.df.aldex.input<-read.table(paste0("./rtables/alldir/ps.q.df.rare.filtered-",
-                                           paste(custom.levels,collapse = '-'),".tsv"),
-                                    header = T)
-} else if(rare.status=="nonrarefied"){
-  ps.q.df.aldex.input<- read.table(paste0("./rtables/alldir/ps.q.df.norare.filtered-",
-                                            paste(custom.levels,collapse = '-'),".tsv"),
-                                     header = T)
-}
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+
+
+ps.q.df.aldex.input<- read.table(paste0("./rtables/alldir/ps.q.df.",
+                                          rare.status,".",filter.status,"-",agglom.rank,"-",
+                                          paste(custom.levels,collapse = '-'),".tsv"),
+                                   header = T)
+
 
 # convert the data frames into wide format
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input%>%
@@ -83,11 +87,11 @@ aldex.signif.features%>%
   summarise(n=n())%>%
   arrange(-n)
 
-save.image(paste0("./rdafiles/aldex2-",rare.status,"-","filtered-",
+save.image(paste0("./rdafiles/aldex2-",rare.status,"-",filter.status,"-",agglom.rank,"-",
                   paste(custom.levels,collapse = '-'),
                   "-workspace.RData"))
 write.table(aldex.signif.features,
-            file=paste0("./rtables/alldir/aldex2-",rare.status,"-","filtered-",
+            file=paste0("./rtables/alldir/aldex2-",rare.status,"-",filter.status,"-",agglom.rank,"-",
                         paste(custom.levels,collapse = '-'),"-",
                         "nmr-signif",".tsv"), # no rare.status
             row.names = F,sep = "\t")

@@ -1,16 +1,16 @@
 library(ggpicrust2)
 library(readr)
-library(ggpicrust2)
-library(tibble)
 library(tidyverse)
 library(ggprism)
 library(patchwork)
 library(ggh4x)
 
 # foo<-KEGGREST::keggGet("ko04940")[[1]]
-
+custom.levels<-c("NMR","SPFmouse","FukomysDamarensis","hare","rabbit",
+                 "spalax","pvo")
 # Load necessary data: abundance data and metadata
-abundance_file <- "./data/alldir-data/picrust/supercomp/NMR_FD/pred_metagenome_unstrat.tsv"
+abundance_file <- paste0("./data/alldir-data/picrust/supercomp/",
+                         paste(custom.levels,collapse="_"),"/pred_metagenome_unstrat.tsv")
 
 metadata <- read.table(paste0("./data/alldir-data/","filenames-single-pooled-raw-supercomp.tsv"),
                        header = T)

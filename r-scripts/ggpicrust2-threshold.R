@@ -1,7 +1,5 @@
 library(ggpicrust2)
 library(readr)
-library(ggpicrust2)
-library(tibble)
 library(tidyverse)
 library(ggprism)
 library(patchwork)
@@ -15,7 +13,8 @@ split.ec.levels<-function(ec.df){
   ec.df.with.lvls<-cbind(ec.df,ec.levels)
   return(ec.df.with.lvls)
 }
-
+custom.levels<-c("NMR","SPFmouse","FukomysDamarensis","hare","rabbit",
+                 "spalax","pvo")
 # EC without conversions: turn ko_to_kegg to FALSE. ####
 
 # Load metadata as a tibble
@@ -26,7 +25,8 @@ metadata<-metadata%>%
 
 # Load KO abundance as a data.frame
 # data(ko_abundance)
-enz_abundance <- read.table("./data/alldir-data/picrust/supercomp/NMR_SPFmouse/pred_metagenome_unstrat.tsv",
+enz_abundance <- read.table(paste0("./data/alldir-data/picrust/supercomp/",
+                                   paste(custom.levels,collapse="_"),"/pred_metagenome_unstrat.tsv"),
                            header = T,sep="\t")
 colnames(enz_abundance)[which(colnames(enz_abundance)=="function.")]<-"predicted.function"
 colnames(enz_abundance)<-gsub("X2D10", "2D10",colnames(enz_abundance))

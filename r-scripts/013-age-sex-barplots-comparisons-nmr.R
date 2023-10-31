@@ -1,22 +1,18 @@
 library(eeptools)
+library(vegan)
+library(tidyverse)
+library(phyloseq)
+library(Polychrome)
+library(pals)
 
+truncationlvl<-"234"
+agglom.rank<-"Genus"
+agglom.rank<-"OTU"
+read.end.type<-"single"
 
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+            "-phyloseq-workspace.RData"))
 
-trulvl<-"265-198"
-trunclvls<-c("313-229",
-             "284-229",
-             "284-203",
-             "273-203",
-             "273-198",
-             "265-203",
-             "265-198")
-
-load("./rdafiles/biagi-phyloseq-workspace.RData")
-truncationlvl<-trulvl
-
-load(paste0("./rdafiles/yasuda-",truncationlvl,"-phyloseq-workspace.RData"))
-
-source("./r-scripts/007-prepare-barplot.R")
 
 set.seed(1)
 plot.cols<-createPalette(nrow(all.legends),
@@ -27,16 +23,14 @@ pretty.facet.labels<-c("NMR"= "*Heterocephalus glaber*", # better labels for fac
                        "control"= "SPF mouse,<br>B6",
                        "NMRwt"="*Heterocephalus glaber* wild-type")
 
-ps.total<-ps.total%>%
-  bind_rows(ps.b.total)
 
-
-nmr.age.groups<-nmr.agg.rel%>%
+ps.q.nmr.with.ages<-ps.q.agg.rel%>%
+  filter(class=="NMR",Abundance!=0)%>%
   group_by(Sample)%>%
   mutate(birthday=as.Date(birthday))%>%
   mutate(age=age_calc(birthday,units = "years"))%>%
   mutate(age=round(age))%>%
-  mutate(age_group = cut(age, breaks = c(0,5,10)))
+  mutate(age_group = cut(age, breaks = c(0,5,10,15)))
 
 age.barplot<-ggplot(nmr.age.groups,aes(x=Sample, y=Abundance,
                        fill=factor(Taxon,
@@ -73,3 +67,61 @@ ggsave(paste0("./images/barplots/",Sys.Date(),
               agglom.rank,".png"),plot = age.barplot,
        width = 8000,height = 4500,
        dpi = 300,units = "px",device = "png")
+
+# Comparing sexes ####
+# Find unique taxa
+m.taxa<-ps.q.agg.abs%>%
+  filter(class=="NMR",sex=="M",Abundance!=0)%>%
+  select(Taxon)%>%
+  distinct()%>%
+  as_vector()
+f.taxa<-ps.q.agg.abs%>%
+  filter(class=="NMR",sex=="F",Abundance!=0)%>%
+  select(Taxon)%>%
+  distinct()%>%
+  as_vector()
+setdiff(m.taxa,f.taxa)
+setdiff(f.taxa,m.taxa)
+
+m.asv<-ps.q.agg.abs%>%
+  filter(class=="NMR",sex=="M",Abundance!=0)%>%
+  select(OTU)%>%
+  distinct()%>%
+  as_vector()
+f.asv<-ps.q.agg.abs%>%
+  filter(class=="NMR",sex=="F",Abundance!=0)%>%
+  select(OTU)%>%
+  distinct()%>%
+  as_vector()
+setdiff(m.asv,f.asv)
+setdiff(f.asv,m.asv)
+
+# Comparing age groups ####
+# Find unique taxa
+age_groups<-names(table(ps.q.nmr.with.ages$age_group))
+taxa.list<-list()
+asv.list<-list()
+
+for (i in seq_along(age_groups)){
+  taxa<-ps.q.nmr.with.ages%>%ungroup%>%
+    filter(age_group==age_groups[i])%>%
+    select(Taxon)%>%
+    distinct()%>%
+    as.vector()
+  asv<-ps.q.nmr.with.ages%>%ungroup%>%
+    filter(age_group==age_groups[i])%>%
+    select(OTU)%>%
+    distinct()%>%
+    as.vector()
+  taxa.list[[i]]<-taxa
+  asv.list[[i]]<-asv
+}
+
+combinations<-combn(c(1,2,3),2)
+diff.list.taxa<-list()
+diff.list.asv<-list()
+for (i in 1:ncol(combinations)) {
+  diff.list.taxa[[i]]<-setdiff(taxa.list[combinations[1,i]][[1]]$Taxon,taxa.list[combinations[2,i]][[1]]$Taxon)
+  diff.list.asv[[i]]<-setdiff(asv.list[combinations[1,i]][[1]]$OTU,asv.list[combinations[2,i]][[1]]$OTU)
+}
+

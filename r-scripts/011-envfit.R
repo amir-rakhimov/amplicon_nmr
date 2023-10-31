@@ -13,8 +13,8 @@ load(paste0("./rdafiles/pooled-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
 pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-                       "SPFmouse" = "SPF mouse, B6",
-                       "FukomysDamarensis" = "*Fukomys Damarensis*",
+                       "B6mouse" = "SPF mouse, B6",
+                       "DMR" = "*Fukomys Damarensis*",
                        "hare" = "*Lepus europaeus*",
                        "rabbit" = "*Oryctolagus cuniculus*",
                        "spalax" = "*Nannospalax leucodon*",

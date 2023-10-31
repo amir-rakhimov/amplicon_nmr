@@ -2,111 +2,63 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
-library(pheatmap)
+library(ALDEx2)
 
-# "274-203"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 source("r-scripts/make_features_pretty.R")
 
-custom.levels<-c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit")
-rare.status<-"rarefied"
-rare.status<-"nonrarefied"
-read.end.type<-"single"
+custom.levels<-c("NMR","B6mouse","DMR","hare","rabbit",
+                 "spalax","pvo")
+rare.status<-"rare"
+filter.status<-"nonfiltered"
 
+read.end.type<-"single"
+asvlevel=TRUE
 load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
-load(paste0("./rdafiles/maaslin-",rare.status,"-","filtered-",
-            paste(custom.levels,collapse = '-'),
-            "-workspace.RData"))
-
-maaslin.fit.df<-maaslin.fit_data$results%>%
-  filter(qval<0.05)
-maaslin.fit.df<-make_features_pretty(maaslin.fit.df, "feature")
-
-maaslin.signif.decreased<-maaslin.fit.df%>%
-  as_tibble()%>%
-  filter(coef<0)%>%
-  group_by(feature)%>%
-  filter(n()==4)%>% 
-  arrange(feature)%>%
-  mutate(n=n())%>%
-  mutate(assoc.str=-log(qval)*sign(coef))#%>%
-# select(feature,assoc.str,name)
-
-# maaslin.signif.increased<-maaslin.fit.df%>%
-#   as_tibble()%>%
-#   filter(coef>0)%>%
-#   group_by(feature)%>%
-#   filter(n()==4)%>% 
-#   arrange(feature)%>%
-#   mutate(n=n())%>%
-#   mutate(assoc.str=-log(qval)*sign(coef))#%>%
-# # select(feature,assoc.str,name)
-
-table(maaslin.signif.decreased$feature%in%ps.q.agg.rel$Taxon)
-write.table(maaslin.signif.decreased,
-            file=paste0("./rtables/alldir/maaslin-",
-                        paste(custom.levels,collapse = '-'),"-",
-                        "nmr-signif-",rare.status,".tsv"),
-            row.names = F,sep = "\t")
-
-# Heatmap ####
-heatmap.df<-maaslin.fit.df%>%
-  mutate(assoc.str=-log(qval)*sign(coef))%>%
-  select(feature,assoc.str,name)%>%
-  pivot_wider(names_from = "feature",
-              values_from = "assoc.str",
-              values_fill = 0)%>%
-  as.data.frame()
-heatmap.df$name<-gsub("class","",heatmap.df$name)
-heatmap.df<-heatmap.df%>%
-  arrange(factor(name, levels=c("rabbit","SPFmouse","spalax","FukomysDamarensis")))
-
-rownames(heatmap.df)<-heatmap.df$name
-heatmap.df<-heatmap.df%>%select(-name)
-
-max_value <- ceiling(max(heatmap.df))
-min_value <- ceiling(min(heatmap.df))
-range_value <- max(c(abs(max_value),abs(min_value)))
-breaks <- seq(-1*range_value, range_value, by = 1)
-pheatmap(t(heatmap.df)[1:50,],
-         color=colorRampPalette(c("blue", "grey90", "red"))(range_value * 2) ,
-         # cellwidth = 5,
-         #   cellheight = 5,
-         # changed to 3
-         # fontsize = 6,
-         kmeans_k = NA,
-         border = TRUE,
-         show_rownames = TRUE,
-         show_colnames = TRUE,
-         scale = "none",
-         cluster_rows = FALSE,
-         cluster_cols = FALSE,
-         clustering_distance_rows = "euclidean",
-         clustering_distance_cols = "euclidean",
-         legend = TRUE,
-         breaks = breaks, 
-         display_numbers=TRUE)
-
-#####
-
-ps.q.df.maaslin.input%>%
-  filter(Taxon=="Prevotellaceae_UCG-001 (Prevotellaceae)",
-         class%in%c("NMR","SPFmouse","spalax","FukomysDamarensis","rabbit"))%>%
-  ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
-  geom_boxplot()+
-  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
-
-ps.q.agg.abs%>%
-  filter(Taxon=="Uncultured (Eubacteriaceae)",
-         class%in%custom.levels)%>%
-  ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
-  geom_boxplot()+
-  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
-  ggtitle("Uncultured (Eubacteriaceae)")
+if(asvlevel==TRUE){
+  load(paste0("./rdafiles/maaslin-",rare.status,"-",filter.status,"-",
+              paste(custom.levels,collapse = '-'),
+              "-workspace-ASVlevel.RData"))
+  maaslin.fit.df<-maaslin.fit_data$results%>%
+    filter(qval<0.05)
+  maaslin.fit.df$feature<-gsub("^X","",maaslin.fit.df$feature)
+  maaslin.signif.decreased<-
+    read.table(paste0("./rtables/alldir/maaslin-",
+                      paste(custom.levels,collapse = '-'),"-",
+                      "nmr-signif-",rare.status,"-ASVlevel.tsv"),
+               header = T,sep = "\t")
+}else{
+  load(paste0("./rdafiles/maaslin-",rare.status,"-",filter.status,"-",
+              paste(custom.levels,collapse = '-'),
+              "-workspace.RData"))
+  maaslin.fit.df<-maaslin.fit_data$results%>%
+    filter(qval<0.05)
+  maaslin.fit.df<-make_features_pretty(maaslin.fit.df, "feature")
+  maaslin.signif.decreased<-
+    read.table(paste0("./rtables/alldir/maaslin-",
+                      paste(custom.levels,collapse = '-'),"-",
+                      "nmr-signif-",rare.status,".tsv"),
+               header = T,sep = "\t")
+}
 
 
+if(asvlevel==TRUE){
+  aldex.signif.features<-
+    read.table(paste0("./rtables/alldir/aldex2-",
+                      rare.status,"-",filter.status,"-",
+                      paste(custom.levels,collapse = '-'),"-",
+                      "nmr-signif","-ASVlevel.tsv"), # no rare.status
+               header = T,sep = "\t")
+}else{
+  aldex.signif.features<-
+    read.table(paste0("./rtables/alldir/aldex2-",
+                      rare.status,"-",filter.status,"-",
+                      paste(custom.levels,collapse = '-'),"-",
+                      "nmr-signif",".tsv"), # no rare.status
+               header = T,sep = "\t")
+}
 
 
 
@@ -114,10 +66,16 @@ aldex.neg.effect<-aldex.signif.features%>%
   filter(effect<0)
 
 intersect(maaslin.fit.df$feature,aldex.signif.features$Taxon)
+intersect(maaslin.fit.df$feature,aldex.signif.features$OTU)
+
+
 match(aldex.signif.features$Taxon,maaslin.fit.df$feature)
+match(aldex.signif.features$OTU,maaslin.fit.df$feature)
 
 ggplots<-list()
 for (feature_index in seq_along(aldex.neg.effect$Taxon)){
+  # take each taxon one by one from aldex.neg.effect
+  # make a boxplot of abundances
   feature.plot<-ps.q.agg.abs%>%
     filter(Taxon==aldex.neg.effect$Taxon[[feature_index]],
            class%in%custom.levels)%>%
@@ -173,7 +131,7 @@ foo.ps.q.agg.abs%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
   facet_wrap(Taxon~.,scales = "free",ncol=2)
-  # ggtitle(maaslin.decreased.foo$feature[[feature_index]])
+# ggtitle(maaslin.decreased.foo$feature[[feature_index]])
 
 
 
@@ -215,5 +173,4 @@ foo.ps.q.df.maaslin.input%>%
   geom_boxplot()+
   facet_wrap(Taxon~.,scales = "free",ncol=2)
 # ggtitle(maaslin.decreased.foo$feature[[feature_index]])
-
 
