@@ -20,40 +20,38 @@ custom.levels<-c("NMR",
                  "pvo")
 rare.status<-"rare"
 filter.status<-"nonfiltered"
+read.end.type<-"single"
+
 host<-"NMR"
 host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
               "mice"="mouse")
 
-read.end.type<-"single"
+comparison<-"age"
+comparison<-"sex"
+comparison<-"strain"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+# load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+#             "-phyloseq-workspace.RData"))
 
-if(asvlevel==TRUE){
-  load(paste0("./rdafiles/maaslin-",rare.status,"-",filter.status,"-",
-              paste(custom.levels,collapse = '-'),
-              "-workspace-ASVlevel.RData"))
+if(agglom.rank=="OTU"){
+  load(paste0("./rdafiles/",
+              paste("maaslin",rare.status,filter.status,host,agglom.rank,
+                    comparison,truncationlvl,
+                    "workspace.RData",sep="-")))
 }else{
-  load(paste0("./rdafiles/maaslin-",rare.status,"-",filter.status,"-",
-            paste(custom.levels,collapse = '-'),
-            "-workspace.RData"))
+  load(paste0("./rdafiles/",
+              paste("maaslin",rare.status,filter.status,agglom.rank,
+                    paste(custom.levels,collapse = '-'),
+                    truncationlvl,"workspace.RData",sep="-")))
 }
-paste0("./rdafiles/",
-       paste("maaslin",rare.status,filter.status,
-             paste(custom.levels,collapse = '-'),agglom.rank,
-             truncationlvl,"workspace.RData",sep="-"))
-paste0("./rdafiles/",
-       paste("maaslin",rare.status,filter.status,host,agglom.rank,
-             comparison,truncationlvl,
-             "workspace.RData",sep="-"))
 
 
 maaslin.fit.df<-maaslin.fit_data$results%>%
   filter(qval<0.05)
-if(asvlevel==TRUE){
+if(agglom.rank=="OTU"){
   maaslin.fit.df$feature<-gsub("^X","",maaslin.fit.df$feature)
-}else{
+}else{ #TODO: fix substitutions dash and space
   maaslin.fit.df<-make_features_pretty(maaslin.fit.df, "feature")
 }
 
@@ -77,28 +75,31 @@ maaslin.signif.decreased<-maaslin.fit.df%>%
 #   mutate(n=n())%>%
 #   mutate(assoc.str=-log(qval)*sign(coef))#%>%
 # # select(feature,assoc.str,name)
-if(asvlevel==TRUE){
-  table(maaslin.signif.decreased$feature%in%ps.q.agg.abs$OTU)
+if(agglom.rank=="OTU"){
+  table(maaslin.signif.decreased$feature%in%ps.q.agg$OTU)
 }else{
-  table(maaslin.signif.decreased$feature%in%ps.q.agg.rel$Taxon)
+  table(maaslin.signif.decreased$feature%in%ps.q.agg$Taxon)
 }
 
-
-if(asvlevel==TRUE){
+if(agglom.rank=="OTU"){
   write.table(maaslin.signif.decreased,
-              file=paste0("./rtables/alldir/maaslin-",rare.status,"-",
-                          filter.status,"-",
-                          paste(custom.levels,collapse = '-'),"-",
-                          "nmr-signif-ASVlevel.tsv"),
+              file=paste0("./rtables/alldir/",
+                          paste("maaslin",rare.status,
+                                filter.status,host,agglom.rank,
+                                comparison,truncationlvl,custom.levels[1],#pre-loaded
+                                "signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }else{
   write.table(maaslin.signif.decreased,
-              file=paste0("./rtables/alldir/maaslin-",rare.status,"-",
-                          filter.status,"-",
-                          paste(custom.levels,collapse = '-'),"-",
-                          "nmr-signif.tsv"),
+              file=paste0("./rtables/alldir/",
+                          paste("maaslin",rare.status,
+                                filter.status,agglom.rank,
+                                paste(custom.levels,collapse = '-'),truncationlvl,
+                                "nmr-signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }
+
+
 
 # Heatmap ####
 heatmap.df<-maaslin.fit.df%>%
@@ -140,8 +141,10 @@ pheatmap(t(heatmap.df)[1:50,],
 
 #####
 
+heatmap(as.matrix(t(heatmap.df)))
+
 ps.q.df.maaslin.input%>%
-  filter(Taxon=="Prevotellaceae_UCG-001 (Prevotellaceae)",
+  filter(Taxon=="Prevotellaceae UCG-001 (Prevotellaceae)",
          class%in%c("NMR","B6mouse","spalax","DMR","rabbit"))%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
@@ -154,4 +157,3 @@ ps.q.agg%>%
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
   ggtitle("Uncultured (Eubacteriaceae)")
-
