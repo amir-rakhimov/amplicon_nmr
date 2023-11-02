@@ -3,7 +3,6 @@ library(phyloseq)
 library(Maaslin2)
 library(vegan)
 
-# "274-203"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 source("r-scripts/make_features_pretty.R")
@@ -40,10 +39,11 @@ maaslin.signif.increased<-maaslin.fit.df%>%
 maaslin.signif.decreased<-make_features_pretty(maaslin.signif.decreased,"feature")
 maaslin.signif.increased<-make_features_pretty(maaslin.signif.increased,"feature")
 
-table(maaslin.signif.decreased$feature%in%ps.q.agg.rel$Taxon)
-table(maaslin.signif.increased$feature%in%ps.q.agg.rel$Taxon)
+table(maaslin.signif.decreased$feature%in%ps.q.agg$Taxon)
+table(maaslin.signif.increased$feature%in%ps.q.agg$Taxon)
 write.table(maaslin.signif.decreased,
-            file=paste0("./rtables/alldir/maaslin-",
-                        paste(custom.levels,collapse = '-'),"-",
-                        "nmr-signif-",rare.status,".tsv"),
+            file=paste0("./rtables/alldir/",paste("maaslin",rare.status,
+                        filter.status,agglom.rank,
+                        paste(custom.levels,collapse = '-'),truncationlvl,
+                        "nmr-signif.tsv",sep="-")),
             row.names = F,sep = "\t")
