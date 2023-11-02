@@ -87,11 +87,14 @@ aldex.signif.features%>%
   summarise(n=n())%>%
   arrange(-n)
 
-save.image(paste0("./rdafiles/aldex2-",rare.status,"-",filter.status,"-",agglom.rank,"-",
-                  paste(custom.levels,collapse = '-'),
-                  "-workspace.RData"))
+save.image(paste0("./rdafiles/",paste("aldex2",rare.status,
+                                      filter.status,agglom.rank,
+                  paste(custom.levels,collapse = '-'),truncationlvl,
+                  "workspace.RData",sep="-")))
 write.table(aldex.signif.features,
-            file=paste0("./rtables/alldir/aldex2-",rare.status,"-",filter.status,"-",agglom.rank,"-",
-                        paste(custom.levels,collapse = '-'),"-",
-                        "nmr-signif",".tsv"), # no rare.status
+            file=paste0("./rtables/alldir/",
+                        paste("aldex2",rare.status,
+                              filter.status,agglom.rank,
+                              paste(custom.levels,collapse = '-'),truncationlvl,
+                              "nmr-signif.tsv",sep="-")), # no rare.status
             row.names = F,sep = "\t")
