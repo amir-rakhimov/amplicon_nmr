@@ -34,12 +34,12 @@ comparison<-"strain"
 #             "-phyloseq-workspace.RData"))
 
 if(agglom.rank=="OTU"){
-  load(paste0("./rdafiles/",
+  load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,host,agglom.rank,
                     comparison,truncationlvl,
                     "workspace.RData",sep="-")))
 }else{
-  load(paste0("./rdafiles/",
+  load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,agglom.rank,
                     paste(custom.levels,collapse = '-'),
                     truncationlvl,"workspace.RData",sep="-")))
@@ -52,7 +52,7 @@ if(agglom.rank=="OTU"){
   maaslin.fit.df<-make_features_pretty(maaslin.fit.df, "feature")
 }
 maaslin.signif.decreased<-
-  read.table(paste0("./rtables/alldir/",
+  read.table(file.path("./rtables/alldir",
                     paste("maaslin",rare.status,
                           filter.status,agglom.rank,
                           paste(custom.levels,collapse = '-'),truncationlvl,
@@ -64,33 +64,33 @@ maaslin.signif.decreased<-
 
 if(agglom.rank=="OTU"){
   maaslin.signif.decreased<-
-    read.table(paste0("./rtables/alldir/",
+    read.table(file.path("./rtables/alldir",
                           paste("maaslin",rare.status,
                                 filter.status,host,agglom.rank,
                                 comparison,truncationlvl,custom.levels[1],#pre-loaded
                                 "signif.tsv",sep="-")),
                header = T,sep = "\t")
   aldex.signif.features<-
-    read.table(paste0("./rtables/alldir/",
+    read.table(file.path("./rtables/alldir/",
                       paste("aldex2",rare.status,
                             filter.status,host,agglom.rank,
                             comparison,truncationlvl,
-                            "signif.tsv",sep="-")), # no rare.status
+                            "signif.tsv",sep="-")),
                header = T,sep = "\t")
 }else{
   maaslin.signif.decreased<-
-    read.table(paste0("./rtables/alldir/",
+    read.table(file.path("./rtables/alldir/",
                           paste("maaslin",rare.status,
                                 filter.status,agglom.rank,
                                 paste(custom.levels,collapse = '-'),truncationlvl,
                                 "nmr-signif.tsv",sep="-")),
                header = T,sep = "\t")
   aldex.signif.features<-
-    read.table(paste0("./rtables/alldir/",
+    read.table(file.path("./rtables/alldir/",
                       paste("aldex2",rare.status,
                             filter.status,agglom.rank,
                             paste(custom.levels,collapse = '-'),truncationlvl,
-                            "nmr-signif.tsv",sep="-")), # no rare.status
+                            "nmr-signif.tsv",sep="-")),
                header = T,sep = "\t")
 }
 
