@@ -9,6 +9,10 @@ agglom.rank<-"Genus"
 agglom.rank<-"OTU"
 source("r-scripts/make_features_pretty.R")
 
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+read.end.type<-"single"
+
 custom.levels<-c("NMR",
                  "B6mouse",
                  "MSMmouse",
@@ -18,9 +22,7 @@ custom.levels<-c("NMR",
                  "rabbit",
                  "spalax",
                  "pvo")
-rare.status<-"rare"
-filter.status<-"nonfiltered"
-read.end.type<-"single"
+
 
 host<-"NMR"
 host<-"mice"
@@ -35,27 +37,38 @@ comparison<-"strain"
 #             "-phyloseq-workspace.RData"))
 
 if(agglom.rank=="OTU"){
-  load(paste0("./rdafiles/",
+  load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,host,agglom.rank,
                     comparison,truncationlvl,
                     "workspace.RData",sep="-")))
 }else{
-  load(paste0("./rdafiles/",
+  load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,agglom.rank,
                     paste(custom.levels,collapse = '-'),
                     truncationlvl,"workspace.RData",sep="-")))
 }
 
-
+# extract features with qvalue<0.05
 maaslin.fit.df<-maaslin.fit_data$results%>%
   filter(qval<0.05)
+# make features pretty
 if(agglom.rank=="OTU"){
   maaslin.fit.df$feature<-gsub("^X","",maaslin.fit.df$feature)
-}else{ #TODO: fix substitutions dash and space
-  maaslin.fit.df<-make_features_pretty(maaslin.fit.df, "feature")
+}else{
+  foo<-ps.q.agg
+  foo$maaslin<-foo$Taxon
+  foo<-make_features_maaslin(foo,"maaslin")
+  maaslin.fit.df<-maaslin.fit.df%>%
+    left_join(foo[,c("maaslin","Taxon")],by=c("feature"="maaslin"))%>%
+    distinct()
+  rm(foo)
+  maaslin.fit.df$feature<-maaslin.fit.df$Taxon
+  maaslin.fit.df<-subset(maaslin.fit.df, select=-Taxon)
 }
+# we had to make this exchange because maaslin output treats space and hyphen
+# as the same thing
 
-
+# extract features that are downregulated in all hosts simultaneously
 maaslin.signif.decreased<-maaslin.fit.df%>%
   as_tibble()%>%
   filter(coef<0)%>%
@@ -70,7 +83,7 @@ maaslin.signif.decreased<-maaslin.fit.df%>%
 #   as_tibble()%>%
 #   filter(coef>0)%>%
 #   group_by(feature)%>%
-#   filter(n()==4)%>% 
+#   filter(n()==length(custom.levels)-1)%>% 
 #   arrange(feature)%>%
 #   mutate(n=n())%>%
 #   mutate(assoc.str=-log(qval)*sign(coef))#%>%
@@ -83,7 +96,7 @@ if(agglom.rank=="OTU"){
 
 if(agglom.rank=="OTU"){
   write.table(maaslin.signif.decreased,
-              file=paste0("./rtables/alldir/",
+              file=file.path("./rtables/alldir",
                           paste("maaslin",rare.status,
                                 filter.status,host,agglom.rank,
                                 comparison,truncationlvl,custom.levels[1],#pre-loaded
@@ -91,7 +104,7 @@ if(agglom.rank=="OTU"){
               row.names = F,sep = "\t")
 }else{
   write.table(maaslin.signif.decreased,
-              file=paste0("./rtables/alldir/",
+              file=file.path("./rtables/alldir",
                           paste("maaslin",rare.status,
                                 filter.status,agglom.rank,
                                 paste(custom.levels,collapse = '-'),truncationlvl,
@@ -111,7 +124,7 @@ heatmap.df<-maaslin.fit.df%>%
   as.data.frame()
 heatmap.df$name<-gsub("class","",heatmap.df$name)
 heatmap.df<-heatmap.df%>%
-  arrange(factor(name, levels=c("rabbit","B6mouse","spalax","DMR")))
+  arrange(factor(name, levels=custom.levels))
 
 rownames(heatmap.df)<-heatmap.df$name
 heatmap.df<-heatmap.df%>%select(-name)
@@ -145,7 +158,7 @@ heatmap(as.matrix(t(heatmap.df)))
 
 ps.q.df.maaslin.input%>%
   filter(Taxon=="Prevotellaceae UCG-001 (Prevotellaceae)",
-         class%in%c("NMR","B6mouse","spalax","DMR","rabbit"))%>%
+         class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
@@ -157,3 +170,4 @@ ps.q.agg%>%
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
   ggtitle("Uncultured (Eubacteriaceae)")
+
