@@ -27,7 +27,7 @@ host.labels<-
     "MSMmouse" = "MSM/Ms mouse",
     "FVBNmouse" = "FVB/N mouse")
 
-ref.level<-"B6mouse"
+ref.level<-"MSMmouse"
 load(file.path("./rdafiles",
                paste("maaslin",rare.status,filter.status,host,agglom.rank,
                      comparison,truncationlvl,ref.level,
@@ -132,7 +132,6 @@ for (ref.level in custom.levels){
     dplyr::select(OTU, MeanRelativeAbundance)%>%
     arrange(-MeanRelativeAbundance)%>%
     distinct(OTU,.keep_all = T)%>%
-    filter(MeanRelativeAbundance>=0.5)%>%
     ungroup()%>%
     pull(OTU)%>%
     unique()
@@ -145,7 +144,7 @@ for (ref.level in custom.levels){
                                    ref.level,"signif.tsv",sep="-")),
               row.names = F,sep = "\t",col.names = F)
 }
-rm(signif.all.groups.lvl)
+rm(signif.lvl)
 
 save(signif.all.groups,
      file=paste0("./rdafiles/",

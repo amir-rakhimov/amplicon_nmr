@@ -319,46 +319,6 @@ nmds.plot<-nmds.plot+
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
 
-# if (comparison=="age"){
-#   nmds.plot<-nmds.plot+
-#     labs(color="Age groups")
-#   
-#   if(agglom.rank=="OTU"){
-#     nmds.plot<-nmds.plot+
-#       ggtitle(paste0("nMDS on ", beta.label, " between different ",as.character(host.class[host])," age groups 
-#                    (ASV level)"))
-#   }else{
-#     nmds.plot<-nmds.plot+
-#       ggtitle(paste0("nMDS on ", beta.label, " between different ",as.character(host.class[host])," age groups 
-#                    (",agglom.rank, " level)"))
-#   }
-# }else if (comparison=="sex"){
-#   nmds.plot<-nmds.plot+
-#     labs(color="Host sex")
-#   
-#   if(agglom.rank=="OTU"){
-#     nmds.plot<-nmds.plot+
-#       ggtitle(paste0("nMDS on ", beta.label, " between different ",as.character(host.class[host])," groups 
-#                   (ASV level)"))
-#   }else{
-#     nmds.plot<-nmds.plot+
-#       ggtitle(paste0("nMDS on ", beta.label, " between different ",as.character(host.class[host])," groups 
-#                   (",agglom.rank, " level)"))
-#   }
-# }else if(comparison=="strain"){
-#   nmds.plot<-nmds.plot+
-#     labs(color="Strain")
-#   if(agglom.rank=="OTU"){
-#     nmds.plot<-nmds.plot+
-#     ggtitle(paste0("nMDS on ", beta.label, " between different mouse strains 
-#                    (ASV level)"))
-#   }else{
-#     nmds.plot<-nmds.plot+
-#       ggtitle(paste0("nMDS on ", beta.label, " between different mouse strains 
-#                    (",agglom.rank, " level)"))
-#   }
-# }
-
 ggsave(paste0("./images/diversity/nmds/",
               paste(Sys.Date(),"ndms",dist.metric,host,
                     comparison,agglom.rank,truncationlvl,sep = "-"),".png"),
@@ -450,47 +410,7 @@ pcoa.plot<-pcoa.plot+
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
 
-# if (comparison=="age"){
-#   pcoa.plot<-pcoa.plot+
-#     labs(color="Age groups")
-# 
-#   if(agglom.rank=="OTU"){
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different naked mole-rat age groups
-#                    (ASV level)"))
-#   }else{
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different naked mole-rat age groups
-#                    (",agglom.rank, " level)"))
-#   }
-# }else if (comparison=="sex"){
-#   pcoa.plot<-pcoa.plot+
-#     labs(x=paste0("PCo 1 (", percent_exp[1],"%)"),
-#          y=paste0("PCo 2 (", percent_exp[2],"%)"),
-#          color="Host sex")
-# 
-#   if(agglom.rank=="OTU"){
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different naked mole-rat groups
-#                    (ASV level)"))
-#   }else{
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different naked mole-rat groups
-#                    (",agglom.rank, " level)"))
-#   }
-# }else if(comparison=="strain"){
-#   if(agglom.rank=="OTU"){
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different mouse strains
-#                    (ASV level)"))+
-#       labs(color="Strain")
-#   }else{
-#     pcoa.plot<-pcoa.plot+
-#       ggtitle(paste0("PCoA on ", beta.label, " between different mouse strains
-#                    (",agglom.rank, " level)"))+
-#       labs(color="Strain")
-#   }
-# }
+
 
 ggsave(paste0("./images/diversity/pcoa/",
               paste(Sys.Date(),"pcoa",dist.metric,host,
@@ -508,6 +428,13 @@ ggsave(paste0("./images/diversity/pcoa/",
 
 # PCA ####
 ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
+
+#### >if you want to exclude specific samples
+ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)=="mf_1"),]
+ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
+ps.q.df.wide.centered<-scale(ps.q.pruned,scale=F,center=T)
+####<
+
 ps.q.df.wide.centered.scaled<-scale(ps.q.df.wide.centered,scale=T,center=F)
 # calculate principal components
 pca.q<-prcomp(ps.q.df.wide.centered.scaled)
@@ -527,7 +454,7 @@ pca.q$x<- -1*pca.q$x
 head(pca.q$x)
 
 ## PCA Biplot ####
-biplot(pca.q,scale = 0)
+# biplot(pca.q,scale = 0)
 
 #calculate total variance explained by each principal component
 pca.q$sdev^2 / sum(pca.q$sdev^2)
@@ -544,21 +471,21 @@ qplot(seq_along(1:nrow(ps.q.df.wide)), var_explained) +
   ylim(0, 1)
 
 
-
+## PCA Plot ####
 PC1<-pca.q$x[,1]
 PC2<-pca.q$x[,2]
 perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
 
 if(comparison=="age"){
-  pca.plot<-ggplot(ps.sampledata,
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
                     aes(x=PC1,y=PC2,color=age_group,
                         fill=age_group))
 }else if (comparison=="sex"){
-  pca.plot<-ggplot(ps.sampledata,
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
                     aes(x=PC1,y=PC2,color=sex,
                         fill=sex))
 }else if(comparison=="strain"){
-  pca.plot<-ggplot(ps.sampledata,
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
                     aes(x=PC1,y=PC2,color=class,fill=class))
 }
 
@@ -581,6 +508,7 @@ pca.plot<-pca.plot +
                     labels=custom.levels,
                     values = custom.colors)+
   guides(fill="none")+
+  # ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE)+ # add labels to samples+
   theme(
     axis.text.x = element_text(angle=0,size=20,hjust=1),
     axis.text.y = element_text(size=20),
@@ -618,3 +546,9 @@ lapply(pc.df,max)
 max.ind<-lapply(pc.df,which.max)
 pc.df[max.ind$PC1,]
 pc.df[max.ind$PC2,]
+
+pc.df%>%rownames_to_column(var="OTU")%>%
+  arrange(-PC2)%>%
+  left_join(ps.q.agg[,c("OTU","Taxon")])%>%
+  distinct()%>%
+  View
