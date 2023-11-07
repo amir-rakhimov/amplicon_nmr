@@ -114,3 +114,10 @@ qiime taxa barplot \
   --i-taxonomy biagi-taxonomy-trimmed-dada2-no-trunc.qza \
   --m-metadata-file filenames-biagi.tsv \
   --o-visualization biagi-taxa-bar-plots-trimmed-dada2-no-trunc.qzv
+  
+# We retain sequences that satisfy the "where" condition. Here, we keep all sequences longer than 260
+qiime feature-table filter-seqs \
+  --i-data demux-rep-seqs.qza \
+  --m-metadata-file demux-rep-seqs.qza \
+  --p-where 'length(sequence) > 260' \
+  --o-filtered-data demux-rep-seqs-filtered.qza

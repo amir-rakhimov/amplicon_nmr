@@ -2,7 +2,6 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
-
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
@@ -19,7 +18,7 @@ custom.levels<-c("NMR",
                  "rabbit",
                  "spalax",
                  "pvo")
-
+ref.level<-"NMR"
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
@@ -27,7 +26,6 @@ ps.q.df.maaslin.input<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                          rare.status,".",filter.status,"-",agglom.rank,"-",
                                          paste(custom.levels,collapse = '-'),".tsv"),
                                   header = T)
-
 
 # Maaslin2 ####
 # Input data and metadata ####
@@ -39,11 +37,9 @@ ps.q.df.maaslin.input.wide<-ps.q.df.maaslin.input%>%
               values_fill = 0)%>%
   as.data.frame()
 
-
 # colnames are OTUs and rownames are sample IDs
 rownames(ps.q.df.maaslin.input.wide)<-ps.q.df.maaslin.input.wide$Sample
 ps.q.df.maaslin.input.wide<-ps.q.df.maaslin.input.wide[,-1]  
-
 
 # 3.2 Running MaAsLin 2 ####
 set.seed(1)
@@ -59,11 +55,11 @@ maaslin.fit_data =
            output = paste0("./output/maaslin2/alldir-output/",
                            rare.status,"/",paste(custom.levels,collapse = '-')), 
            fixed_effects = c("class"),
-           reference = c("class,NMR"),
+           reference = paste0("class,",ref.level),
            max_significance = 0.05)
-
 
 save.image(paste0("./rdafiles/",
                   paste("maaslin",rare.status,filter.status,agglom.rank,
                         paste(custom.levels,collapse = '-'),
-                        truncationlvl,"workspace.RData",sep="-")))
+                        truncationlvl,ref.level,"workspace.RData",sep="-")))
+q()

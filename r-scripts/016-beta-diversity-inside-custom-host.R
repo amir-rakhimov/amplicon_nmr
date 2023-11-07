@@ -505,5 +505,116 @@ ggsave(paste0("./images/diversity/pcoa/",
        plot=pcoa.plot,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "tiff")
-rm(list=ls())
 
+# PCA ####
+ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
+ps.q.df.wide.centered.scaled<-scale(ps.q.df.wide.centered,scale=T,center=F)
+# calculate principal components
+pca.q<-prcomp(ps.q.df.wide.centered.scaled)
+str(pca.q)
+dim(pca.q$x)
+
+# reverse the signs
+pca.q$rotation<- -1*pca.q$rotation
+
+# display principal components (loadings)
+head(pca.q$rotation)
+
+# reverse th signs of the scores
+pca.q$x<- -1*pca.q$x
+
+# display the first six scores
+head(pca.q$x)
+
+## PCA Biplot ####
+biplot(pca.q,scale = 0)
+
+#calculate total variance explained by each principal component
+pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#calculate total variance explained by each principal component
+var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#create scree plot
+qplot(seq_along(1:nrow(ps.q.df.wide)), var_explained) + 
+  geom_line() + 
+  xlab("Principal Component") + 
+  ylab("Variance Explained") +
+  ggtitle("Scree Plot") +
+  ylim(0, 1)
+
+
+
+PC1<-pca.q$x[,1]
+PC2<-pca.q$x[,2]
+perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
+
+if(comparison=="age"){
+  pca.plot<-ggplot(ps.sampledata,
+                    aes(x=PC1,y=PC2,color=age_group,
+                        fill=age_group))
+}else if (comparison=="sex"){
+  pca.plot<-ggplot(ps.sampledata,
+                    aes(x=PC1,y=PC2,color=sex,
+                        fill=sex))
+}else if(comparison=="strain"){
+  pca.plot<-ggplot(ps.sampledata,
+                    aes(x=PC1,y=PC2,color=class,fill=class))
+}
+
+pca.plot<-pca.plot +
+  geom_point(size=2)+ 
+  stat_ellipse(geom = "polygon",
+               level = 0.8,
+               alpha=0.2,
+               show.legend = FALSE)+
+  labs(x=paste0("PC1 (", perc.var[1], "%)"),
+       y=paste0("PC2 (", perc.var[2], "%)"),
+       color=gg.labs.name)+
+  theme_bw()+
+  ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
+                gg.title.taxon))+
+  scale_color_manual(breaks = custom.levels,
+                     labels=custom.color.labels,
+                     values = custom.colors)+
+  scale_fill_manual(name=NULL, breaks = custom.levels,
+                    labels=custom.levels,
+                    values = custom.colors)+
+  guides(fill="none")+
+  theme(
+    axis.text.x = element_text(angle=0,size=20,hjust=1),
+    axis.text.y = element_text(size=20),
+    axis.title = element_text(size = 20),
+    plot.title = element_text(size = 27),
+    legend.text = ggtext::element_markdown(size = 20),
+    legend.title = element_text(size = 25),
+    legend.position = "right",
+    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+    plot.caption.position = "plot")
+ggsave(paste0("./images/diversity/pca/",
+              paste(Sys.Date(),"pca",host,
+                    comparison,agglom.rank,truncationlvl,sep = "-"),".png"),
+       plot=pca.plot,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "png")
+
+ggsave(paste0("./images/diversity/pca/",
+              paste(Sys.Date(),"pca",host,
+                    comparison,agglom.rank,truncationlvl,sep = "-"),".tiff"),
+       plot=pca.plot,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "tiff")
+
+
+# find ASVs that contribute to PCs
+aload<-abs(pca.q$rotation)
+head(sweep(aload,2,colSums(aload),"/"))
+colSums(sweep(aload, 2, colSums(aload), "/"))
+colSums(aload)
+aload[1,1]/colSums(aload)[1]
+
+pc.df<-as.data.frame(sweep(aload,2,colSums(aload),"/")[,1:2])
+lapply(pc.df,max)
+max.ind<-lapply(pc.df,which.max)
+pc.df[max.ind$PC1,]
+pc.df[max.ind$PC2,]

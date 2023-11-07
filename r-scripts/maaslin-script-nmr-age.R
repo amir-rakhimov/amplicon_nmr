@@ -42,7 +42,8 @@ if(host=="NMR"){
   
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
-                          include.lowest = TRUE))
+                        include.lowest = TRUE))
+  # we create these new levels because maaslin is itsy bitsy
   unique_levels <- ps.q.df.preprocessed %>%
     ungroup()%>%
     distinct(agegroup)%>%
@@ -91,7 +92,7 @@ if(host=="NMR"){
   custom.md<-custom.md%>%
     filter(class%in%custom.levels)
   custom.md$agegroup<-ifelse(custom.md$class=="B6mouse","B6",
-                              ifelse(grepl("2020",custom.md$birthday),"old","young"))
+                             ifelse(grepl("2020",custom.md$birthday),"old","young"))
 }
 if (comparison=="age"){
   pretty.facet.labels<-names(table(ps.q.df.preprocessed$agegroup))
@@ -149,7 +150,7 @@ maaslin.fit_data =
            standardize = FALSE,
            output = paste0("./output/maaslin2/alldir-output/",
                            rare.status,"/",paste(host,filter.status,agglom.rank,
-                                             comparison,truncationlvl,sep="-")), 
+                                                 comparison,truncationlvl,sep="-")), 
            fixed_effects = maaslin.comparison,
            reference = maaslin.reference,
            max_significance = 0.05)

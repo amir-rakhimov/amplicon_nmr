@@ -6,7 +6,8 @@ library(vegan)
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-
+load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+            "-phyloseq-workspace.RData"))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
@@ -26,7 +27,7 @@ host.labels<-
   c("B6mouse" = "B6 mouse",
     "MSMmouse" = "MSM/Ms mouse",
     "FVBNmouse" = "FVB/N mouse")
-
+ref.level<-"MSMmouse"
 # Import data ####
 ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
@@ -118,12 +119,12 @@ ps.q.aldex.clr <- aldex.clr(ps.q.df.aldex.input.wide, mm, mc.samples=1000, denom
 ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace-test.RData",sep="-")))
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                   "workspace-effect.RData",sep = "-")))
 aldex.signif.features<-list()
 for (i in 1:length(ps.q.glm.effect)){
@@ -154,12 +155,12 @@ aldex.signif.features%>%
   arrange(-n)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace.RData",sep = "-")))
 write.table(aldex.signif.features,
             file=paste0("./rtables/alldir/",
                         paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                              comparison,truncationlvl,
-                        "signif.tsv",sep="-")), # no rare.status
+                              comparison,truncationlvl,ref.level,
+                        "signif.tsv",sep="-")), 
             row.names = F,sep = "\t")
 q()

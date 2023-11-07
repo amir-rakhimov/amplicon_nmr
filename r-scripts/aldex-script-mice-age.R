@@ -102,7 +102,11 @@ rownames(ps.q.df.aldex.input.wide)<-ps.q.df.aldex.input.wide$Sample
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input.wide[,-1] 
 # ALDEx2 ##########################
 ps.q.df.aldex.input.wide<-t(ps.q.df.aldex.input.wide)
-covariates<-custom.md$class[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
+if(host=="NMR" & comparison=="age"){
+  covariates<-custom.md$agegroup[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
+}else{
+  covariates<-custom.md$class[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
+}
 mm <- model.matrix(~ covariates-1)
 # reorder model.matrix to put NMR as first column
 # custom.levels[c(which(custom.levels == "NMR"), which(custom.levels != "NMR"))]
@@ -120,12 +124,12 @@ ps.q.aldex.clr <- aldex.clr(ps.q.df.aldex.input.wide, mm, mc.samples=1000, denom
 ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace-test.RData",sep="-")))
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace-effect.RData",sep = "-")))
 aldex.signif.features<-list()
 for (i in 1:length(ps.q.glm.effect)){
@@ -156,12 +160,12 @@ aldex.signif.features%>%
   arrange(-n)
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace.RData",sep = "-")))
 write.table(aldex.signif.features,
             file=paste0("./rtables/alldir/",
                         paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                              comparison,truncationlvl,
-                              "signif.tsv",sep="-")), # no rare.status
+                              comparison,truncationlvl,ref.level,
+                              "signif.tsv",sep="-")), 
             row.names = F,sep = "\t")
 q()

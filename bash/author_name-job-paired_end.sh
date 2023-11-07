@@ -1,47 +1,50 @@
 #!/usr/bin/env bash
-author_name=biagi
-trunc_len_f=0
-trunc_len_r=0
+author_name=okumura
+trunc_len_f=284
+trunc_len_r=203
 front_primer=CCTACGGGNGGCWGCAG
-rev_primer=GGATTAGATACCCBDGTAGTC
+rev_primer=GACTACHVGGGTATCTAATCC
 front_primer_position=341f
 rev_primer_position=805r
 ref_db_trunc_len=465
-metadata_file="filenames-biagi-raw-supercomp.tsv"
+metadata_file="filenames-okumura-raw-supercomp.tsv"
 conda activate qiime2
 qiime tools import \
-  --type  'SampleData[SequencesWithQuality]' \
+  --type  'SampleData[PairedEndSequencesWithQuality]' \
   --input-path ${metadata_file} \
-  --output-path ${author_name}-single-end-demux.qza \
-  --input-format SingleEndFastqManifestPhred33V2 
+  --output-path ${author_name}-paired-end-demux.qza \
+  --input-format PairedEndFastqManifestPhred33V2 
 qiime demux summarize \
-  --i-data ${author_name}-single-end-demux.qza \
-  --o-visualization ${author_name}-single-end-demux.qzv
-qiime cutadapt trim-single \
-  --i-demultiplexed-sequences ${author_name}-single-end-demux.qza \
+  --i-data ${author_name}-paired-end-demux.qza \
+  --o-visualization ${author_name}-paired-end-demux.qzv
+qiime cutadapt trim-paired \
+  --i-demultiplexed-sequences ${author_name}-paired-end-demux.qza \
   --p-cores 8 \
-  --p-front ${front_primer} \
-  --p-adapter ${rev_primer} \
-  --o-trimmed-sequences ${author_name}-trimmed-single-end.qza
+  --p-front-f ${front_primer} \
+  --p-front-r ${rev_primer} \
+  --o-trimmed-sequences ${author_name}-trimmed-paired-end.qza
 qiime demux summarize \
-  --i-data ${author_name}-trimmed-single-end.qza \
-  --o-visualization ${author_name}-trimmed-single-end.qzv
-qiime dada2 denoise-single \
-  --i-demultiplexed-seqs ${author_name}-trimmed-single-end.qza \
-  --p-trim-left 0 \
-  --p-trunc-len 0 \
-  --o-representative-sequences ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --i-data ${author_name}-trimmed-paired-end.qza \
+  --o-visualization ${author_name}-trimmed-paired-end.qzv
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs ${author_name}-trimmed-paired-end.qza \
+  --p-trim-left-f 0 \
+  --p-trim-left-r 0 \
+  --p-trunc-len-f ${trunc_len_f} \
+  --p-trunc-len-r ${trunc_len_r} \
   --o-table ${author_name}-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
-  --o-denoising-stats ${author_name}-stats-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza 
+  --o-representative-sequences ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --o-denoising-stats ${author_name}-stats-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
 qiime metadata tabulate \
   --m-input-file ${author_name}-stats-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --o-visualization ${author_name}-stats-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv
 qiime feature-table summarize \
   --i-table ${author_name}-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --m-sample-metadata-file ${metadata_file} \
   --o-visualization ${author_name}-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv
 qiime feature-table tabulate-seqs \
   --i-data ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
-  --o-visualization ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv 
+  --o-visualization ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv
 qiime rescript get-silva-data \
     --p-version '138.1' \
     --p-target 'SSURef_NR99' \
@@ -76,7 +79,7 @@ qiime feature-classifier fit-classifier-naive-bayes \
 qiime feature-table filter-seqs \
   --i-data ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --m-metadata-file ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
-  --p-where 'length(sequence) > 470' \
+  --p-where 'length(sequence) > 300 AND length(sequence)<500' \
   --o-filtered-data ${author_name}-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
 qiime feature-table filter-features \
  --i-table ${author_name}-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
@@ -92,7 +95,7 @@ qiime feature-table tabulate-seqs \
   --o-visualization ${author_name}-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qzv
 qiime feature-classifier classify-sklearn \
   --i-classifier silva-138-1-ssu-nr99-classifier-${front_primer_position}-${rev_primer_position}-derep-uniq.qza \
-  --i-reads ${author_name}-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
+  --i-reads ${author_name}-filtered-rep-seqs-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \
   --o-classification ${author_name}-taxonomy-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza
 qiime taxa filter-table \
   --i-table ${author_name}-filtered-table-trimmed-dada2-${trunc_len_f}-${trunc_len_r}.qza \

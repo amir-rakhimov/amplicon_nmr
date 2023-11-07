@@ -7,7 +7,7 @@ library(pheatmap)
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 agglom.rank<-"OTU"
-source("r-scripts/make_features_pretty.R")
+source("r-scripts/make_features_maaslin.R")
 
 rare.status<-"rare"
 filter.status<-"nonfiltered"
@@ -33,43 +33,45 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
+ref.level<-"MSMmouse"
 # load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
 #             "-phyloseq-workspace.RData"))
 
 if(agglom.rank=="OTU"){
   load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,host,agglom.rank,
-                    comparison,truncationlvl,
+                    comparison,truncationlvl,ref.level,
                     "workspace.RData",sep="-")))
 }else{
   load(file.path("./rdafiles",
               paste("maaslin",rare.status,filter.status,agglom.rank,
                     paste(custom.levels,collapse = '-'),
-                    truncationlvl,"workspace.RData",sep="-")))
+                    truncationlvl,ref.level,"workspace.RData",sep="-")))
 }
 
 # extract features with qvalue<0.05
-maaslin.fit.df<-maaslin.fit_data$results%>%
+maaslin.signif.features<-maaslin.fit_data$results%>%
   filter(qval<0.05)
 # make features pretty
 if(agglom.rank=="OTU"){
-  maaslin.fit.df$feature<-gsub("^X","",maaslin.fit.df$feature)
+  maaslin.signif.features$feature<-gsub("^X","",maaslin.signif.features$feature)
 }else{
   foo<-ps.q.agg
   foo$maaslin<-foo$Taxon
   foo<-make_features_maaslin(foo,"maaslin")
-  maaslin.fit.df<-maaslin.fit.df%>%
+  foo<-unique(foo[,c("maaslin","Taxon")])
+  maaslin.signif.features<-maaslin.signif.features%>%
     left_join(foo[,c("maaslin","Taxon")],by=c("feature"="maaslin"))%>%
     distinct()
   rm(foo)
-  maaslin.fit.df$feature<-maaslin.fit.df$Taxon
-  maaslin.fit.df<-subset(maaslin.fit.df, select=-Taxon)
+  maaslin.signif.features$feature<-maaslin.signif.features$Taxon
+  maaslin.signif.features<-subset(maaslin.signif.features, select=-Taxon)
 }
 # we had to make this exchange because maaslin output treats space and hyphen
 # as the same thing
 
 # extract features that are downregulated in all hosts simultaneously
-maaslin.signif.decreased<-maaslin.fit.df%>%
+maaslin.signif.decreased<-maaslin.signif.features%>%
   as_tibble()%>%
   filter(coef<0)%>%
   group_by(feature)%>%
@@ -79,7 +81,7 @@ maaslin.signif.decreased<-maaslin.fit.df%>%
   mutate(assoc.str=-log(qval)*sign(coef))#%>%
 # select(feature,assoc.str,name)
 
-# maaslin.signif.increased<-maaslin.fit.df%>%
+# maaslin.signif.increased<-maaslin.signif.features%>%
 #   as_tibble()%>%
 #   filter(coef>0)%>%
 #   group_by(feature)%>%
@@ -95,15 +97,15 @@ if(agglom.rank=="OTU"){
 }
 
 if(agglom.rank=="OTU"){
-  write.table(maaslin.signif.decreased,
+  write.table(maaslin.signif.features,
               file=file.path("./rtables/alldir",
                           paste("maaslin",rare.status,
                                 filter.status,host,agglom.rank,
-                                comparison,truncationlvl,custom.levels[1],#pre-loaded
+                                comparison,truncationlvl,ref.level,#pre-loaded
                                 "signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }else{
-  write.table(maaslin.signif.decreased,
+  write.table(maaslin.signif.features,
               file=file.path("./rtables/alldir",
                           paste("maaslin",rare.status,
                                 filter.status,agglom.rank,
@@ -115,7 +117,7 @@ if(agglom.rank=="OTU"){
 
 
 # Heatmap ####
-heatmap.df<-maaslin.fit.df%>%
+heatmap.df<-maaslin.signif.features%>%
   mutate(assoc.str=-log(qval)*sign(coef))%>%
   select(feature,assoc.str,name)%>%
   pivot_wider(names_from = "feature",

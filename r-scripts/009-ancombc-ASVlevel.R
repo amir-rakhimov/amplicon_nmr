@@ -1,32 +1,40 @@
 library(eeptools)
 library(tidyverse)
 library(phyloseq)
-library(ALDEx2)
 library(vegan)
+library(ANCOMBC)
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
 load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
+
 rare.status<-"rare"
 filter.status<-"nonfiltered"
+
 host<-"NMR"
-# host<-"mice"
+host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
               "mice"="mouse")
+
 comparison<-"age"
-# comparison<-"sex"
-# comparison<-"strain"
-host.labels<- c("NMR" = "*Heterocephalus glaber*")
-# host.labels<-
-#   c("B6mouse" = "B6 mouse",
-#     "MSMmouse" = "MSM/Ms mouse",
-#     "FVBNmouse" = "FVB/N mouse")
-# Import data ####
+comparison<-"sex"
+comparison<-"strain"
+
+host.labels<-
+  c("NMR" = "*Heterocephalus glaber*")
+
+host.labels<-
+  c("B6mouse" = "B6 mouse",
+    "MSMmouse" = "MSM/Ms mouse",
+    "FVBNmouse" = "FVB/N mouse")
+
+ref.level<-"FVBNmouse"
 ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
+
 if(host=="NMR"){
   # select nmr and add age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
@@ -38,10 +46,12 @@ if(host=="NMR"){
   
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
-  
+  # create a column with age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     mutate(age_group=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
-                          include.lowest = TRUE))
+                         include.lowest = TRUE))
+  
+  # Metadata
   custom.md$Sample<-rownames(custom.md)
   custom.md<-custom.md%>% 
     filter(class=="NMR")%>%
@@ -53,7 +63,7 @@ if(host=="NMR"){
   max_boundary <- ceiling(max(custom.md$age)/5) * 5
   
   custom.md<-custom.md%>%
-    mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
+    mutate(age_group=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
                         include.lowest = TRUE))%>%
     as.data.frame()
   rownames(custom.md)<-custom.md$Sample
@@ -66,7 +76,14 @@ if(host=="NMR"){
     filter(class%in%custom.levels,Abundance!=0)
   ps.q.df.preprocessed$age_group<-ifelse(ps.q.df.preprocessed$class=="B6mouse","B6",
                                          ifelse(grepl("2020",ps.q.df.preprocessed$birthday),"old","young"))
+  # also to metadata
+  custom.md<-custom.md%>%
+    filter(class%in%custom.levels)
+  custom.md$age_group<-ifelse(custom.md$class=="B6mouse","B6",
+                             ifelse(grepl("2020",custom.md$birthday),"old","young"))
 }
+
+
 if (comparison=="age"){
   pretty.facet.labels<-names(table(ps.q.df.preprocessed$age_group))
   names(pretty.facet.labels)<-names(table(ps.q.df.preprocessed$age_group))
@@ -90,82 +107,83 @@ if (comparison=="age"){
 ps.q.df <-ps.q.df.preprocessed%>%
   dplyr::select(Sample,OTU,Abundance,class,age_group,sex)%>%
   filter(Abundance!=0)
+
+
+# ANCOMBC ####
+# Input data and metadata ####
 # convert the data frames into wide format
-ps.q.df.aldex.input.wide<-ps.q.df%>%
+ps.q.df.ancombc.input.wide<-ps.q.df%>%
   dplyr::select(Sample,Abundance,OTU)%>%
   pivot_wider(names_from = "OTU", # or OTU
               values_from = "Abundance",
               values_fill = 0)%>%
   as.data.frame()
 # colnames are OTUs and rownames are sample IDs
-rownames(ps.q.df.aldex.input.wide)<-ps.q.df.aldex.input.wide$Sample
-ps.q.df.aldex.input.wide<-ps.q.df.aldex.input.wide[,-1] 
-# ALDEx2 ##########################
-ps.q.df.aldex.input.wide<-t(ps.q.df.aldex.input.wide)
-if(host=="NMR" & comparison=="age"){
-  covariates<-custom.md$agegroup[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
-}else{
-  covariates<-custom.md$class[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
-}
-mm <- model.matrix(~ covariates-1)
-# reorder model.matrix to put NMR as first column
-# custom.levels[c(which(custom.levels == "NMR"), which(custom.levels != "NMR"))]
+rownames(ps.q.df.ancombc.input.wide)<-ps.q.df.ancombc.input.wide$Sample
+ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input.wide[,-1] 
+
+taxmat<-ps.q.agg%>%
+  dplyr::select(Kingdom,Phylum,Class,Order,Family,Genus,OTU)%>%
+  distinct()%>%
+  column_to_rownames(var = "OTU")%>%
+  as.matrix()
+ps.q.OTU<-t(ps.q.df.ancombc.input.wide)
+ps.q.OTU<-otu_table(ps.q.OTU,taxa_are_rows = T)
+ps.q.TAX<-tax_table(taxmat)
+ps.q.phyloseq.new<-phyloseq(otu_table(ps.q.OTU),
+                            tax_table(ps.q.TAX),
+                            sample_data(custom.md))
+
+# relevel our comparison vector. The first level will be the reference
+# for custom leveling
+custom.levels<-c(ref.level,custom.levels[custom.levels!=ref.level])
 if (comparison=="age"){
-  aldex.reference<-paste0("covariates",custom.levels[1])
+  sample_data(ps.q.phyloseq.new)$age_group<-factor(sample_data(ps.q.phyloseq.new)$age_group,
+                                                   levels = custom.levels)
+  ancombc.comparison<-"age_group"
 }else if(comparison=="sex"){
-  aldex.reference<-"covaritatesF"
+  sample_data(ps.q.phyloseq.new)$sex<-factor(sample_data(ps.q.phyloseq.new)$sex,
+                                                   levels = custom.levels)
+  ancombc.comparison<-"sex"
 }else if(comparison=="strain"){
-  aldex.reference<-"covaritatesB6mouse"
+  sample_data(ps.q.phyloseq.new)$class<-factor(sample_data(ps.q.phyloseq.new)$class,
+                                                   levels = custom.levels)
+  ancombc.comparison<-"class"
 }
-mm<-mm[, colnames(mm)[c(which(colnames(mm) == aldex.reference), which(colnames(mm) !=aldex.reference))]]
-# aldex glm for a complex case ####
-set.seed(1)
-ps.q.aldex.clr <- aldex.clr(ps.q.df.aldex.input.wide, mm, mc.samples=1000, denom="all", verbose=F)
-ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
-save.image(paste0("./rdafiles/",
-                  paste("aldex2",rare.status,filter.status,host,agglom.rank,
+
+# perform differential abundance test
+ancombc.out<-ancombc(
+  phyloseq = ps.q.phyloseq.new,
+  # tax_level = ,
+  formula = ancombc.comparison,
+  p_adj_method = "fdr", 
+  prv_cut = 0, # by default prevalence filter of 10% is applied
+  lib_cut = 0, 
+  group = ancombc.comparison,
+  struc_zero = TRUE, 
+  neg_lb = TRUE, 
+  tol = 1e-5, 
+  max_iter = 100, 
+  conserve = TRUE, 
+  alpha = 0.05, 
+  global = TRUE
+)
+ancombc.res<-ancombc.out$res
+
+# find differentially abundant taxa by multiplying fold change with TRUE/FALSE
+# for diff abund
+df_lfc = data.frame(ancombc.res$lfc[, -1] * ancombc.res$diff_abn[, -1], check.names = FALSE) %>%
+  mutate(taxon_id = ancombc.res$diff_abn$taxon) %>%
+  dplyr::select(taxon_id, everything())
+ancombc.signif.features<-subset(df_lfc,rowSums(df_lfc[,-c(1,2)]!=0)==ncol(df_lfc[,-c(1,2)]))
+
+save.image(file.path("./rdafiles",
+                  paste("ancombc",rare.status,filter.status,host,agglom.rank,
                         comparison,truncationlvl,ref.level,
-                        "workspace-test.RData",sep="-")))
-ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
-save.image(paste0("./rdafiles/",
-                  paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,ref.level,
-                        "workspace-effect.RData",sep = "-")))
-aldex.signif.features<-list()
-for (i in 1:length(ps.q.glm.effect)){
-  # take all features that have good CI and high effect size
-  # identify features with significant effect size and good CI
-  sig<-which((ps.q.glm.effect[[i]]$effect.low>0 & ps.q.glm.effect[[i]]$effect.high>0)|
-               (ps.q.glm.effect[[i]]$effect.low<0 & ps.q.glm.effect[[i]]$effect.high<0))
-  sig<-intersect(which(abs(ps.q.glm.effect[[i]]$effect)>1), sig)
-  
-  if(length(sig)!=0){
-    signif.df<-ps.q.glm.effect[[i]][sig,]
-    signif.df$OTU<-rownames(signif.df)
-    # signif.df$class<-names(ps.q.glm.effect[i])
-    rownames(signif.df)<-1:nrow(signif.df)
-    aldex.signif.features[[names(ps.q.glm.effect[i])]]<-signif.df
-  } else{
-    signif.df<-data.frame()
-    aldex.signif.features[[names(ps.q.glm.effect[i])]]<-signif.df
-  }
-  
-}
-rm(signif.df)
-aldex.signif.features<-bind_rows(aldex.signif.features,.id = "class")
-# check for duplicates
-aldex.signif.features%>%
-  dplyr::group_by(OTU)%>%
-  summarise(n=n())%>%
-  arrange(-n)
-save.image(paste0("./rdafiles/",
-                  paste("aldex2",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,ref.level,
-                        "workspace.RData",sep = "-")))
-write.table(aldex.signif.features,
+                        "workspace.RData",sep="-")))
+write.table(ancombc.signif.features,
             file=paste0("./rtables/alldir/",
-                        paste("aldex2",rare.status,filter.status,host,agglom.rank,
+                        paste("ancombc",rare.status,filter.status,host,agglom.rank,
                               comparison,truncationlvl,ref.level,
                               "signif.tsv",sep="-")), 
             row.names = F,sep = "\t")
-q()

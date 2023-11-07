@@ -23,6 +23,7 @@ host.labels<-
   c("B6mouse" = "B6 mouse",
     "MSMmouse" = "MSM/Ms mouse",
     "FVBNmouse" = "FVB/N mouse")
+ref.level<-"FVBNmouse" # when testing each strain
 # Import data ####
 ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
@@ -134,7 +135,7 @@ if (comparison=="age"){
   maaslin.reference<-paste("sex","F",sep = ",")
   maaslin.comparison<-"sex"
 }else if(comparison=="strain"){
-  maaslin.reference<-paste("class","B6mouse",sep = ",")
+  maaslin.reference<-paste("class",ref.level,sep = ",")
   maaslin.comparison<-"class"
 }
 set.seed(1)
@@ -149,12 +150,13 @@ maaslin.fit_data =
            standardize = FALSE,
            output = paste0("./output/maaslin2/alldir-output/",
                            rare.status,"/",paste(host,filter.status,agglom.rank,
-                                                 comparison,truncationlvl,sep="-")), 
+                                                 comparison,truncationlvl,
+                                                 ref.level,sep="-")), 
            fixed_effects = maaslin.comparison,
            reference = maaslin.reference,
            max_significance = 0.05)
 save.image(paste0("./rdafiles/",
                   paste("maaslin",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace.RData",sep="-")))
 q()

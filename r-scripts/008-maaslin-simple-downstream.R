@@ -17,10 +17,10 @@ load(paste0("./rdafiles/maaslin-",rare.status,"-","filtered-",
                   "-workspace.RData"))
 
 
-maaslin.fit.df<-maaslin.fit_data$results%>%
+maaslin.signif.features<-maaslin.fit_data$results%>%
   filter(qval<0.05)
 
-maaslin.signif.decreased<-maaslin.fit.df%>%
+maaslin.signif.decreased<-maaslin.signif.features%>%
   as_tibble()%>%
   filter(coef<0)%>%
   arrange(feature)%>%
@@ -28,7 +28,7 @@ maaslin.signif.decreased<-maaslin.fit.df%>%
   mutate(assoc.str=-log(qval)*sign(coef))#%>%
 # select(feature,assoc.str,name)
 
-maaslin.signif.increased<-maaslin.fit.df%>%
+maaslin.signif.increased<-maaslin.signif.features%>%
   as_tibble()%>%
   filter(coef>0)%>%
   arrange(feature)%>%
@@ -41,9 +41,11 @@ maaslin.signif.increased<-make_features_pretty(maaslin.signif.increased,"feature
 
 table(maaslin.signif.decreased$feature%in%ps.q.agg$Taxon)
 table(maaslin.signif.increased$feature%in%ps.q.agg$Taxon)
+
 write.table(maaslin.signif.decreased,
-            file=paste0("./rtables/alldir/",paste("maaslin",rare.status,
-                        filter.status,agglom.rank,
-                        paste(custom.levels,collapse = '-'),truncationlvl,
-                        "nmr-signif.tsv",sep="-")),
+            file=file.path("./rtables/alldir",
+                           paste("maaslin",rare.status,
+                                 filter.status,agglom.rank,
+                                 paste(custom.levels,collapse = '-'),truncationlvl,
+                                 "nmr-signif.tsv",sep="-")),
             row.names = F,sep = "\t")

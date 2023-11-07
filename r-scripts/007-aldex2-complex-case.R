@@ -2,8 +2,6 @@ library(tidyverse)
 library(phyloseq)
 library(ALDEx2)
 library(vegan)
-
-# "274-203"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
@@ -23,22 +21,19 @@ custom.levels<-c("NMR",
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-
-
+ref.level<-"NMR"
 ps.q.df.aldex.input<- read.table(paste0("./rtables/alldir/ps.q.df.",
                                           rare.status,".",filter.status,"-",agglom.rank,"-",
                                           paste(custom.levels,collapse = '-'),".tsv"),
                                    header = T)
 
-
-# convert the data frames into wide format
+# convert the data frame into wide format
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input%>%
   dplyr::select(Sample,Abundance,Taxon)%>%
-  pivot_wider(names_from = "Taxon", # or OTU
+  pivot_wider(names_from = "Taxon",
               values_from = "Abundance",
               values_fill = 0)%>%
   as.data.frame()
-
 
 # colnames are OTUs and rownames are sample IDs
 rownames(ps.q.df.aldex.input.wide)<-ps.q.df.aldex.input.wide$Sample
@@ -47,17 +42,15 @@ ps.q.df.aldex.input.wide<-t(ps.q.df.aldex.input.wide)
 
 covariates<-custom.md$class[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
 mm <- model.matrix(~ covariates-1)
-# reorder model.matrix to put NMR as first column
-# custom.levels[c(which(custom.levels == "NMR"), which(custom.levels != "NMR"))]
-mm<-mm[, colnames(mm)[c(which(colnames(mm) == "covariatesNMR"), which(colnames(mm) != "covariatesNMR"))]]
-
+# reorder model.matrix to put ref.level as first column
+mm<-mm[, colnames(mm)[c(which(colnames(mm) == paste0("covariates",ref.level)), 
+                        which(colnames(mm) != paste0("covariates",ref.level)))]]
 
 # aldex glm for a complex case ####
 set.seed(1)
 ps.q.aldex.clr <- aldex.clr(ps.q.df.aldex.input.wide, mm, mc.samples=1000, denom="all", verbose=F)
 ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
-
 
 aldex.signif.features<-list()
 for (i in 1:length(ps.q.glm.effect)){
@@ -87,14 +80,14 @@ aldex.signif.features%>%
   summarise(n=n())%>%
   arrange(-n)
 
-save.image(paste0("./rdafiles/",paste("aldex2",rare.status,
-                                      filter.status,agglom.rank,
-                  paste(custom.levels,collapse = '-'),truncationlvl,
-                  "workspace.RData",sep="-")))
+save.image(paste0("./rdafiles/",
+                  paste("aldex2",rare.status,filter.status,agglom.rank,
+                        paste(custom.levels,collapse = '-'),ref.level,
+                        "workspace.RData",sep="-")))
 write.table(aldex.signif.features,
             file=paste0("./rtables/alldir/",
-                        paste("aldex2",rare.status,
-                              filter.status,agglom.rank,
-                              paste(custom.levels,collapse = '-'),truncationlvl,
-                              "nmr-signif.tsv",sep="-")), # no rare.status
+                        paste("aldex2",rare.status,filter.status,
+                              agglom.rank,paste(custom.levels,collapse = '-'),
+                              ref.level,"signif.tsv",sep = "-")),
             row.names = F,sep = "\t")
+q()
