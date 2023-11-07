@@ -3,6 +3,24 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
+# choose what to compare
+comparison<-"age"
+# comparison<-"sex"
+# comparison<-"strain"
+# choose the host of interest
+host<-"NMR"
+# host<-"mice"
+ref.level<-"agegroup1" # choose the reference level
+# this is for file names
+if(host=="NMR"){
+  host.labels<-c("NMR" = "*Heterocephalus glaber*")
+}else{
+  host.labels<-
+    c("B6mouse" = "B6 mouse",
+      "MSMmouse" = "MSM/Ms mouse",
+      "FVBNmouse" = "FVB/N mouse")
+}
+
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
@@ -10,19 +28,9 @@ load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",aggl
             "-phyloseq-workspace.RData"))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-host<-"NMR"
-# host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
               "mice"="mouse")
 
-comparison<-"age"
-# comparison<-"sex"
-# comparison<-"strain"
-host.labels<-c("NMR" = "*Heterocephalus glaber*")
-# host.labels<-
-#   c("B6mouse" = "B6 mouse",
-#     "MSMmouse" = "MSM/Ms mouse",
-#     "FVBNmouse" = "FVB/N mouse")
 # Import data ####
 ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
@@ -129,13 +137,13 @@ ps.q.df.maaslin.input.wide<-ps.q.df.maaslin.input.wide[,-c(1:4)]
 
 # 3.2 Running MaAsLin 2 ####
 if (comparison=="age"){
-  maaslin.reference<-paste("agegroup",custom.levels[1],sep = ",")
+  maaslin.reference<-paste("agegroup",ref.level,sep = ",")
   maaslin.comparison<-"agegroup"
 }else if(comparison=="sex"){
   maaslin.reference<-paste("sex","F",sep = ",")
   maaslin.comparison<-"sex"
 }else if(comparison=="strain"){
-  maaslin.reference<-paste("class","B6mouse",sep = ",")
+  maaslin.reference<-paste("class",ref.level,sep = ",")
   maaslin.comparison<-"class"
 }
 set.seed(1)
@@ -150,12 +158,13 @@ maaslin.fit_data =
            standardize = FALSE,
            output = paste0("./output/maaslin2/alldir-output/",
                            rare.status,"/",paste(host,filter.status,agglom.rank,
-                                                 comparison,truncationlvl,sep="-")), 
+                                                 comparison,truncationlvl,
+                                                 ref.level,sep="-")), 
            fixed_effects = maaslin.comparison,
            reference = maaslin.reference,
            max_significance = 0.05)
 save.image(paste0("./rdafiles/",
                   paste("maaslin",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,
+                        comparison,truncationlvl,ref.level,
                         "workspace.RData",sep="-")))
 q()
