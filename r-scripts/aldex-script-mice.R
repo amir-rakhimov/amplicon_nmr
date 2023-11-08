@@ -3,6 +3,23 @@ library(tidyverse)
 library(phyloseq)
 library(ALDEx2)
 library(vegan)
+# choose what to compare
+comparison<-"age"
+# comparison<-"sex"
+# comparison<-"strain"
+# choose the host of interest
+# host<-"NMR"
+host<-"mice"
+ref.level<-"FVBNmouse" # choose the reference level
+# this is for file names
+if(host=="NMR"){
+  host.labels<-c("NMR" = "*Heterocephalus glaber*")
+}else{
+  host.labels<-
+    c("B6mouse" = "B6 mouse",
+      "MSMmouse" = "MSM/Ms mouse",
+      "FVBNmouse" = "FVB/N mouse")
+}
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
@@ -10,18 +27,6 @@ load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",aggl
             "-phyloseq-workspace.RData"))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-host<-"NMR"
-# host<-"mice"
-host.class<-c("NMR"="naked mole-rat",
-              "mice"="mouse")
-comparison<-"age"
-# comparison<-"sex"
-# comparison<-"strain"
-host.labels<- c("NMR" = "*Heterocephalus glaber*")
-# host.labels<-
-#   c("B6mouse" = "B6 mouse",
-#     "MSMmouse" = "MSM/Ms mouse",
-#     "FVBNmouse" = "FVB/N mouse")
 # Import data ####
 ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
@@ -35,7 +40,7 @@ if(host=="NMR"){
     mutate(birthday=as.Date(birthday))%>%
     mutate(age=age_calc(birthday,units = "years"))%>%
     mutate(age=round(age))
-  
+  # minimum age and maximum age
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
   
@@ -108,14 +113,13 @@ if(host=="NMR" & comparison=="age"){
   covariates<-custom.md$class[match(colnames(ps.q.df.aldex.input.wide),rownames(custom.md))]
 }
 mm <- model.matrix(~ covariates-1)
-# reorder model.matrix to put NMR as first column
-# custom.levels[c(which(custom.levels == "NMR"), which(custom.levels != "NMR"))]
+# reorder model.matrix to put ref.level as first column
 if (comparison=="age"){
-  aldex.reference<-paste0("covariates",custom.levels[1])
+  aldex.reference<-paste0("covariates",ref.level)
 }else if(comparison=="sex"){
   aldex.reference<-"covaritatesF"
 }else if(comparison=="strain"){
-  aldex.reference<-"covaritatesB6mouse"
+  aldex.reference<-paste0("covariates",ref.level)
 }
 mm<-mm[, colnames(mm)[c(which(colnames(mm) == aldex.reference), which(colnames(mm) !=aldex.reference))]]
 # aldex glm for a complex case ####

@@ -2,6 +2,7 @@ library(tidyverse)
 library(phyloseq)
 library(ALDEx2)
 library(vegan)
+ref.level<-"NMR"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
@@ -21,12 +22,11 @@ custom.levels<-c("NMR",
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-ref.level<-"NMR"
 ps.q.df.aldex.input<- read.table(paste0("./rtables/alldir/ps.q.df.",
                                           rare.status,".",filter.status,"-",agglom.rank,"-",
                                           paste(custom.levels,collapse = '-'),".tsv"),
                                    header = T)
-
+# Prepare the dataset ####
 # convert the data frame into wide format
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input%>%
   dplyr::select(Sample,Abundance,Taxon)%>%
@@ -51,7 +51,7 @@ set.seed(1)
 ps.q.aldex.clr <- aldex.clr(ps.q.df.aldex.input.wide, mm, mc.samples=1000, denom="all", verbose=F)
 ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
-
+# Extract significant features ####
 aldex.signif.features<-list()
 for (i in 1:length(ps.q.glm.effect)){
   # take all features that have good CI and high effect size

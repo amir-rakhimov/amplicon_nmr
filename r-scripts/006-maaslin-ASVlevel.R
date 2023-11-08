@@ -41,12 +41,13 @@ if(host=="NMR"){
     filter(class=="NMR",Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=age_calc(birthday,units = "years"))%>%
-    mutate(age=round(age))
-  
+    mutate(age=age_calc(birthday,units = "years"))%>% # calculate age
+    mutate(age=round(age)) # round it, no digits
+  # minimum age and maximum age
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
-  
+  # add age group to the dataset of abundances
+  # each group is 5 years
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
                         include.lowest = TRUE))
@@ -60,8 +61,7 @@ if(host=="NMR"){
     left_join(unique_levels, by = "agegroup")
   colnames(ps.q.df.preprocessed)[which(colnames(ps.q.df.preprocessed)=="agegroup")]<-"old_agegroup"
   colnames(ps.q.df.preprocessed)[which(colnames(ps.q.df.preprocessed)=="new_agegroup")]<-"agegroup"
-  
-  # Metadata
+  # add age group to metadata
   custom.md$Sample<-rownames(custom.md)
   custom.md<-custom.md%>% 
     filter(class=="NMR")%>%
@@ -87,7 +87,10 @@ if(host=="NMR"){
   colnames(custom.md)[which(colnames(custom.md)=="new_agegroup")]<-"agegroup"
   rownames(custom.md)<-custom.md$Sample
 }else if(host=="mice"){
-  # select mice and add age groups
+  # select mice and add age groups: B6, old, or young
+  # B6 are separate
+  # mice born before 2020 are old
+  # after 2023 are young
   custom.levels<-c("B6mouse",
                    "MSMmouse",
                    "FVBNmouse")
@@ -101,9 +104,9 @@ if(host=="NMR"){
   custom.md$agegroup<-ifelse(custom.md$class=="B6mouse","B6",
                              ifelse(grepl("2020",custom.md$birthday),"old","young"))
 }
-
-
+# Creating custom levels ####
 if (comparison=="age"){
+  # names for levels are age groups
   pretty.facet.labels<-names(table(ps.q.df.preprocessed$agegroup))
   names(pretty.facet.labels)<-names(table(ps.q.df.preprocessed$agegroup))
   custom.levels<-names(pretty.facet.labels)
@@ -123,7 +126,8 @@ if (comparison=="age"){
   custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
   pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
 }
-
+# Preparing the dataset ####
+# filter the dataset
 ps.q.df <-ps.q.df.preprocessed%>%
   dplyr::select(Sample,OTU,Abundance,class,agegroup,sex)%>%
   filter(Abundance!=0)
