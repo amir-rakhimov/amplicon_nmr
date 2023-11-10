@@ -3,84 +3,64 @@ library(phyloseq)
 library(Maaslin2)
 library(vegan)
 library(ALDEx2)
+ref.level="NMR"
 
 truncationlvl<-"234"
 agglom.rank<-"Genus"
-agglom.rank<-"OTU"
 source("r-scripts/make_features_maaslin.R")
 
 custom.levels<-c("NMR",
                  "B6mouse",
-                 "MSMmouse",
-                 "FVBNmouse",
+                 # "MSMmouse",
+                 # "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo")
+                 "pvo"#,
+                 # "NMRwt"
+                 )
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 read.end.type<-"single"
 
-host<-"NMR"
-host<-"mice"
-host.class<-c("NMR"="naked mole-rat",
-              "mice"="mouse")
+authorname<-"pooled"
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
+custom.md<-custom.md%>%
+  filter(class%in%custom.levels)
+ps.q.total<-ps.q.total%>%
+  filter(Sample%in%rownames(custom.md))
+ps.q.1pc<-ps.q.1pc%>%
+  filter(class%in%custom.levels)
 
-comparison<-"age"
-comparison<-"sex"
-comparison<-"strain"
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
-ref.level="NMR"
-if(agglom.rank=="OTU"){
-  maaslin.signif.features<-
-    read.table(file.path("./rtables/alldir",
-                          paste("maaslin",rare.status,
-                                filter.status,host,agglom.rank,
-                                comparison,truncationlvl,ref.level,
-                                "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-  aldex.signif.features<-
-    read.table(file.path("./rtables/alldir",
-                      paste("aldex2",rare.status,
-                            filter.status,host,agglom.rank,
-                            comparison,truncationlvl,ref.level,
-                            "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-  ancombc.signif.features<-read.table(file.path("./rtables/alldir",
-                      paste("ancombc",rare.status,
-                            filter.status,host,agglom.rank,
-                            comparison,truncationlvl,ref.level,
-                            "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-}else{
-  maaslin.signif.features<-
-    read.table(file.path("./rtables/alldir",
-                          paste("maaslin",rare.status,
-                                filter.status,agglom.rank,
-                                paste(custom.levels,collapse = '-'),
-                                truncationlvl,ref.level,
-                                "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-  aldex.signif.features<-
-    read.table(file.path("./rtables/alldir",
-                      paste("aldex2",rare.status,
-                            filter.status,agglom.rank,
-                            paste(custom.levels,collapse = '-'),
-                            truncationlvl,ref.level,
-                            "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-  ancombc.signif.features<-
-    read.table(file.path("./rtables/alldir",
-                         paste("ancombc",rare.status,
-                               filter.status,agglom.rank,
-                               paste(custom.levels,collapse = '-'),
-                               truncationlvl,ref.level,
-                               "signif.tsv",sep="-")),
-               header = T,sep = "\t")
-  
-}
+maaslin.signif.features<-
+  read.table(file.path("./rtables",authorname,
+                        paste("maaslin",rare.status,
+                              filter.status,agglom.rank,
+                              paste(custom.levels,collapse = '-'),
+                              truncationlvl,ref.level,
+                              "signif.tsv",sep="-")),
+             header = T,sep = "\t")
+aldex.signif.features<-
+  read.table(file.path("./rtables",authorname,
+                    paste("aldex2",rare.status,
+                          filter.status,agglom.rank,
+                          paste(custom.levels,collapse = '-'),
+                          truncationlvl,ref.level,
+                          "signif.tsv",sep="-")),
+             header = T,sep = "\t")
+ancombc.signif.features<-
+  read.table(file.path("./rtables",authorname,
+                       paste("ancombc",rare.status,
+                             filter.status,agglom.rank,
+                             paste(custom.levels,collapse = '-'),
+                             truncationlvl,ref.level,
+                             "signif.tsv",sep="-")),
+             header = T,sep = "\t")
 
 maaslin.signif.decreased<-maaslin.signif.features%>%
   as_tibble()%>%
@@ -97,29 +77,40 @@ aldex.neg.effect<-aldex.signif.features%>%
 ancombc.signif.decreased<-subset(ancombc.signif.features,
                        rowSums(ancombc.signif.features[,-c(1,2)]<0)==ncol(ancombc.signif.features[,-c(1,2)]))
 
+write.table(maaslin.signif.decreased,
+            file=file.path("./rtables",authorname,
+                           paste("maaslin.signif.decreased",rare.status,
+                                 filter.status,agglom.rank,
+                                 paste(custom.levels,collapse = '-'),truncationlvl,
+                                 ref.level,"signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+write.table(aldex.neg.effect,
+            file=file.path("./rtables",authorname,
+                           paste("aldex.neg.effect",rare.status,
+                                 filter.status,agglom.rank,
+                                 paste(custom.levels,collapse = '-'),truncationlvl,
+                                 ref.level,"signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+write.table(ancombc.signif.decreased,
+            file=file.path("./rtables",authorname,
+                           paste("ancombc.signif.decreased",rare.status,
+                                 filter.status,agglom.rank,
+                                 paste(custom.levels,collapse = '-'),truncationlvl,
+                                 ref.level,"signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
 # find common significant features between three tools
-if(agglom.rank=="OTU"){
-  Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$OTU,
+Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$Taxon,
                         ancombc.signif.features$taxon_id))
-}else{ 
-  Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$Taxon,
-                        ancombc.signif.features$taxon_id))
-}
+
 
 # find common significantly decreased features between three tools
-if(agglom.rank=="OTU"){
-  Reduce(intersect,list(maaslin.signif.decreased$feature,aldex.neg.effect$OTU,
+Reduce(intersect,list(maaslin.signif.decreased$feature,aldex.neg.effect$Taxon,
                         ancombc.signif.decreased$taxon_id))
-}else{ 
-  Reduce(intersect,list(maaslin.signif.decreased$feature,aldex.neg.effect$Taxon,
-                        ancombc.signif.decreased$taxon_id))
-}
 
-if(agglom.rank=="OTU"){
-  match(aldex.signif.features$OTU,maaslin.signif.features$feature)
-}else{ 
-  match(aldex.signif.features$Taxon,maaslin.signif.features$feature)
-}
+match(aldex.signif.features$Taxon,maaslin.signif.features$feature)
 
 # common significant and decreased features between two tools
 common.signif<-Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$Taxon,
@@ -128,12 +119,10 @@ common.signif<-Reduce(intersect,list(maaslin.signif.features$feature,aldex.signi
 common.decreased<-Reduce(intersect,list(maaslin.signif.decreased$feature,
                                      ancombc.signif.decreased$taxon_id))
 
-
 write.table(common.decreased,
-            file=file.path("./rtables/alldir",
+            file=file.path("./rtables",authorname,
                            paste("significant-features",rare.status,
                                  filter.status,agglom.rank,
                                  paste(custom.levels,collapse = '-'),truncationlvl,
                                  ref.level,"signif.tsv",sep="-")),
             row.names = F,sep = "\t",col.names = F)
-

@@ -3,6 +3,7 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
+authorname<-"pooled"
 # choose what to compare
 # comparison<-"age"
 # comparison<-"sex"
@@ -24,13 +25,14 @@ if(host=="NMR"){
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
 # Import data ####
-ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
@@ -163,7 +165,7 @@ maaslin.fit_data =
            analysis_method = "LM",
            random_effects = NULL,
            standardize = FALSE,
-           output = paste0("./output/maaslin2/alldir-output/",
+           output = paste0("./output/maaslin2/",authorname,"-output/",
                           rare.status,"/",paste(host,filter.status,agglom.rank,
                                                 comparison,truncationlvl,
                                                 ref.level,sep="-")), 

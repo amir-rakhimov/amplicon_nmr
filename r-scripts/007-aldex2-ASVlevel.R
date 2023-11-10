@@ -3,6 +3,7 @@ library(tidyverse)
 library(phyloseq)
 library(ALDEx2)
 library(vegan)
+authorname<-"pooled"
 # choose what to compare
 comparison<-"age"
 # comparison<-"sex"
@@ -23,12 +24,13 @@ if(host=="NMR"){
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 # Import data ####
-ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
@@ -178,7 +180,7 @@ save.image(paste0("./rdafiles/",
                         comparison,truncationlvl,ref.level,
                         "workspace.RData",sep = "-")))
 write.table(aldex.signif.features,
-            file=paste0("./rtables/alldir/",
+            file=paste0("./rtables/",authorname,"/",
                         paste("aldex2",rare.status,filter.status,host,agglom.rank,
                               comparison,truncationlvl,ref.level,
                               "signif.tsv",sep="-")), 

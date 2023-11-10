@@ -1,13 +1,12 @@
 # Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank 
 library(qiime2R)
 library(phyloseq)
-library(ggplot2)
 library(tidyverse)
 
-asvlevel=T
+asvlevel=F
 truncationlvl<-"234"
 
-authorname<-"alldir"
+authorname<-"pooled"
 directory<-paste0("./data/",authorname,"-data/")
 qiimedir<-paste0(directory,"qiime/")
 
@@ -22,18 +21,18 @@ source("./r-scripts/make_ps_pretty.R")
 # Import qza files and convert them into a phyloseq object ####
 ps.q<-qza_to_phyloseq(
   # metadata = paste0(qiimedir,"filenames-",authorname,"-supercomp.tsv"),
-  features = paste0(qiimedir,"pooled-",read.end.type,"-filtered-table-trimmed-dada2-",
+  features = paste0(qiimedir,authorname,"-",read.end.type,"-filtered-table-trimmed-dada2-",
                     truncationlvl,".qza"),
-  taxonomy = paste0(qiimedir,"pooled-",read.end.type,"-taxonomy-trimmed-dada2-",
+  taxonomy = paste0(qiimedir,authorname,"-",read.end.type,"-taxonomy-trimmed-dada2-",
                     truncationlvl,".qza"),
-  tree = paste0(qiimedir,"pooled-",read.end.type,"-rooted-tree-trimmed-dada2-",
+  tree = paste0(qiimedir,authorname,"-",read.end.type,"-rooted-tree-trimmed-dada2-",
                 truncationlvl,".qza")
 )
 
 # add custom metadata cause previous command loses metadata for some reason
-# custom.md<-read.table(paste0("./data/alldir-data/","filenames-pooled-final-supercomp.tsv"),
+# custom.md<-read.table(paste0("./data/pooled-data/","filenames-pooled-final-supercomp.tsv"),
 #                       header = T)
-custom.md<-read.table(paste0(directory,"filenames-single-pooled-raw-supercomp.tsv"),
+custom.md<-read.table(paste0(directory,"filenames-single-",authorname,"-raw-supercomp.tsv"),
                       header = T)
 colnames(custom.md)[1]<-"Sample"
 custom.md<-custom.md%>%column_to_rownames(var = "Sample")
@@ -89,7 +88,6 @@ rm(ps.q.agg.pretty)
 ps.q.agg<-ps.q.agg%>%
   group_by(Sample)%>%
   mutate(RelativeAbundance=Abundance/sum(Abundance)*100)
-
 
 # sanity check: is total relative abundance of each sample 100%?
 ps.q.agg %>%
@@ -162,5 +160,6 @@ ps.q.agg$Taxon.bp<-ifelse(ps.q.agg$class_agglom.rank %in% ps.q.1pc$class_agglom.
 
 # if our Taxon is in the 1pc dataset (mean abundance >1%), keep it as it is
 # otherwise, set it as Remainder (Mean abundance < 1%)
-save.image(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-                  "-phyloseq-workspace.RData"))
+save.image(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                      truncationlvl,agglom.rank,
+                                      "phyloseq-workspace.RData",sep = "-")))

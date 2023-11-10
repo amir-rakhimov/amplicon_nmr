@@ -43,7 +43,7 @@ table(maaslin.signif.decreased$feature%in%ps.q.agg$Taxon)
 table(maaslin.signif.increased$feature%in%ps.q.agg$Taxon)
 
 write.table(maaslin.signif.decreased,
-            file=file.path("./rtables/alldir",
+            file=file.path("./rtables/pooled",
                            paste("maaslin",rare.status,
                                  filter.status,agglom.rank,
                                  paste(custom.levels,collapse = '-'),truncationlvl,

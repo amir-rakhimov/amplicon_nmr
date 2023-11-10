@@ -3,13 +3,14 @@ library(vegan)
 library(tidyverse)
 library(patchwork)
 library(Polychrome)
-
+authorname<-"pooled"
 agglom.rank<-"Genus"
 truncationlvl<-"234"
 read.end.type<-"single"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
                        "B6mouse" = "B6 mouse",
@@ -19,33 +20,22 @@ pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for fa
                        "hare" = "*Lepus europaeus*",
                        "rabbit" = "*Oryctolagus <br>cuniculus*",
                        "spalax" = "*Nannospalax leucodon*",
-                       "pvo" = "*Pteromys volans orii*"
+                       "pvo" = "*Pteromys volans orii*",
+                       "NMRwt"="Wild *Heterocephalus glaber*"
 )
+# merge metadata
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
 
-
-# Create a Taxon column where items are either Unclassified (previous rank) ####
-# or agglom.rank (previous taxonomic rank)
-# e.g Unclassified (Lachnospiraceae) or Lactobacillus (Lactobacillaceae)
+# "Clean" column: Strip families from "Unclassified" ####
+# Order the data frame by the higher taxonomic rank 
+# (which is the "Clean" column)
 if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
 }else{
   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
 }
-# ps.q.agg$Taxon<-
-#   ifelse(grepl("Unclassified|Uncultured",ps.q.agg.rel.pooled[[agglom.rank.col]]), 
-#          ps.q.agg.rel.pooled[[agglom.rank.col]], 
-#          paste0(ps.q.agg.rel.pooled[[agglom.rank.col]]," (",
-#                 ps.q.agg.rel.pooled[[agglom.rank.col+1]],")"))
-# grepl finds which agglom.rank column items are uncultured or unclassified
-# if true, keeps Unclassified (previous rank)
-# if false (so, it's not Unclassified, actually has taxonomic classification), 
-# converts into agglom.rank taxon (previous rank taxon) :Lactobacillus (Lactobacillaceae)
-
-
-# "Clean" column: Strip families from "Unclassified" ####
-# Order the data frame by the higher taxonomic rank 
-# (which is the "Clean" column)
 ps.q.agg$Clean<-
   gsub("Unclassified \\(|Uncultured \\(", "", ps.q.agg[[agglom.rank.col-1]])
 ps.q.agg$Clean<-
@@ -56,8 +46,6 @@ ps.q.agg$Clean<-
   ifelse(ps.q.agg$MeanRelativeAbundance<1,
          "Remainder (Mean abundance < 1%)",
          ps.q.agg$Clean)
-
-
 
 # Separate Unclassified taxa from the rest and sort by agglom.rank-1 (higher rank) ####
 # unclas is agg.rel.pooled dataset with Unclassified taxa
@@ -153,7 +141,7 @@ mainplot<-ps.q.agg%>%
   coord_cartesian(expand=FALSE) +
   scale_fill_manual(values = col.vec)+
   xlab("") +
-  ylab("Mean Relative Abundance (%)")+
+  ylab("Relative Abundance (%)")+
   labs(fill="Taxon",
        caption="Mean Relative Abundance was calculated for each host separately")+
   theme_bw()+
@@ -175,16 +163,18 @@ mainplot<-ps.q.agg%>%
         legend.title = element_text(size = 25),
         legend.position = "bottom")
 ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"total-barplot",truncationlvl,
+              paste(Sys.Date(),paste(custom.levels,collapse = '-'),
+                    "barplot",truncationlvl,
                     agglom.rank,sep = "-"),".png"),
        plot=mainplot,
-       width = 11500,height = 5200,
+       width = 13500,height = 5200,
        units = "px",dpi=300,device = "png")
 ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"total-barplot",truncationlvl,
+              paste(Sys.Date(),paste(custom.levels,collapse = '-'),
+                    "barplot",truncationlvl,
                     agglom.rank,sep = "-"),".tiff"),
        plot=mainplot,
-       width = 11500,height = 4500,
+       width = 13500,height = 5200,
        units = "px",dpi=300,device = "tiff")
 
 
@@ -276,7 +266,7 @@ for(i in seq_along(custom.levels)){
     coord_cartesian(expand=FALSE) +
     scale_fill_manual(values = col.vec,breaks = names(col.vec))+
     xlab("") +
-    ylab("Mean Relative Abundance (%)")+
+    ylab("Relative Abundance (%)")+
     labs(fill="Taxon")+
     theme_bw()+
     theme(
@@ -299,11 +289,11 @@ for(i in seq_along(custom.levels)){
                 paste(Sys.Date(),custom.levels[i],"barplot",truncationlvl,
                       agglom.rank,sep = "-"),".png"),
          plot=lvl.plot,
-         width = 6000,height = 6000,
+         width = 8000,height = 6000,
          units = "px",dpi=300,device = "png")
 }
 
-# Barplot for NMR and mice
+# Barplot for NMR and mice ####
 lvl.df<-ps.q.agg%>%
   left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data with the dataset of total abundances, so we can have info about sample size
   # mutate(class=factor(class,levels=c("NMRwt","NMR","control")))%>% # change the order of our class column, so the NMR will be first
@@ -331,7 +321,7 @@ lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,
   coord_cartesian(expand=FALSE) +
   scale_fill_manual(values = col.vec,breaks = names(col.vec))+
   xlab("") +
-  ylab("Mean Relative Abundance (%)")+
+  ylab("Relative Abundance (%)")+
   labs(fill="Taxon")+
   theme_bw()+
   theme(
@@ -352,15 +342,78 @@ lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,
         legend.position = "right")
 
 ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"NMR-mice","barplot",truncationlvl,
+              paste(Sys.Date(),"NMR-B6mouse","barplot",truncationlvl,
                     agglom.rank,sep = "-"),".png"),
        plot=lvl.plot,
-       width = 7000,height = 6000,
+       width = 8000,height = 6000,
        units = "px",dpi=300,device = "png")
 ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"NMR-mice","barplot",truncationlvl,
+              paste(Sys.Date(),"NMR-B6mouse","barplot",truncationlvl,
                     agglom.rank,sep = "-"),".tiff"),
        plot=lvl.plot,
-       width = 7000,height = 6000,
+       width = 8000,height = 6000,
+       units = "px",dpi=300,device = "tiff")
+
+
+
+# Barplot for NMR and NMR wt ####
+lvl.df<-ps.q.agg%>%
+  left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data with the dataset of total abundances, so we can have info about sample size
+  # mutate(class=factor(class,levels=c("NMRwt","NMR","control")))%>% # change the order of our class column, so the NMR will be first
+  mutate(class=factor(class,levels=custom.levels))%>% # change the order of our class column, so the NMR will be first
+  mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
+  filter(class%in%c("NMR","NMRwt"),Abundance!=0)
+lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","NMRwt")])
+lvl.name<-gsub("<br>"," ", lvl.name)
+# the total legend is big, we need to narrow down to our host
+host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon%in%names(table(lvl.df$Taxon.bp))]
+
+lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,  
+                              fill=factor(Taxon.bp, levels=host.legend)))+
+  # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
+  geom_bar(stat = "identity")+ # barplot
+  theme(
+    axis.text.x = element_text(angle=45,hjust=1),
+    axis.line = element_blank()) +
+  facet_grid(~class, # separate species
+             scales="free",  # each species will have its own bars inside facet (instead of all bars)
+             space = "free", # bars will have same widths
+             labeller = labeller(class=pretty.facet.labels) # labeller will change facet labels to custom
+  )+
+  guides(fill=guide_legend(ncol=1))+ # legend as one column
+  coord_cartesian(expand=FALSE) +
+  scale_fill_manual(values = col.vec,breaks = names(col.vec))+
+  xlab("") +
+  ylab("Relative Abundance (%)")+
+  labs(fill="Taxon")+
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(angle=45,hjust=1),
+    axis.line = element_blank()) +
+  ggtitle(paste(agglom.rank,"level gut microbiota profiles of fecal samples from", paste(lvl.name,collapse = " and ")))+
+  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+        axis.line = element_blank(), 
+        strip.text.x = ggtext::element_markdown(size = 20),
+        panel.spacing = unit(0.8, "cm"), # increase distance between facets
+        axis.text.x = element_text(angle=45,size=20,hjust=1),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        plot.title = ggtext::element_markdown(size = 25),
+        plot.caption = element_text(size=23),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25),
+        legend.position = "right")
+
+ggsave(paste0("./images/barplots/",
+              paste(Sys.Date(),"NMR-NMRwt","barplot",truncationlvl,
+                    agglom.rank,sep = "-"),".png"),
+       plot=lvl.plot,
+       width = 9000,height = 6000,
+       units = "px",dpi=300,device = "png")
+ggsave(paste0("./images/barplots/",
+              paste(Sys.Date(),"NMR-NMRwt","barplot",truncationlvl,
+                    agglom.rank,sep = "-"),".tiff"),
+       plot=lvl.plot,
+       width = 9000,height = 6000,
        units = "px",dpi=300,device = "tiff")
 

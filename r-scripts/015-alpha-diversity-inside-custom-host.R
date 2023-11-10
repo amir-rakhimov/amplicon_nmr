@@ -40,7 +40,7 @@ if(host=="NMR"){
 
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./rtables/pooled/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")

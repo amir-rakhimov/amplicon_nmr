@@ -3,32 +3,46 @@ library(phyloseq)
 library(ALDEx2)
 library(vegan)
 ref.level<-"NMR"
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 custom.levels<-c("NMR",
                  "B6mouse",
-                 "MSMmouse",
-                 "FVBNmouse",
+                 # "MSMmouse",
+                 # "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo")
+                 "pvo"#,
+                 # "NMRwt"
+                 )
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
+custom.md<-custom.md%>%
+  filter(class%in%custom.levels)
+ps.q.total<-ps.q.total%>%
+  filter(Sample%in%rownames(custom.md))
+ps.q.1pc<-ps.q.1pc%>%
+  filter(class%in%custom.levels)
+
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-ps.q.df.aldex.input<- read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.aldex.input<- read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                           rare.status,".",filter.status,"-",agglom.rank,"-",
                                           paste(custom.levels,collapse = '-'),".tsv"),
                                    header = T)
 # Prepare the dataset ####
 # convert the data frame into wide format
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input%>%
+  filter(class%in%custom.levels,Abundance!=0)%>%
   dplyr::select(Sample,Abundance,Taxon)%>%
   pivot_wider(names_from = "Taxon",
               values_from = "Abundance",
@@ -82,12 +96,12 @@ aldex.signif.features%>%
 
 save.image(paste0("./rdafiles/",
                   paste("aldex2",rare.status,filter.status,agglom.rank,
-                        paste(custom.levels,collapse = '-'),ref.level,
-                        "workspace.RData",sep="-")))
+                        paste(custom.levels,collapse = '-'),truncationlvl,
+                        ref.level,"workspace.RData",sep="-")))
 write.table(aldex.signif.features,
-            file=paste0("./rtables/alldir/",
+            file=paste0("./rtables/",authorname,"/",
                         paste("aldex2",rare.status,filter.status,
                               agglom.rank,paste(custom.levels,collapse = '-'),
-                              ref.level,"signif.tsv",sep = "-")),
+                              truncationlvl,ref.level,"signif.tsv",sep = "-")),
             row.names = F,sep = "\t")
 q()

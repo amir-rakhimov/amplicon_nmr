@@ -2,7 +2,7 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
-
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
@@ -13,25 +13,29 @@ rare.status<-"rare"
 # filter.status<-"filtered"
 filter.status<-"nonfiltered"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 pretty.axis.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
+    # "MSMmouse" = "MSM/Ms mouse",
+    # "FVBNmouse" = "FVB/N mouse",
     "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
     "pvo" = "*Pteromys volans orii*"
+    # ,
+    # "NMRwt"="Wild *Heterocephalus glaber*"
   )
 
 custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
-
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                          rare.status,".",filter.status,"-",agglom.rank,"-",
                                          paste(custom.levels,collapse = '-'),".tsv"),
                                   header = T,sep = "\t")
@@ -56,7 +60,7 @@ names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
 ps.q.df <-ps.q.df.preprocessed%>%
-  filter(class%in%custom.levels)%>%
+  filter(class%in%custom.levels,Abundance!=0)%>%
   select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
 
 # ps.q.df <-ps.q.agg.rel%>%
@@ -330,28 +334,49 @@ newplot<-div.plot+
   geom_text(data = stars,aes(x=x, y=y, label=label),
             inherit.aes = FALSE,size=10) # add stars 
 
-ggsave(paste0("./images/diversity/alpha/",Sys.Date(),"-alpha-",
-              paste(plot.metrics,collapse = "-"),"-",agglom.rank,"-",truncationlvl,
-              ".png"),plot=div.plot,
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    paste(custom.levels,collapse = '-'),
+                    agglom.rank,truncationlvl,sep = "-"),
+              ".png"),
+       plot=div.plot,
        width = 6000,height = 3000,
        units = "px",dpi=300,device = "png")
 
-ggsave(paste0("./images/diversity/alpha/",Sys.Date(),"-alpha-",
-              paste(plot.metrics,collapse = "-"),"-",agglom.rank,"-",truncationlvl,
-              ".tiff"),plot=div.plot,
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    paste(custom.levels,collapse = '-'),
+                    agglom.rank,truncationlvl,sep = "-"),
+              ".tiff"),
+       plot=div.plot,
        width = 6000,height = 3000,
        units = "px",dpi=300,device = "tiff")
 
+# save plot with significance bars
+# Use the table of wilcoxon tests, check if there are any pairwise comparisons
+# that were significant
+# if yes, save the plot
+if(table(w.results<0.05)[2]>0){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(Sys.Date(),"alpha",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,sep = "-"),
+                "-signif.png"),
+         plot=newplot,
+         width = 6000,height = 5000,
+         units = "px",dpi=300,device = "png")
+  
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(Sys.Date(),"alpha",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,sep = "-"),
+                "-signif.tiff"),
+         plot=newplot,
+         width = 6000,height = 5000,
+         units = "px",dpi=300,device = "tiff")
+}
 
-ggsave(paste0("./images/diversity/alpha/",Sys.Date(),
-              "-alpha-shannon-sobs-",agglom.rank,"-signif-"
-              ,truncationlvl,
-              ".png"),plot=newplot,
-       width = 6000,height = 5000,
-       units = "px",dpi=300,device = "png")
-ggsave(paste0("./images/diversity/alpha/",Sys.Date(),
-              "-alpha-shannon-sobs-",agglom.rank,"-signif-"
-              ,truncationlvl,
-              ".tiff"),plot=newplot,
-       width = 6000,height = 5000,
-       units = "px",dpi=300,device = "png")

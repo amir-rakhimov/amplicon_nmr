@@ -2,30 +2,34 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
-
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
 read.end.type<-"single"
-
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 pretty.facet.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
+    # "MSMmouse" = "MSM/Ms mouse",
+    # "FVBNmouse" = "FVB/N mouse",
     "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
     "pvo" = "*Pteromys volans orii*"
+    # "NMRwt"="Wild *Heterocephalus glaber*",
 )
 
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
 pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
-
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
 # Using Polychrome package
 set.seed(1)
 # custom.colors<- createPalette(length(custom.levels),
@@ -227,10 +231,7 @@ nmds.plot<-ggplot(nmds.scores,
   scale_fill_manual(name=NULL, breaks = custom.levels,
                     labels=custom.levels,
                     values = custom.colors)+
-  labs(color="Host"
-       # ,
-       # caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 using Benjamini-Hochberg correction for multiple comparisons"
-  )+
+  labs(color="Host")+
   ggtitle(paste0("nMDS on ", beta.label, " between different rodents (",agglom.rank, " level)"))+
   theme(
     axis.text.x = element_text(angle=0,size=20,hjust=1),
@@ -243,15 +244,35 @@ nmds.plot<-ggplot(nmds.scores,
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
 
+# Depending on the results of PERMANOVA, we should choose an appropriate
+# label
+if(all.test.p<0.05){
+  # if all pairwise comparisons were significant
+  nmds.plot<-nmds.plot+
+    labs(caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
+}else if(all.test>0.05 &length(pairwise_p)==0){
+  # if no comparisons were significant
+  nmds.plot<-nmds.plot+
+    labs(caption =  "No pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
+}else{
+  # if some but not all comparisons were not significant
+  nmds.plot<-nmds.plot+
+    labs(caption =  paste("All pairwise comparisons except",
+         gsub("_", " vs ", paste(names(which(pairwise_p<0.001)), collapse = ", ")),
+         "were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons"))
+}
+
 ggsave(paste0("./images/diversity/nmds/",
-              paste(Sys.Date(),"ndms",dist.metric,"all",
+              paste(Sys.Date(),"ndms",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,sep = "-"),".png"),
        plot=nmds.plot,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "png")
 
 ggsave(paste0("./images/diversity/nmds/",
-              paste(Sys.Date(),"ndms",dist.metric,"all",
+              paste(Sys.Date(),"ndms",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,sep = "-"),".tiff"),
        plot=nmds.plot,
        width = 4500,height = 3000,
@@ -260,29 +281,19 @@ ggsave(paste0("./images/diversity/nmds/",
 nmds.plot.with.labels<-nmds.plot+
   ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # label each point by sample name
 ggsave(paste0("./images/diversity/nmds/",
-              paste(Sys.Date(),"ndms",dist.metric,"all",
+              paste(Sys.Date(),"ndms",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,"with-labels",sep = "-"),".png"),
        plot=nmds.plot.with.labels,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "png")
 ggsave(paste0("./images/diversity/nmds/",
-              paste(Sys.Date(),"ndms",dist.metric,"all",
+              paste(Sys.Date(),"ndms",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,"with-labels",sep = "-"),".tiff"),
        plot=nmds.plot.with.labels,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "tiff")
-
-# rarefy without replacement to the min sample size
-# set.seed(1)
-# ps.q.agg.abs.rarefied = rarefy_even_depth(ps.q.agg.abs, 
-#                                         rngseed=1, 
-#                                         sample.size=min(sample_sums(ps.q.agg.abs)), 
-#                                         replace=F)
-# ps
-# ps.q.agg.abs.rarefied
-# plot_bar(ps.q.agg.abs.rarefied, fill="Genus")+
-#   facet_grid(~animal, scales="free",space="free")+  
-#   guides(fill=guide_legend(ncol=1))
 
 ## PCoA ####
 pcoa<-cmdscale(dist,
@@ -330,10 +341,7 @@ pcoa.plot<-ggplot(pcoa.positions,
                     values = custom.colors)+
   labs(x=paste0("PCo 1 (", percent_exp[1],"%)"),
        y=paste0("PCo 2 (", percent_exp[2],"%)"),
-       color="Host"
-       # ,
-       # caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 using Benjamini-Hochberg correction for multiple comparisons"
-  )+
+       color="Host")+
   ggtitle(paste0("PCoA on ", beta.label, " between different rodents (",agglom.rank, " level)"))+
   theme(plot.title = element_text(size = 27),
     axis.text.x = element_text(angle=0,size=20,hjust=1),
@@ -345,14 +353,34 @@ pcoa.plot<-ggplot(pcoa.positions,
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
 
+# Depending on the results of PERMANOVA, we should choose an appropriate
+# label
+if(all.test.p<0.05){
+  # if all pairwise comparisons were significant
+  pcoa.plot<-pcoa.plot+
+    labs(caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
+}else if(all.test>0.05 &length(pairwise_p)==0){
+  # if no comparisons were significant
+  pcoa.plot<-pcoa.plot+
+    labs(caption =  "No pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
+}else{
+  # if some but not all comparisons were not significant
+  pcoa.plot<-pcoa.plot+
+    labs(caption =  paste("All pairwise comparisons except",
+                          gsub("_", " vs ", paste(names(which(pairwise_p<0.001)), collapse = ", ")),
+                          "were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons"))
+}
+
 ggsave(paste0("./images/diversity/pcoa/",
-              paste(Sys.Date(),"pcoa",dist.metric,"all",
+              paste(Sys.Date(),"pcoa",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,sep = "-"),".png"),
        plot=pcoa.plot,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "png")
 ggsave(paste0("./images/diversity/pcoa/",
-              paste(Sys.Date(),"pcoa",dist.metric,"all",
+              paste(Sys.Date(),"pcoa",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,sep = "-"),".tiff"),
        plot=pcoa.plot,
        width = 4500,height = 3000,
@@ -362,15 +390,218 @@ pcoa.plot.with.labels<-pcoa.plot+
   ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # label each point by sample name
 
 ggsave(paste0("./images/diversity/pcoa/",
-              paste(Sys.Date(),"pcoa",dist.metric,"all",
+              paste(Sys.Date(),"pcoa",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,"with-labels",sep = "-"),".png"),
        plot=pcoa.plot.with.labels,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "png")
 ggsave(paste0("./images/diversity/pcoa/",
-              paste(Sys.Date(),"pcoa",dist.metric,"all",
+              paste(Sys.Date(),"pcoa",dist.metric,
+                    paste(custom.levels,collapse = '-'),
                     agglom.rank,truncationlvl,"with-labels",sep = "-"),".tiff"),
        plot=pcoa.plot.with.labels,
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "tiff")
-rm(list=ls())
+
+
+# PCA ####
+# import rarefied dataframe
+ps.q.df.pca.input<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
+                  rare.status,".",filter.status,"-",agglom.rank,"-",
+                  paste(custom.levels,collapse = '-'),".tsv"),
+           header = T)
+# Convert into wide format
+if(agglom.rank=="OTU"){
+  ps.q.df.wide<-ps.q.df.pca.input%>%
+    select(-class,-sex,-birthday)%>%
+    pivot_wider(names_from = "OTU", # or OTU
+                values_from = "Abundance",
+                values_fill = 0)%>%
+    as.data.frame()
+}else{
+  ps.q.df.wide<-ps.q.df.pca.input%>%
+    select(-class,-sex,-birthday)%>%
+    pivot_wider(names_from = "Taxon", # or OTU
+                values_from = "Abundance",
+                values_fill = 0)%>%
+    as.data.frame()
+}
+
+# colnames are OTUs and rownames are sample IDs
+rownames(ps.q.df.wide)<-ps.q.df.wide$Sample
+ps.q.df.wide<-ps.q.df.wide[,-1] # prune after this command 
+ps.q.df.wide<-as.matrix(ps.q.df.wide)
+ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
+
+#### >if you want to exclude specific samples
+pruned.samples<-c("PVO_15","PVO_19")
+ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%pruned.samples),]
+ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
+ps.q.df.wide.centered<-scale(ps.q.pruned,scale=F,center=T)
+####<
+
+ps.q.df.wide.centered.scaled<-scale(ps.q.df.wide.centered,scale=T,center=F)
+# calculate principal components
+pca.q<-prcomp(ps.q.df.wide.centered.scaled)
+str(pca.q)
+dim(pca.q$x)
+
+# reverse the signs
+pca.q$rotation<- -1*pca.q$rotation
+
+# display principal components (loadings)
+head(pca.q$rotation)
+
+# reverse th signs of the scores
+pca.q$x<- -1*pca.q$x
+
+# display the first six scores
+head(pca.q$x)
+
+## PCA Biplot ####
+# biplot(pca.q,scale = 0)
+
+#calculate total variance explained by each principal component
+pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#calculate total variance explained by each principal component
+var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#create scree plot
+qplot(seq_along(1:nrow(ps.q.df.wide.centered.scaled)), var_explained) + 
+  geom_line() + 
+  xlab("Principal Component") + 
+  ylab("Variance Explained") +
+  ggtitle("Scree Plot") +
+  ylim(0, 1)
+
+
+## PCA Plot ####
+PC1<-pca.q$x[,1]
+PC2<-pca.q$x[,2]
+perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
+
+pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%
+                                 rownames(ps.q.df.wide.centered.scaled),],
+                 aes(x=PC1,y=PC2,color=class,fill=class)) +
+  geom_point(size=2)+ 
+  stat_ellipse(geom = "polygon",
+               level = 0.8,
+               alpha=0.2,
+               show.legend = FALSE)+
+  labs(x=paste0("PC1 (", perc.var[1], "%)"),
+       y=paste0("PC2 (", perc.var[2], "%)"),
+       color="Host")+
+  theme_bw()+
+  ggtitle(paste("PCA between different rodents (",agglom.rank, " level)"))+
+  scale_color_manual(breaks = custom.levels,
+                     labels=custom.color.labels,
+                     values = custom.colors)+
+  scale_fill_manual(name=NULL, breaks = custom.levels,
+                    labels=custom.levels,
+                    values = custom.colors)+
+  guides(fill="none")+
+  theme(
+    axis.text.x = element_text(angle=0,size=20,hjust=1),
+    axis.text.y = element_text(size=20),
+    axis.title = element_text(size = 20),
+    plot.title = element_text(size = 27),
+    legend.text = ggtext::element_markdown(size = 20),
+    legend.title = element_text(size = 25),
+    legend.position = "right",
+    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+    plot.caption.position = "plot")
+
+if(length(pruned.samples)!=0){
+  pca.plot<-pca.plot+
+    labs(caption = paste("Removed samples:",paste(pruned.samples,collapse = ', ')))
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"pruned",sep = "-"),".png"),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"pruned",sep = "-"),".tiff"),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "tiff")
+}else{
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,sep = "-"),".png"),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,sep = "-"),".tiff"),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "tiff")
+}
+
+
+pca.plot.with.labels<-pca.plot+
+  ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # label each point by sample name
+
+if(length(pruned.samples)!=0){
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"with-labels-pruned",sep = "-"),".png"),
+         plot=pca.plot.with.labels,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"with-labels-pruned",sep = "-"),".tiff"),
+         plot=pca.plot.with.labels,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "tiff")
+}else{
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"with-labels",sep = "-"),".png"),
+         plot=pca.plot.with.labels,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/diversity/pca/",
+                paste(Sys.Date(),"pca",
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,"with-labels",sep = "-"),".tiff"),
+         plot=pca.plot.with.labels,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = "tiff")
+}
+
+
+
+# find ASVs that contribute to PCs
+aload<-abs(pca.q$rotation)
+head(sweep(aload,2,colSums(aload),"/"))
+colSums(sweep(aload, 2, colSums(aload), "/"))
+colSums(aload)
+aload[1,1]/colSums(aload)[1]
+
+pc.df<-as.data.frame(sweep(aload,2,colSums(aload),"/")[,1:2])
+lapply(pc.df,max)
+max.ind<-lapply(pc.df,which.max)
+pc.df[max.ind$PC1,]
+pc.df[max.ind$PC2,]
+
+pc.df%>%rownames_to_column(var="OTU")%>%
+  arrange(-PC2)%>%
+  left_join(ps.q.agg[,c("OTU","Taxon")])%>%
+  distinct()%>%
+  View
+
+

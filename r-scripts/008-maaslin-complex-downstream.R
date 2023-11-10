@@ -3,6 +3,7 @@ library(phyloseq)
 library(Maaslin2)
 library(vegan)
 library(pheatmap)
+ref.level<-"NMR"
 
 truncationlvl<-"234"
 agglom.rank<-"Genus"
@@ -15,13 +16,15 @@ read.end.type<-"single"
 
 custom.levels<-c("NMR",
                  "B6mouse",
-                 "MSMmouse",
-                 "FVBNmouse",
+                 # "MSMmouse",
+                 # "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo")
+                 "pvo"#,
+                 # "NMRwt"
+                 )
 
 
 host<-"NMR"
@@ -33,9 +36,9 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-ref.level<-"MSMmouse"
-# load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-#             "-phyloseq-workspace.RData"))
+# load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+#                                 truncationlvl,agglom.rank,
+#                                 "phyloseq-workspace.RData",sep = "-")))
 
 if(agglom.rank=="OTU"){
   load(file.path("./rdafiles",
@@ -98,19 +101,19 @@ if(agglom.rank=="OTU"){
 
 if(agglom.rank=="OTU"){
   write.table(maaslin.signif.features,
-              file=file.path("./rtables/alldir",
+              file=file.path("./rtables",authorname,
                           paste("maaslin",rare.status,
                                 filter.status,host,agglom.rank,
-                                comparison,truncationlvl,ref.level,#pre-loaded
-                                "signif.tsv",sep="-")),
+                                comparison,truncationlvl,
+                                ref.level,"signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }else{
   write.table(maaslin.signif.features,
-              file=file.path("./rtables/alldir",
+              file=file.path("./rtables",authorname,
                           paste("maaslin",rare.status,
                                 filter.status,agglom.rank,
                                 paste(custom.levels,collapse = '-'),truncationlvl,
-                                "nmr-signif.tsv",sep="-")),
+                                ref.level,"signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }
 

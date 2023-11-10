@@ -6,8 +6,11 @@ library(ANCOMBC)
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+authorname<-"pooled"
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
+
 
 rare.status<-"rare"
 filter.status<-"nonfiltered"
@@ -30,7 +33,7 @@ host.labels<-
     "FVBNmouse" = "FVB/N mouse")
 
 ref.level<-"FVBNmouse"
-ps.q.df.preprocessed<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
@@ -136,18 +139,18 @@ ps.q.phyloseq.new<-phyloseq(otu_table(ps.q.OTU),
 
 # relevel our comparison vector. The first level will be the reference
 # for custom leveling
-custom.levels<-c(ref.level,custom.levels[custom.levels!=ref.level])
+ancombc.levels<-c(ref.level,custom.levels[custom.levels!=ref.level])
 if (comparison=="age"){
   sample_data(ps.q.phyloseq.new)$age_group<-factor(sample_data(ps.q.phyloseq.new)$age_group,
-                                                   levels = custom.levels)
+                                                   levels = ancombc.levels)
   ancombc.comparison<-"age_group"
 }else if(comparison=="sex"){
   sample_data(ps.q.phyloseq.new)$sex<-factor(sample_data(ps.q.phyloseq.new)$sex,
-                                                   levels = custom.levels)
+                                                   levels = ancombc.levels)
   ancombc.comparison<-"sex"
 }else if(comparison=="strain"){
   sample_data(ps.q.phyloseq.new)$class<-factor(sample_data(ps.q.phyloseq.new)$class,
-                                                   levels = custom.levels)
+                                                   levels = ancombc.levels)
   ancombc.comparison<-"class"
 }
 
@@ -182,7 +185,7 @@ save.image(file.path("./rdafiles",
                         comparison,truncationlvl,ref.level,
                         "workspace.RData",sep="-")))
 write.table(ancombc.signif.features,
-            file=paste0("./rtables/alldir/",
+            file=paste0("./rtables/",authorname,"/",
                         paste("ancombc",rare.status,filter.status,host,agglom.rank,
                               comparison,truncationlvl,ref.level,
                               "signif.tsv",sep="-")), 

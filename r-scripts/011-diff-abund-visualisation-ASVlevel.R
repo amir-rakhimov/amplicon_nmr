@@ -3,6 +3,7 @@ library(tidyverse)
 library(phyloseq)
 library(Polychrome)
 
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 
@@ -22,8 +23,10 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
+
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
 

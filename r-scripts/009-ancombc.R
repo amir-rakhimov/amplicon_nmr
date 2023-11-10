@@ -2,33 +2,47 @@ library(tidyverse)
 library(phyloseq)
 library(vegan)
 library(ANCOMBC)
+ref.level<-"NMR"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+authorname<-"pooled"
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 custom.levels<-c("NMR",
                  "B6mouse",
-                 "MSMmouse",
-                 "FVBNmouse",
+                 # "MSMmouse",
+                 # "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo")
-ref.level<-"NMR"
+                 "pvo"#,
+                 # "NMRwt"
+                 )
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
-ps.q.df.ancombc.input<-read.table(paste0("./rtables/alldir/ps.q.df.",
+ps.q.df.ancombc.input<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                           rare.status,".",filter.status,"-",agglom.rank,"-",
                                           paste(custom.levels,collapse = '-'),".tsv"),
                                    header = T)
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
+custom.md<-custom.md%>%
+  filter(class%in%custom.levels)
+ps.q.total<-ps.q.total%>%
+  filter(Sample%in%rownames(custom.md))
+ps.q.1pc<-ps.q.1pc%>%
+  filter(class%in%custom.levels)
+
 # ANCOMBC ####
 # Input data and metadata ####
 # convert the data frames into wide format
 ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input%>%
+  filter(class%in%custom.levels,Abundance!=0)%>%
   dplyr::select(Sample,Abundance,Taxon)%>%
   pivot_wider(names_from = "Taxon", # or OTU
               values_from = "Abundance",
@@ -50,8 +64,9 @@ ps.q.TAX<-tax_table(taxmat)
 ps.q.phyloseq.new<-phyloseq(otu_table(ps.q.OTU),
                             tax_table(ps.q.TAX),
                             sample_data(custom.md))
+ancombc.levels<-c(ref.level,custom.levels[custom.levels!=ref.level])
 sample_data(ps.q.phyloseq.new)$class<-factor(sample_data(ps.q.phyloseq.new)$class,
-                                             levels = custom.levels)
+                                             levels = ancombc.levels)
 
 ancombc.out<-ancombc(
   phyloseq = ps.q.phyloseq.new,
@@ -212,7 +227,7 @@ save.image(paste0("./rdafiles/",paste("ancombc",rare.status,
                                       truncationlvl, ref.level,
                                       "workspace.RData",sep="-")))
 write.table(ancombc.signif.features,
-            file=paste0("./rtables/alldir/",
+            file=paste0("./rtables/",authorname,"/",
                         paste("ancombc",rare.status,
                               filter.status,agglom.rank,
                               paste(custom.levels,collapse = '-'),

@@ -5,9 +5,11 @@ library(vegan)
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
+authorname<-"pooled"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 # custom.levels<-c("NMR","B6mouse")
 pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
@@ -18,7 +20,8 @@ pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for fa
                        "hare" = "*Lepus europaeus*",
                        "rabbit" = "*Oryctolagus <br>cuniculus*",
                        "spalax" = "*Nannospalax leucodon*",
-                       "pvo" = "*Pteromys volans orii*"
+                       "pvo" = "*Pteromys volans orii*",
+                       "NMRwt"="Wild *Heterocephalus glaber*"
 )
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
 
@@ -34,7 +37,7 @@ ps.q.df <-ps.q.agg%>%
   filter(Abundance!=0)
 
 ps.q.df<-ps.q.df%>%
-  filter(class %in% custom.levels)
+  filter(class %in% custom.levels,Abundance!=0)
 
 
 # convert the data frame into wide format
@@ -91,8 +94,8 @@ if(agglom.rank!="OTU"){
 }
 
 write.table(ps.q.df.rare,
-            file = paste0("./rtables/alldir/ps.q.df.rare.nonfiltered-",
-                          paste(agglom.rank,custom.levels,collapse = '-'),".tsv"),
+            file = paste0("./rtables/",authorname,"/ps.q.df.rare.nonfiltered-",
+                          agglom.rank,"-",paste(custom.levels,collapse = '-'),".tsv"),
             row.names = F,
             sep = "\t")
 
@@ -137,12 +140,12 @@ ps.q.df.rare.filtered<-ps.q.df.rare%>%
 
 
 write.table(ps.q.df.norare.filtered,
-            file = paste0("./rtables/alldir/ps.q.df.norare.filtered-",
+            file = paste0("./rtables/",authorname,"/ps.q.df.norare.filtered-",
                           paste(agglom.rank,custom.levels,collapse = '-'),".tsv"),
             row.names = F,
             sep = "\t")
 write.table(ps.q.df.rare.filtered,
-            file = paste0("./rtables/alldir/ps.q.df.rare.filtered-",
+            file = paste0("./rtables/",authorname,"/ps.q.df.rare.filtered-",
                           paste(agglom.rank,custom.levels,collapse = '-'),".tsv"),
             row.names = F,
             sep = "\t")

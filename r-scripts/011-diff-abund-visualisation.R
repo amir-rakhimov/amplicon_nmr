@@ -4,29 +4,42 @@ library(Maaslin2)
 library(vegan)
 library(ALDEx2)
 library(Polychrome)
+ref.level<-"NMR"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 read.end.type<-"single"
-ref.level<-"NMR"
 source("r-scripts/make_features_maaslin.R")
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
+authorname<-"pooled"
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 
 pretty.axis.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
+    # "MSMmouse" = "MSM/Ms mouse",
+    # "FVBNmouse" = "FVB/N mouse",
     "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
     "pvo" = "*Pteromys volans orii*"
+    # ,
+    # "NMRwt"="Wild *Heterocephalus glaber*"
   )
 # custom.levels are the levels that exist in the current metadata
 custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
+custom.md<-custom.md%>%
+  filter(class%in%custom.levels)
+ps.q.total<-ps.q.total%>%
+  filter(Sample%in%rownames(custom.md))
+ps.q.1pc<-ps.q.1pc%>%
+  filter(class%in%custom.levels)
+
 # custom color palette based on custom levels from metadata
 scale.color.labels<-unname(pretty.axis.labels)
 scale.color.breaks<-unname(pretty.axis.labels)
@@ -42,12 +55,14 @@ names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
 common.decreased<- 
-  read.table(file=file.path("./rtables/alldir",
+  read.table(file=file.path("./rtables",authorname,
                            paste("significant-features",rare.status,
                                  filter.status,agglom.rank,
                                  paste(custom.levels,collapse = '-'),truncationlvl,
                                  ref.level,"signif.tsv",sep="-")),
             header = F,sep = "\t")
+
+common.decreased<-common.decreased$V1
 
 # filter by mean relative abundance: >=1%
 common.decreased.filtered<-ps.q.agg%>%
@@ -59,8 +74,8 @@ common.decreased.filtered<-ps.q.agg%>%
   filter(MeanRelativeAbundance>=1)%>%
   pull(Taxon)
 
-common.decreased.filtered<-as.character(common.decreased.filtered$V1)
-# boxplots of abundances per feature
+# common.decreased.filtered<-as.character(common.decreased.filtered$V1)
+# boxplots of abundances per feature ####
 ggplots<-list()
 for (feature_index in seq_along(common.decreased.filtered)){
     # take each taxon one by one from the list of significant features
@@ -122,39 +137,6 @@ ps.q.agg%>%
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
   ggtitle("Eisenbergiella (Lachnospiraceae)")
-
-# boxplots of abundances per feature
-ggplots<-list()
-if(agglom.rank=="OTU"){
-  for (feature_index in seq_along(common.decreased.filtered)){
-    # take each otu one by one from aldex.neg.effect
-    # make a boxplot of abundances
-    feature.plot<-ps.q.agg%>%
-      filter(OTU==common.decreased.filtered[[feature_index]],
-             class%in%names(host.labels))%>%
-      ggplot(aes(x=factor(class,level=host.labels),y=Abundance,fill=class))+
-      geom_boxplot()+
-      scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
-      ggtitle(paste(common.decreased.filtered[[feature_index]],
-                    as.character(ps.q.agg[ps.q.agg$OTU==common.decreased.filtered[[feature_index]],
-                                          "Taxon"][1,1])))
-    ggplots[[common.decreased.filtered[[feature_index]]]]<-feature.plot
-  }
-}else{ 
-  for (feature_index in seq_along(common.decreased.filtered)){
-    # take each taxon one by one from aldex.neg.effect
-    # make a boxplot of abundances
-    feature.plot<-ps.q.agg%>%
-      filter(Taxon==common.decreased.filtered[[feature_index]],
-             class%in%custom.levels)%>%
-      ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
-      geom_boxplot()+
-      scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
-      ggtitle(common.decreased.filtered[[feature_index]])
-    ggplots[[common.decreased.filtered[[feature_index]]]]<-feature.plot
-  }
-}
-ggplots
 
 
 # Visualization for class
