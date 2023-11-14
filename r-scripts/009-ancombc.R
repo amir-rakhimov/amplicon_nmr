@@ -6,20 +6,20 @@ ref.level<-"NMR"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
-authorname<-"pooled"
+authorname<-"merged"
 load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
                                 "phyloseq-workspace.RData",sep = "-")))
 custom.levels<-c("NMR",
                  "B6mouse",
-                 # "MSMmouse",
-                 # "FVBNmouse",
+                 "MSMmouse",
+                 "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo"#,
-                 # "NMRwt"
+                 "pvo",
+                 "NMRwt"
                  )
 # Import data ####
 rare.status<-"rare"
@@ -54,7 +54,7 @@ rownames(ps.q.df.ancombc.input.wide)<-ps.q.df.ancombc.input.wide$Sample
 ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input.wide[,-1] 
 
 taxmat<-ps.q.agg%>%
-  select(Kingdom,Phylum,Class,Order,Family,Genus,Taxon)%>%
+  dplyr::select(Kingdom,Phylum,Class,Order,Family,Genus,Taxon)%>%
   distinct()%>%
   column_to_rownames(var = "Taxon")%>%
   as.matrix()

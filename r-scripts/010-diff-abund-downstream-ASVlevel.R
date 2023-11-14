@@ -5,6 +5,7 @@ library(vegan)
 library(ALDEx2)
 truncationlvl<-"234"
 agglom.rank<-"OTU"
+authorname<-"pooled"
 
 rare.status<-"rare"
 filter.status<-"nonfiltered"
@@ -28,30 +29,29 @@ host.labels<-
     "FVBNmouse" = "FVB/N mouse")
 
 ref.level<-"MSMmouse"
-load(file.path("./rdafiles",
-               paste("maaslin",rare.status,filter.status,host,agglom.rank,
-                     comparison,truncationlvl,ref.level,
-                     "workspace.RData",sep="-")))
+load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+                                truncationlvl,agglom.rank,
+                                "phyloseq-workspace.RData",sep = "-")))
 maaslin.signif.features<-list()
 aldex.signif.features<-list()
 ancombc.signif.features<-list()
 for (ref.level in custom.levels){
   lvl.maaslin.signif.features<-
-    read.table(file.path("./rtables/alldir",
+    read.table(file.path("./rtables/pooled",
                          paste("maaslin",rare.status,
                                filter.status,host,agglom.rank,
                                comparison,truncationlvl,ref.level,
                                "signif.tsv",sep="-")),
                header = T,sep = "\t")
   lvl.aldex.signif.features<-
-    read.table(file.path("./rtables/alldir",
+    read.table(file.path("./rtables/pooled",
                          paste("aldex2",rare.status,
                                filter.status,host,agglom.rank,
                                comparison,truncationlvl,ref.level,
                                "signif.tsv",sep="-")),
                header = T,sep = "\t")
   lvl.ancombc.signif.features<-
-    read.table(file.path("./rtables/alldir",
+    read.table(file.path("./rtables/pooled",
                          paste("ancombc",rare.status,
                                filter.status,host,agglom.rank,
                                comparison,truncationlvl,ref.level,
@@ -137,7 +137,7 @@ for (ref.level in custom.levels){
     unique()
   signif.all.groups[[ref.level]]<-signif.lvl.filtered
   write.table(signif.lvl.filtered,
-              file=file.path("./rtables/alldir",
+              file=file.path("./rtables/pooled",
                              paste("significant-features",rare.status,
                                    filter.status,host,agglom.rank,
                                    comparison,truncationlvl,

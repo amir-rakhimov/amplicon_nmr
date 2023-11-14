@@ -536,6 +536,15 @@ filtX <- X[,-(1:Ind)]
 The filtering methods for this package are wrapped into two main functions, *PERFect_sim()* (performing simultaneous filtering) and *PERFect_perm()* (performing permutation filtering). First, we load the OTU matrix with 240 samples and 46 taxa.
 
 ```{r, echo = TRUE, eval = TRUE}
+ref.level<-"NMR"
+truncationlvl<-"234"
+agglom.rank<-"Genus"
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+read.end.type<-"single"
+authorname<-"pooled"
+directory<-paste0("./data/",authorname,"-data/")
+
 split.ec.levels<-function(ec.df){
   ec.levels<-data.frame(do.call('rbind', 
                                 strsplit(as.character(ec.df$predicted.function),'.',
@@ -546,16 +555,19 @@ split.ec.levels<-function(ec.df){
   return(ec.df.with.lvls)
 }
 # Load metadata as a tibble
-metadata <- read.table(paste0("./data/alldir-data/","filenames-single-pooled-raw-supercomp.tsv"),
-                       header = T)
+metadata<-read.table(paste0(directory,"filenames-single-",authorname,"-raw-supercomp.tsv"),
+                      header = T)
+
 metadata<-metadata%>%
-  # filter(class=="NMR"|class=="SPFmouse")
-  filter(class=="NMR")
+  filter(class=="NMR"|class=="B6mouse")
+  # filter(class=="NMR")
   # filter(class=="SPFmouse")
 
 # Load KO abundance as a data.frame
 # data(ko_abundance)
-enz_abundance <- read.table("./data/alldir-data/picrust/supercomp/NMR_SPFmouse/pred_metagenome_unstrat.tsv",
+enz_abundance <- 
+  read.table(paste0("./data/",authorname,
+                    "-data/picrust/supercomp/NMR_B6mouse/pred_metagenome_unstrat.tsv"),
                             header = T,sep="\t")
 colnames(enz_abundance)[which(colnames(enz_abundance)=="function.")]<-"predicted.function"
 colnames(enz_abundance)<-gsub("X2D10", "2D10",colnames(enz_abundance))
@@ -563,11 +575,17 @@ colnames(enz_abundance)<-gsub("X2D14", "2D14",colnames(enz_abundance))
 # enz_abundance<-enz_abundance%>%
 #   column_to_rownames("predicted.function")
 
+# convert into a long format
+# The columns specified after the exclamation mark are the ones 
+# you want to exclude from the pivot operation.
 enzymes.long<-enz_abundance%>%
   pivot_longer(!predicted.function,names_to = "Sample",values_to = "Abundance")
 
+# split EC by level, each of the four digits goes into a separate column
 enzymes.with.EC<-split.ec.levels(enzymes.long)
 
+# merge with metadata, filter by EC 1 and EC 3
+# unite will paste together EC levels into one EC group
 filtered.enzymes.long<-enzymes.with.EC%>%
   inner_join(metadata[,c("sample.id","class")],by=c("Sample"="sample.id"))%>%
   mutate(Abundance=as.numeric(Abundance))%>%
@@ -579,7 +597,9 @@ filtered.enzymes.long<-enzymes.with.EC%>%
   filter(EC.level.1==1 | EC.level.1==3)%>%
   unite(predicted.function,c(EC.level.1,EC.level.2,EC.level.3),sep = ".")
 
-filtered.enzymes.long$predicted.function<-paste0("EC:",filtered.enzymes.long$predicted.function)
+# Add EC: in front of EC numbers
+filtered.enzymes.long$predicted.function<-paste0("EC ",filtered.enzymes.long$predicted.function)
+# convert into wide format
 filtered.enz_abundance<-filtered.enzymes.long%>%
   pivot_wider(names_from = Sample,values_from = Abundance,values_fill = 0)%>%
   column_to_rownames("predicted.function")%>%
@@ -590,12 +610,26 @@ By default, the function *PERFect_sim()* takes the data table, $X$, as a matrix 
 
 ```{r, echo = TRUE, eval = TRUE}
 enz.res_sim <- PERFect_sim(X = filtered.enz_abundance,alpha = 0.4)
+
+filtered.enz_abundance.nmr<-filtered.enz_abundance[which(rownames(filtered.enz_abundance)%in%
+                               metadata$sample.id[which(metadata$class=="NMR")]),]
+filtered.enz_abundance.B6<-filtered.enz_abundance[which(rownames(filtered.enz_abundance)%in%
+                               metadata$sample.id[which(metadata$class=="B6mouse")]),]
+enz.res_sim.nmr <- PERFect_sim(X = filtered.enz_abundance.nmr,alpha = 0.4)
+enz.res_sim.B6 <- PERFect_sim(X = filtered.enz_abundance.B6,alpha = 0.4)
+
 ```
 The "filtX" object from the result stores the filtered OTU matrix, which consists of 240 samples and 10 taxa in this example. We can identify the remaining taxa by looking into the column of the OTU matrix. 
 
 ```{r, echo = TRUE, eval = TRUE}
 dim(enz.res_sim$filtX)      
 colnames(enz.res_sim$filtX) # signal taxa
+
+dim(enz.res_sim.nmr$filtX)      
+colnames(enz.res_sim.nmr$filtX) # signal taxa
+
+dim(enz.res_sim.B6$filtX)      
+colnames(enz.res_sim.B6$filtX) # signal taxa
 ```
 
 The p-values for all taxa can be extracted as
@@ -615,10 +649,36 @@ p$plot + ggtitle("Simultanenous Filtering")
 Alternatively, we can use permutation filtering *PERFect_perm()* which is more robust than simultaneous filtering. By default, this function generates k = 10000 permutations for each taxa, thus it can be computationally expensive for a large OTU matrix. We offer user a fast algorithm which employs an unbalanced binary search that optimally finds the cutoff taxon without building the permutation distribution for all taxa. The codes for these options are shown below.
 
 ```{r, echo = TRUE, eval = TRUE}
+# full algo
 set.seed(1)
-enz.res_perm <- PERFect_perm(X = filtered.enz_abundance, Order = "pvals", pvals_sim = enz.res_sim, algorithm = "full",alpha = 0.4)
-enz.res_perm[["pvals"]][which(enz.res_perm[["pvals"]]<0.4)]
-
+enz.res_perm<- PERFect_perm(X = filtered.enz_abundance, 
+                             Order = "pvals", 
+                             pvals_sim = enz.res_sim, 
+                             algorithm = "full",
+                             alpha = 0.4,
+                            )
+ecs<-enz.res_perm[["pvals"]][which(enz.res_perm[["pvals"]]<0.4)]
+ecs.names<-sort(names(ecs))
+kable(ecs.names,format = "simple")
+ec.functions<-c(
+ "EC 1.2.7" = "With an iron-sulfur protein as acceptor",
+ "EC 1.20.4" ="Acting on phosphorus or arsenic in donors, with disulfide as acceptor",
+ "EC 1.5.1" ="With NAD+ or NADP+ as acceptor",
+ "EC 1.97.1" ="Other oxidoreductases",
+ "EC 3.1.12" ="Exodeoxyribonucleases Producing 3'-Phosphomonoesters",
+ "EC 3.1.26" ="Endoribonucleases Producing 5'-Phosphomonoesters",
+ "EC 3.2.2"  ="Hydrolysing N-Glycosyl Compounds",
+ "EC 3.3.1" ="Thioether and trialkylsulfonium hydrolases",
+ "EC 3.4.13" ="Dipeptidases",
+ "EC 3.4.21" ="Serine endopeptidases",
+ "EC 3.5.1" ="Acting on Carbon-Nitrogen Bonds, other than Peptide Bonds In Linear Amides",
+ "EC 3.5.2"  ="Acting on Carbon-Nitrogen Bonds, other than Peptide Bonds In Cyclic Amides",
+ "EC 3.5.99"  ="Acting on Carbon-Nitrogen Bonds, other than Peptide Bonds In Other Compounds"
+  )
+text.data<-data.frame(ec.functions)
+text.data$predicted.function<-factor(rownames(text.data))
+colnames(text.data)[1]<-"annotation"
+# fast algo
 set.seed(1)
 enz.res_perm2 <- PERFect_perm(X = filtered.enz_abundance, Order = "pvals", pvals_sim = enz.res_sim, algorithm = "fast",alpha = 0.4)
 enz.res_perm2[["pvals"]][which(enz.res_perm2[["pvals"]]<0.4)]
@@ -631,6 +691,210 @@ ggpubr::ggarrange(p1,p2,ncol = 2)
 ```
 
 The figure above illustrates the plot of permutation PERFect p-values calculated by the full and fast algorithm for the *mock2* dataset. Although both methods achieve the similar cutoff taxon, the fast algorithm only calculate 11 out 46 p-values hence is more computationally efficient.
+```{r}
+# we just take the long df and keep only those that match perfect output
+enz.ec.df<-filtered.enzymes.long%>%
+  group_by(predicted.function)%>%
+  filter(predicted.function%in%ecs.names)
+# we want to order by the median of boxplot, decreasing order
+enz.ec.ordered<-enz.ec.df
+predicted.function.ordered<-with(enz.ec.ordered,
+                                 reorder(predicted.function,
+                            Abundance,median,decreasing=F))
+# make predicted function as factor
+enz.ec.ordered$predicted.function<-factor(enz.ec.ordered$predicted.function,
+                                          levels = levels(predicted.function.ordered))
+text.data$predicted.function<-factor(text.data$predicted.function,
+                                          levels = levels(predicted.function.ordered))
+enz.ec.ordered%>%
+  ggplot(aes(x=Abundance,y=predicted.function))+
+  geom_boxplot()+
+  theme_bw()
+  
+  # geom_text(data=text.data,
+  #           aes(label=stringr::str_wrap(annotation),
+  #               x=Inf),
+  #           vjust = -0.5,
+  #           hjust=1)+
+
+
+
+ggsave(filename = "perfectplot.png",plot=p,
+       width = 4000,height = 3000,
+       units = "px",dpi = 300)
+```
+
+```{r}
+# NMR with mice
+enz.res_perm.all<- PERFect_perm(X = filtered.enz_abundance, 
+                             Order = "pvals", 
+                             pvals_sim = enz.res_sim, 
+                             algorithm = "full",
+                             alpha = 0.4,
+                            )
+ecs.all<-enz.res_perm.all[["pvals"]][which(enz.res_perm.all[["pvals"]]<0.25)]
+ecs.all.names<-sort(names(ecs.all))
+signif.all<-sort(ecs.all)
+kable(ecs.all.names,format = "simple")
+enz.all.df<-filtered.enzymes.long%>%
+  group_by(predicted.function)%>%
+  filter(predicted.function%in%ecs.all.names)%>%
+  inner_join(metadata[,c("sample.id","class")],
+             by=c("Sample"="sample.id"))%>%
+  group_by(Sample)
+# we want to order by the median of boxplot, decreasing order
+enz.all.ordered<-enz.all.df
+predicted.function.ordered.all<-with(enz.all.ordered,
+                                 reorder(predicted.function,
+                            Abundance,median,decreasing=F))
+# make predicted function as factor
+enz.all.ordered$predicted.function<-factor(enz.all.ordered$predicted.function,
+                                          levels = levels(predicted.function.ordered.all))
+text.data$predicted.function<-factor(text.data$predicted.function,
+                                          levels = levels(predicted.function.ordered))
+
+set.seed(1)
+custom.fill<-createPalette(length(custom.levels),
+                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
+                                          "#FF8C00","#BF3EFF", "#00FFFF",
+                                          "#FF6EB4","#00EE00","#EEC900"))
+names(custom.fill)<-custom.levels
+swatch(custom.fill)
+
+p.all<-enz.all.ordered%>%
+  ggplot(aes(x=Abundance,y=predicted.function,fill=class))+
+  geom_boxplot()+
+  theme_bw()+
+  scale_fill_manual(breaks=c("NMR","B6mouse"),
+                    labels=c("Naked mole-rat","B6 mouse"),
+                    values=custom.fill)+
+
+  labs(fill = "Host",
+       y="",
+       x="PICRUSt2-predicted Abundance")+
+  ggtitle("PICRUSt2-predicted Abundance of enzyme groups filtered by PERFect")+
+  theme(legend.position = c(.9,0.1),
+        axis.line = element_blank(), 
+        strip.text.x = ggtext::element_markdown(size = 20),
+        panel.spacing = unit(0.8, "cm"), # increase distance between facets
+        
+        axis.text.x = element_text(size=20),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        plot.title = element_text(size = 25),
+        plot.caption = element_text(size=23),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25))
+ggsave(paste0("./images/taxaboxplots/",
+              paste(Sys.Date(),"picrustboxplot",paste(custom.levels,collapse = '-'),
+                    truncationlvl,
+                    agglom.rank,"with-PERFect",sep = "-"),".tiff"),
+       plot=p.all,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "tiff")
+ggsave(paste0("./images/taxaboxplots/",
+              paste(Sys.Date(),"picrustboxplot",paste(custom.levels,collapse = '-'),
+                    truncationlvl,
+                    agglom.rank,"with-PERFect",sep = "-"),".png"),
+       plot=p.all,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "png")
+
+```
+
+
+
+```{r}
+# full algo: NMR separate from mice
+set.seed(1)
+enz.res_perm.nmr<- PERFect_perm(X = filtered.enz_abundance.nmr, 
+                             Order = "pvals", 
+                             pvals_sim = enz.res_sim.nmr, 
+                             algorithm = "full",
+                             alpha = 0.4,
+                            )
+ecs.nmr<-enz.res_perm.nmr[["pvals"]][which(enz.res_perm.nmr[["pvals"]]<0.35)]
+ecs.names.nmr<-names(sort(ecs.nmr))
+
+set.seed(1)
+enz.res_perm.B6<- PERFect_perm(X = filtered.enz_abundance.B6, 
+                             Order = "pvals", 
+                             pvals_sim = enz.res_sim.B6, 
+                             algorithm = "full",
+                             alpha = 0.4,
+                            )
+ecs.B6<-enz.res_perm.B6[["pvals"]][which(enz.res_perm.B6[["pvals"]]<0.35)]
+ecs.names.B6<-names(sort(ecs.B6))
+
+ecs.all.names<-c(ecs.names.nmr,ecs.names.B6)
+enz.all.df<-filtered.enzymes.long%>%
+  group_by(predicted.function)%>%
+  filter(predicted.function%in%ecs.all.names[1:9])%>%
+  inner_join(metadata[,c("sample.id","class")],
+             by=c("Sample"="sample.id"))%>%
+  group_by(Sample)
+# we want to order by the median of boxplot, decreasing order
+enz.all.ordered<-enz.all.df
+predicted.function.ordered.all<-with(enz.all.ordered,
+                                 reorder(predicted.function,
+                            Abundance,median,decreasing=F))
+# make predicted function as factor
+enz.all.ordered$predicted.function<-factor(enz.all.ordered$predicted.function,
+                                          levels = levels(predicted.function.ordered.all))
+text.data$predicted.function<-factor(text.data$predicted.function,
+                                          levels = levels(predicted.function.ordered))
+
+set.seed(1)
+custom.levels<-c("NMR","B6mouse")
+custom.fill<-createPalette(length(custom.levels),
+                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
+                                          "#FF8C00","#BF3EFF", "#00FFFF",
+                                          "#FF6EB4","#00EE00","#EEC900"))
+names(custom.fill)<-custom.levels
+swatch(custom.fill)
+
+p.all<-enz.all.ordered%>%
+  mutate(log10Abundance=log10(Abundance))%>%
+  ggplot(aes(x=log10Abundance,y=predicted.function,fill=class))+
+  geom_boxplot(position=position_dodge2(padding=0.5))+
+  theme_bw()+
+  scale_fill_manual(breaks=c("NMR","B6mouse"),
+                    labels=c("Naked mole-rat","B6 mouse"),
+                    values=custom.fill)+
+
+  labs(fill = "Host",
+       y="",
+       x="PICRUSt2-predicted Abundance (log10)")+
+  ggtitle("PICRUSt2-predicted Abundance of enzyme groups filtered by PERFect")+
+  theme(legend.position = c(.9,0.1),
+        axis.line = element_blank(), 
+        strip.text.y = ggtext::element_markdown(size = 20),
+        panel.spacing = unit(0.8, "cm"), # increase distance between facets
+        
+        axis.text.x = element_text(size=20),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        plot.title = element_text(size = 25),
+        plot.caption = element_text(size=23),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25))
+ggsave(paste0("./images/taxaboxplots/",
+              paste(Sys.Date(),"picrustboxplot",paste(custom.levels,collapse = '-'),
+                    truncationlvl,
+                    agglom.rank,"with-PERFect",sep = "-"),".tiff"),
+       plot=p.all,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "tiff")
+ggsave(paste0("./images/taxaboxplots/",
+              paste(Sys.Date(),"picrustboxplot",paste(custom.levels,collapse = '-'),
+                    truncationlvl,
+                    agglom.rank,"with-PERFect",sep = "-"),".png"),
+       plot=p.all,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "png")
+
+
+```
 
 # Session Info
 

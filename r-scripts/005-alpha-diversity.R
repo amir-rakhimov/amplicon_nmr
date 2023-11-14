@@ -2,15 +2,13 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
-authorname<-"pooled"
+authorname<-"merged"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
 # Import data ####
 read.end.type<-"single"
 rare.status<-"rare"
-# rare.status<-"nonrare"
-# filter.status<-"filtered"
 filter.status<-"nonfiltered"
 
 load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
@@ -20,48 +18,81 @@ load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
 pretty.axis.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
-    # "MSMmouse" = "MSM/Ms mouse",
-    # "FVBNmouse" = "FVB/N mouse",
+    "MSMmouse" = "MSM/Ms mouse",
+    "FVBNmouse" = "FVB/N mouse",
     "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
-    "pvo" = "*Pteromys volans orii*"
-    # ,
-    # "NMRwt"="Wild *Heterocephalus glaber*"
+    "pvo" = "*Pteromys volans orii*",
+    "NMRwt"="Wild *Heterocephalus glaber*"
   )
 
+excluded.samples<-
+  c("MSMmouse",
+    "FVBNmouse",
+    "NMRwt")
 custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
-ps.q.agg<-ps.q.agg%>%
-  filter(class%in%custom.levels,Abundance!=0)
-# load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
-                                         rare.status,".",filter.status,"-",agglom.rank,"-",
-                                         paste(custom.levels,collapse = '-'),".tsv"),
-                                  header = T,sep = "\t")
 
+# facet labels
 metric.labs=c('sobs'="Richness \n(Observed species)",
               'shannon' = "Shannon",
               # 'simpson' = "Simpson",
               'invsimpson' = "Inverse \nSimpson")
+# metrics to plot
 plot.metrics<-c("sobs","shannon", # "simpson",
-                "invsimpson") # metrics to plot
+                "invsimpson")
 div.indices<-c("sobs","shannon",# "simpson",
                "invsimpson")
-scale.color.labels<-unname(pretty.axis.labels)
-scale.color.breaks<-unname(pretty.axis.labels)
 
 set.seed(1)
 custom.fill<-createPalette(length(custom.levels),
                            seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
                                           "#FF8C00","#BF3EFF", "#00FFFF",
-                                          "#FF6EB4","#00EE00","#EEC900"))
+                                          "#FF6EB4","#00EE00","#EEC900",
+                                          "#FFA07A"))
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
-ps.q.df <-ps.q.df.preprocessed%>%
-  filter(class%in%custom.levels,Abundance!=0)%>%
-  select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
+
+
+# filter your data
+if(exists("excluded.samples")){
+  custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
+  pretty.axis.labels<-
+    pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
+  pretty.axis.labels<-pretty.axis.labels[!names(pretty.axis.labels)%in%excluded.samples]
+  ps.q.agg<-ps.q.agg%>%
+    filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)
+}else{
+  pretty.axis.labels<-
+    pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
+  ps.q.agg<-ps.q.agg%>%
+    filter(class%in%custom.levels,Abundance!=0)
+}
+
+# load the output of 003-phyloseq-rarefaction-filtering.R file
+ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
+                                        rare.status,".",filter.status,"-",agglom.rank,"-",
+                                        paste(custom.levels,collapse = '-'),".tsv"),
+                                 header = T,sep = "\t")
+
+# colors
+scale.color.labels<-unname(pretty.axis.labels)
+scale.color.breaks<-unname(pretty.axis.labels)
+
+if(exists("excluded.samples")){
+  ps.q.df <-ps.q.df.preprocessed%>%
+    filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)%>%
+    select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
+  custom.fill<-custom.fill[!names(custom.fill)%in%excluded.samples]
+}else{
+  ps.q.df <-ps.q.df.preprocessed%>%
+    filter(class%in%custom.levels,Abundance!=0)%>%
+    select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
+  
+}
+
 
 # ps.q.df <-ps.q.agg.rel%>%
 #   select(Sample,OTU,Abundance,class,Taxon)
@@ -146,63 +177,6 @@ max.values<-all.div%>%
   group_by(metric)%>%
   summarise(max_val=max(value))
 
-
-# max.values.pairs<-max.values%>%
-#   cross_join(max.values)%>% # create pairwise combinations of max values for each metric and class
-#   filter(metric.x==metric.y,class.x!=class.y)%>% # remove pairs of same class 
-#   rename(class1=class.x,class2=class.y)
-
-# columns_to_concatenate <- c("class1", "class2")
-
-# create class pairs where classes are sorted
-# max.values.pairs$class.pair <- 
-#   apply(max.values.pairs[columns_to_concatenate], 1, function(row) {
-#     sorted_values <- c(pmin(row[1], row[2]), pmax(row[1], row[2]))
-#     paste(sorted_values, collapse = ", ")
-#   })
-# 
-# max.values.pairs<-max.values.pairs%>%
-#   group_by(class.pair,metric.x)%>%
-#   distinct(class.pair,metric.x,.keep_all = TRUE)%>% # removed
-#   rename(metric=metric.x)%>% 
-#   ungroup()%>%
-#   select(-metric.y)%>% # remove unnecessary columns
-#   group_by(metric,class1,class2)%>%
-#   mutate(max_val=max(max_val.x,max_val.y))%>% # get max quartile for each pair of boxplots
-#   
-#   select(-max_val.x,-max_val.y)%>% # remove unnecessary columns
-#   relocate(class1,class2)%>%
-#   ungroup()
-# 
-# 
-# w.results.df$class.pair <- 
-#   apply(w.results.df[columns_to_concatenate], 1, function(row) {
-#     sorted_values <- c(pmin(row[1], row[2]), pmax(row[1], row[2]))
-#     paste(sorted_values, collapse = ", ")
-#   })
-# 
-# 
-# w.results.max_val<-w.results.df%>%
-#   inner_join(max.values,by=c("div.metric"="metric"))
-# 
-# w.results.max_val<-w.results.max_val%>%
-#   as_tibble()%>%
-#   mutate(class1=factor(class1,levels=custom.levels),
-#          class2=factor(class2,levels=custom.levels))%>%
-#   mutate(pos1=as.numeric(class1),
-#          pos2=as.numeric(class2),
-#          pos=min(pos1,pos2),
-#          x=if_else(pos1==pos, pos1, pos2),
-#          xend=if_else(pos1==pos, pos2, pos1),
-#          y=max_val,
-#          yend=max_val)
-# for(metric in plot.metrics){
-#   w.results.max_val[w.results.max_val$div.metric==metric,"y"]<-seq(from=1, by=0.08,
-#                length.out=nrow(w.results.max_val[w.results.max_val$div.metric==metric,]))*
-#     w.results.max_val[w.results.max_val$div.metric==metric,"y"]
-#   
-# }
-# w.results.max_val$yend<-w.results.max_val$y
 
 
 all.div$class<-factor(all.div$class,levels=custom.levels)

@@ -3,10 +3,12 @@ library(phyloseq)
 library(ALDEx2)
 library(vegan)
 ref.level<-"NMR"
-authorname<-"pooled"
+authorname<-"merged"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
+rare.status<-"rare"
+filter.status<-"nonfiltered"
 
 load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
@@ -14,14 +16,14 @@ load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
 
 custom.levels<-c("NMR",
                  "B6mouse",
-                 # "MSMmouse",
-                 # "FVBNmouse",
+                 "MSMmouse",
+                 "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo"#,
-                 # "NMRwt"
+                 "pvo",
+                 "NMRwt"
                  )
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
@@ -33,8 +35,6 @@ ps.q.1pc<-ps.q.1pc%>%
   filter(class%in%custom.levels)
 
 # Import data ####
-rare.status<-"rare"
-filter.status<-"nonfiltered"
 ps.q.df.aldex.input<- read.table(paste0("./rtables/",authorname,"/ps.q.df.",
                                           rare.status,".",filter.status,"-",agglom.rank,"-",
                                           paste(custom.levels,collapse = '-'),".tsv"),

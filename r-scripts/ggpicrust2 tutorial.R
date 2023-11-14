@@ -8,10 +8,10 @@ library(patchwork)
 
 
 # Load necessary data: abundance data and metadata
-abundance_file <- "./data/alldir-data/picrust/pred_metagenome_unstrat.tsv"
+abundance_file <- "./data/pooled-data/picrust/pred_metagenome_unstrat.tsv"
 
 metadata <- read_delim(
-  "./data/alldir-data/picrust/metadata.txt",
+  "./data/pooled-data/picrust/metadata.txt",
   delim = "\t",
   escape_double = FALSE,
   trim_ws = TRUE
@@ -78,7 +78,7 @@ results_file_input[[1]]$results
 # Load metadata as a tibble
 # data(metadata)
 metadata <- read_delim(
-  "./data/alldir-data/picrust/metadata.txt",
+  "./data/pooled-data/picrust/metadata.txt",
   delim = "\t",
   escape_double = FALSE,
   trim_ws = TRUE
@@ -86,7 +86,7 @@ metadata <- read_delim(
 
 # Load KEGG pathway abundance
 # data(kegg_abundance)
-kegg_abundance <- ko2kegg_abundance("./data/alldir-data/picrust/pred_metagenome_unstrat.tsv") 
+kegg_abundance <- ko2kegg_abundance("./data/pooled-data/picrust/pred_metagenome_unstrat.tsv") 
 
 # Perform pathway differential abundance analysis (DAA) using ALDEx2 method
 # Please change group to "your_group_column" if you are not using example dataset
@@ -125,7 +125,7 @@ p <- pathway_errorbar(abundance = kegg_abundance,
 # Load metadata as a tibble
 # data(metadata)
 metadata <- read_delim(
-  "./data/alldir-data/picrust/metadata.txt",
+  "./data/pooled-data/picrust/metadata.txt",
   delim = "\t",
   escape_double = FALSE,
   trim_ws = TRUE
@@ -133,7 +133,7 @@ metadata <- read_delim(
 
 # Load KO abundance as a data.frame
 # data(ko_abundance)
-ko_abundance <- read.delim("./data/alldir-data/picrust/pred_metagenome_unstrat.tsv")
+ko_abundance <- read.delim("./data/pooled-data/picrust/pred_metagenome_unstrat.tsv")
 
 # Perform pathway DAA using ALDEx2 method
 # Please change column_to_rownames() to the feature column if you are not using example dataset

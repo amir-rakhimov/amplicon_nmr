@@ -2,7 +2,7 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
-authorname<-"pooled"
+authorname<-"merged"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
@@ -16,36 +16,51 @@ load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
 pretty.facet.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
-    # "MSMmouse" = "MSM/Ms mouse",
-    # "FVBNmouse" = "FVB/N mouse",
+    "MSMmouse" = "MSM/Ms mouse",
+    "FVBNmouse" = "FVB/N mouse",
     "DMR" = "*Fukomys Damarensis*",
     "hare" = "*Lepus europaeus*",
     "rabbit" = "*Oryctolagus cuniculus*",
     "spalax" = "*Nannospalax leucodon*",
-    "pvo" = "*Pteromys volans orii*"
-    # "NMRwt"="Wild *Heterocephalus glaber*",
+    "pvo" = "*Pteromys volans orii*",
+    "NMRwt"="Wild *Heterocephalus glaber*"
 )
 
+excluded.samples<-
+  c("MSMmouse",
+    "FVBNmouse",
+    "NMRwt")
+
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
-pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
-ps.q.agg<-ps.q.agg%>%
-  filter(class%in%custom.levels,Abundance!=0)
-# Using Polychrome package
+
+# Create custom palette with Polychrome package
 set.seed(1)
-# custom.colors<- createPalette(length(custom.levels),
-#               seedcolors = rainbow(6))
 custom.colors<- 
   createPalette(length(custom.levels),
                 seedcolors = c("#B22222", "#0000FF","#006400", 
                                "#FF8C00","#5D478B", "#00FFFF"))
-custom.colors<-unname(custom.colors)
+# custom.colors<-unname(custom.colors)
+names(custom.colors)<-custom.levels
 swatch(custom.colors)
-# custom colors for scale_fill_manual (maybe not needed)
-# custom.fill<-c("dodgerblue", "seagreen","indianred")
+
+# filter your data
+if(exists("excluded.samples")){
+  custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
+  pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
+  pretty.facet.labels<-pretty.facet.labels[!names(pretty.facet.labels)%in%excluded.samples]
+  ps.q.agg<-ps.q.agg%>%
+    filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)
+}else {
+  pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
+  ps.q.agg<-ps.q.agg%>%
+    filter(class%in%custom.levels,Abundance!=0)
+}
 
 # custom labels for scale_color_manual
 custom.color.labels<-unname(pretty.facet.labels)
-
+if(exists("excluded.samples")){
+  custom.colors<-custom.colors[!names(custom.colors)%in%excluded.samples]
+}
 # Choose distance metric
 dist.metric<-"robust.aitchison"
 dist.metric<-"jaccard"
@@ -246,19 +261,19 @@ nmds.plot<-ggplot(nmds.scores,
 
 # Depending on the results of PERMANOVA, we should choose an appropriate
 # label
-if(all.test.p<0.05){
+if(all.test.p<0.05 &sum(pairwise_p<0.05)==ncol(combinations)){
   # if all pairwise comparisons were significant
   nmds.plot<-nmds.plot+
     labs(caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
-}else if(all.test>0.05 &length(pairwise_p)==0){
+}else if(all.test.p>0.05 &sum(pairwise_p<0.05)==0){
   # if no comparisons were significant
   nmds.plot<-nmds.plot+
     labs(caption =  "No pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
-}else{
+}else if(all.test.p<0.05 &sum(pairwise_p<0.05)!=ncol(combinations)){
   # if some but not all comparisons were not significant
   nmds.plot<-nmds.plot+
     labs(caption =  paste("All pairwise comparisons except",
-         gsub("_", " vs ", paste(names(which(pairwise_p<0.001)), collapse = ", ")),
+         gsub("_", " vs ", paste(names(which(pairwise_p>0.05)), collapse = ", ")),
          "were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons"))
 }
 
@@ -355,19 +370,19 @@ pcoa.plot<-ggplot(pcoa.positions,
 
 # Depending on the results of PERMANOVA, we should choose an appropriate
 # label
-if(all.test.p<0.05){
+if(all.test.p<0.05 &sum(pairwise_p<0.05)==ncol(combinations)){
   # if all pairwise comparisons were significant
   pcoa.plot<-pcoa.plot+
     labs(caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
-}else if(all.test>0.05 &length(pairwise_p)==0){
+}else if(all.test.p>0.05 &sum(pairwise_p<0.05)==0){
   # if no comparisons were significant
   pcoa.plot<-pcoa.plot+
     labs(caption =  "No pairwise comparisons were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons")
-}else{
+}else if(all.test.p<0.05 &sum(pairwise_p<0.05)!=ncol(combinations)){
   # if some but not all comparisons were not significant
   pcoa.plot<-pcoa.plot+
     labs(caption =  paste("All pairwise comparisons except",
-                          gsub("_", " vs ", paste(names(which(pairwise_p<0.001)), collapse = ", ")),
+                          gsub("_", " vs ", paste(names(which(pairwise_p>0.05)), collapse = ", ")),
                           "were significant using<br>ADONIS at p=0.05 with Benjamini-Hochberg correction for multiple comparisons"))
 }
 

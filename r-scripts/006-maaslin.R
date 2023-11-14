@@ -2,7 +2,7 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
-authorname<-"pooled"
+authorname<-"merged"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
@@ -13,16 +13,16 @@ load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
 
 custom.levels<-c("NMR",
                  "B6mouse",
-                 # "MSMmouse",
-                 # "FVBNmouse",
+                 "MSMmouse",
+                 "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo"#,
-                 # "NMRwt"
+                 "pvo",
+                 "NMRwt"
                  )
-ref.level<-"NMR"
+ref.level<-"DMR"
 # Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"

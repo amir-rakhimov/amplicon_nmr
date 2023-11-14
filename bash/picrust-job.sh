@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 conda activate picrust2
 trunc_len=234
-custom_classes=("NMR" "SPFmouse" "FukomysDamarensis" "hare" "rabbit" "spalax"  "pvo")
+custom_classes=("NMR" "B6mouse" "MSMmouse" "FVBNmouse" "DMR" "hare" "rabbit" "spalax"  "pvo") 
 custom_classes_filename=$(IFS=-; echo "${custom_classes[*]}")
 custom_classes_picrust=$(IFS=_; echo "${custom_classes[*]}")
 ../picrust2-2.5.2/scripts/picrust2_pipeline.py \
