@@ -1,5 +1,0 @@
-"0","# import otus
-qiime tools import \
-  --type 'FeatureData[Sequence]' \
-  --input-path ./gg_13_5_otus/rep_set/97_otus.fasta \
-  --output-path 97_otus.qza"

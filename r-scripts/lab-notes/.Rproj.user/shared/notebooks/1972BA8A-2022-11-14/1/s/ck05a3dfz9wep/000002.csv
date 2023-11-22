@@ -1,6 +1,0 @@
-"0","# import taxonomy
-qiime tools import \
-  --type 'FeatureData[Taxonomy]' \
-  --input-format HeaderlessTSVTaxonomyFormat \
-  --input-path ./gg_13_5_otus/taxonomy/97_otu_taxonomy.txt \
-  --output-path ref-taxonomy.qza"
