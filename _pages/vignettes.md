@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Vignettes
-permalink: /amplicon_nmr/vignettes
+permalink: /vignettes
 ---
 
 # Data analysis vignettes
