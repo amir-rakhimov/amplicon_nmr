@@ -6,7 +6,7 @@
 # home page (main page that is displayed when you open the website)
 layout: default
 title: Project Homepage
-permalink: /amplicon_nmr/
+permalink: /amplicon_nmr
 ---
 
 # PhD project
