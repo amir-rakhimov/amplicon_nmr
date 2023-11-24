@@ -54,3 +54,6 @@ include: [_pages]
 # in your compiled CSS file while leaving your Sass source styles untouched.
 sass:
   style: compressed
+
+# Don't render the README file
+exclude: ['README.md']
