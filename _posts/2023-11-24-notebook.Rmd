@@ -1,6 +1,8 @@
 ---
-title: "002-R Notebook"
+title: "002-R Notebook markdown style"
 output: html_notebook
+layout: post
+tags: qiime2
 ---
 
 This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
