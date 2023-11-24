@@ -10,12 +10,13 @@ permalink: /amplicon_nmr/
 ---
 
 # PhD project
+
 In this project, I analyse fecal microbiota from different rodents. Data from naked mole-rats (Heterocephalus glaber, NMR; n=19) and Specific-Pathogen-Free mice (Mus musculus, SPF mouse, n=4) were newly obtained at Kumamoto University. Data from MSM/Ms and FVB/N mice were obtained at Chiba Cancer Center. Reads from Damaraland mole-rats (Fukomys damarensis, DMR; n=20) [Bensch et al. 2022 PeerJ], European brown hares (Lepus europaeus, hare; n=9) and European rabbits (Oryctolagus cuniculus, rabbit; n=12) [Shanmuganandam et al. 2020 PeerJ], Lesser blind mole-rat (Nannospalax leucodon, spalax; n=15) [Sibai et al. 2020 OMICS J Integr Biol], and Siberian flying squirrel (Pteromys volans orii, PVO; n=19) [Liu et al. 2020 Sci Rep] were downloaded from previous studies.
 
 Overview of our [methods](/amplicon_nmr/methods)
 
 Each part of my data analysis can be accessed [here](/amplicon_nmr/vignettes)
 
-Feel free to [contact](/contact) me via email 
+Feel free to [contact](/contact) me via email
 
 Enjoy!
