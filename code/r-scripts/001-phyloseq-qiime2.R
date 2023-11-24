@@ -3,40 +3,43 @@ library(qiime2R)
 library(phyloseq)
 library(tidyverse)
 
-asvlevel=F
-truncationlvl<-"234"
+asvlevel=F # specify if we're agglomerating at ASV level (not Species)
+truncationlvl<-"234" # truncation level that we chose in QIIME2
 
-authorname<-"pooled"
-directory<-paste0("./data/",authorname,"-data/")
-qiimedir<-paste0(directory,"qiime/")
+authorname<-"pooled" # name of the folder with QIIME2 output
+qiimedir<-paste0("./data/qiime/",authorname,"-qiime/") # directory with QZA files
+metadatadir<-paste0("./data/metadata/",authorname,"-metadata/") # directory with metadata
 
+# this is the taxonomic rank that will be used for agglomeration
 if(asvlevel==TRUE){
   agglom.rank<-"OTU"
 }else{
   agglom.rank<-"Genus"
 }
-read.end.type<-"single"
-source("./r-scripts/make_ps_pretty.R")
+read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+source("./code/r-scripts/make_ps_pretty.R") # import a script to make phyloseq
+# object pretty
+# specify the name of your metadata file
+metadata.filename<-paste0(metadatadir,
+                          paste("filenames",read.end.type,
+                                authorname,"raw-supercomp.tsv", sep = "-"))
 
 # Import qza files and convert them into a phyloseq object ####
 ps.q<-qza_to_phyloseq(
-  # metadata = paste0(qiimedir,"filenames-",authorname,"-supercomp.tsv"),
   features = paste0(qiimedir,authorname,"-",read.end.type,"-filtered-table-trimmed-dada2-",
-                    truncationlvl,".qza"),
+                    truncationlvl,".qza"), # feature table
   taxonomy = paste0(qiimedir,authorname,"-",read.end.type,"-taxonomy-trimmed-dada2-",
-                    truncationlvl,".qza"),
+                    truncationlvl,".qza"), # taxonomy
   tree = paste0(qiimedir,authorname,"-",read.end.type,"-rooted-tree-trimmed-dada2-",
-                truncationlvl,".qza")
+                truncationlvl,".qza") # rooted tree
 )
 
 # add custom metadata cause previous command loses metadata for some reason
-# custom.md<-read.table(paste0("./data/pooled-data/","filenames-pooled-final-supercomp.tsv"),
-#                       header = T)
-custom.md<-read.table(paste0(directory,"filenames-single-",authorname,"-raw-supercomp.tsv"),
-                      header = T)
-colnames(custom.md)[1]<-"Sample"
-custom.md<-custom.md%>%column_to_rownames(var = "Sample")
-
+custom.md<-read.table(metadata.filename, header = T)
+colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
+# convert the Sample column into row names
+custom.md<-custom.md%>%column_to_rownames(var = "Sample") 
+# assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
 # you can exclude some samples based on class
@@ -44,13 +47,13 @@ sample_data(ps.q)<-custom.md
 #                                               'ntccontrol','rabbitcontrol',
 #                                               'harecontrol'),]
 custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','tx'),]
+# you can exclude samples based on their library size (total number of reads)
 custom.md<-custom.md[!rownames(custom.md) %in%
                        intersect(names(which(colSums(ps.q@otu_table)<20000)),
                                  rownames(custom.md)),]
 
-
 ## Construct the phyloseq object directly from dada2 output ####
-# we combine qza with new metadata
+# we combine the phyloseq object with new metadata (if we excluded samples)
 ps.foo <- phyloseq(otu_table(ps.q),
                    sample_data(custom.md),
                    tax_table(ps.q),
@@ -70,9 +73,10 @@ if (asvlevel==TRUE){
     subset_taxa(Kingdom=="d__Bacteria")%>% # choose only bacteria
     psmelt()  # transform the phyloseq object into an R dataframe
 }
+# Remove entries with zero Abundance
 ps.q.agg<-ps.q.agg%>%
   filter(Abundance!=0)
-
+# change the name d__Kingdom to Kingdom
 ps.q.agg$Kingdom<-
   gsub("d__","",ps.q.agg$Kingdom)
 ## Replace empty taxa with Unclassified+previous taxon ####
@@ -84,7 +88,7 @@ if (asvlevel==TRUE){
 ps.q.agg<-ps.q.agg.pretty
 rm(ps.q.agg.pretty)
 
-# add relative abundance
+# add relative abundance column: Abundance divided by total abundance in a sample
 ps.q.agg<-ps.q.agg%>%
   group_by(Sample)%>%
   mutate(RelativeAbundance=Abundance/sum(Abundance)*100)
@@ -102,56 +106,65 @@ ps.q.total<-ps.q.agg%>%
   group_by(Sample)%>%
   summarise(TotalAbundance=sum(Abundance))
 
-# Extract taxa with highest mean relative abundance ####
-# dataset of four columns: class, two taxonomic ranks (e.g Genus, Family) 
-# and abundance 
+# Extract taxa with highest mean relative abundance (i.e. mean relative abundance >1%) ####
+# We will get a dataset of four columns: class (animal host), 
+# two taxonomic ranks (e.g Genus, Family)  and abundance 
 
-# group the dataframe by classes
+# group the dataframe by classes (animal hosts)
 classcol<-which(colnames(ps.q.agg) =="class")
+# find a column by which we agglomerated the dataset
+# for ASV, we actually use Species
 if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
 }else{
   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
 }
 
-
-# for each class, we take a genus, sum its abundances from all samples,
+# for each class, we take a agglom.rank, sum its abundances from all samples,
 # then take a mean. This will be our MeanRelativeAbundance
 if(asvlevel==TRUE){
   ps.q.agg<-ps.q.agg%>%
-    group_by(class,OTU,Genus,Family)%>% # group by class,
+    group_by(class,OTU,Genus,Family)%>% # group by class (animal host),
     # agglom.rank and the preceding column (based on index)
-    mutate(MeanRelativeAbundance = mean(RelativeAbundance)) # convert RelativeAbundance into MeanRelativeAbundance
+    # TODO: I still haven't figured out how to do it with indices only
+    # then, compute MeanRelativeAbundance from RelativeAbundance 
+    mutate(MeanRelativeAbundance = mean(RelativeAbundance)) 
 }else{ 
   ps.q.agg<-ps.q.agg%>%
     group_by_at(c(classcol,agglom.rank.col,agglom.rank.col-1))%>% # group by class,
     # agglom.rank and the preceding column (based on index)
-    mutate(MeanRelativeAbundance = mean(RelativeAbundance))# convert RelativeAbundance into MeanRelativeAbundance
+    # compute MeanRelativeAbundance from RelativeAbundance 
+    mutate(MeanRelativeAbundance = mean(RelativeAbundance))
 }
 
-# get otus with mean abundance >1% ####
+## get taxa with mean abundance >1% ####
+# ps.q.agg[ps.q.agg$MeanRelativeAbundance>1,] will output TRUE/FALSE
+# depending which MeanRelativeAbundance values are >1
+# then, we keep only TRUE values and take columns "class", agglom.rank, and
+# MeanRelativeAbundance
 ps.q.1pc<-distinct(ps.q.agg[ps.q.agg$MeanRelativeAbundance>1,
                             c("class",agglom.rank,"MeanRelativeAbundance")])
 
 
 # we need to decide whether a taxon in a specific host is present in 1%
+# create a dummy column with "class agglom.rank" strings
 if(agglom.rank=="OTU"){
   ps.q.agg<-ps.q.agg%>%
-    ungroup()%>%
-    mutate(class_agglom.rank=paste(class,OTU))
+    ungroup()%>% # ungroup because the dataset was grouped previously
+    mutate(class_agglom.rank=paste(class,OTU)) # in the original dataset
   ps.q.1pc<-ps.q.1pc%>%
-    ungroup()%>%
-    mutate(class_agglom.rank=paste(class,OTU))
+    ungroup()%>% # ungroup because the dataset was grouped previously
+    mutate(class_agglom.rank=paste(class,OTU)) # and in the 1% dataset
 }else{
   ps.q.agg<-ps.q.agg%>%
-    ungroup()%>%
-    mutate(class_agglom.rank=paste(class,Genus))
+    ungroup()%>%# ungroup because the dataset was grouped previously
+    mutate(class_agglom.rank=paste(class,Genus)) # in the original dataset
   ps.q.1pc<-ps.q.1pc%>%
-    ungroup()%>%
-    mutate(class_agglom.rank=paste(class,Genus))
+    ungroup()%>% # ungroup because the dataset was grouped previously
+    mutate(class_agglom.rank=paste(class,Genus)) # and in the 1% dataset
 }
 
-# If otu has mean rel.ab <1%, set it as Remainder ####
+## If otu has MeanRelativeAbundance <1%, set it as Remainder ####
 # Taxon.bp is for barplot
 ps.q.agg$Taxon.bp<-ps.q.agg$Taxon
 ps.q.agg$Taxon.bp<-ifelse(ps.q.agg$class_agglom.rank %in% ps.q.1pc$class_agglom.rank,
@@ -160,6 +173,6 @@ ps.q.agg$Taxon.bp<-ifelse(ps.q.agg$class_agglom.rank %in% ps.q.1pc$class_agglom.
 
 # if our Taxon is in the 1pc dataset (mean abundance >1%), keep it as it is
 # otherwise, set it as Remainder (Mean abundance < 1%)
-save.image(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+save.image(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
                                       truncationlvl,agglom.rank,
                                       "phyloseq-workspace.RData",sep = "-")))
