@@ -1,0 +1,20 @@
+/* The footer */
+.footer {
+    bottom:0;
+    background-color: #d1d1d1;
+    min-height: 50px;
+    text-align: center;
+    border-bottom: 2px solid #9b9b9b;
+}
+
+  /* Links inside the footer */
+  .footer a {
+    float: center;
+    display: block;
+    color: #000000;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-size: 17px;
+    font-family: Arial;
+  }

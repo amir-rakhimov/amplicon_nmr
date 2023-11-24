@@ -1,0 +1,56 @@
+# Site settings
+# These are used to personalize your new site. If you look in the HTML files,
+# you will see them accessed via Aleksandr Hovhannisyan, aleksandrhovhannisyan@gmail.com, and so on.
+# You can create any custom variable you would like, and they will be accessible
+# in the templates via .
+title: "PhD project: Analysis of naked mole-rat gut microbiota "
+email: amir.rakhimov.b@gmail.com
+description: Bookmark this to keep an eye on my project updates!
+baseurl: ""
+url: ""
+github-username: amir-rakhimov
+
+# Build settings
+markdown: kramdown
+theme: null # replace minima with null
+plugins:
+  - jekyll-feed
+
+
+# Default layouts 
+# Permalinks to posts use "categories" and "title" variables defined by each post
+
+# categories are tags, title is the post title
+
+# If you use permalink: /posts/:categories/:title/, 
+# Jekyll will reorganise directories: previously, it creates directories for 
+# year, month, day. But now, it uses categories for directory naming
+# first category will be the outermost directory, then inside will be the second category, etc
+
+# But we can also save without tags or even date directories: permalink: /blog/:title/
+
+defaults:
+  -
+    scope:
+      type: posts
+      path: _posts
+    values:
+      is_post: true
+      layout: post
+      permalink: /vignettes/:title/
+
+  -
+    scope:
+      type: pages
+      path: _pages
+    values:
+      is_post: false
+      layout: default
+
+# Jekyll should recognise _pages folder
+include: [_pages]
+
+#This will eliminate every bit of unnecessary whitespace (like spaces and newlines)
+# in your compiled CSS file while leaving your Sass source styles untouched.
+sass:
+  style: compressed
