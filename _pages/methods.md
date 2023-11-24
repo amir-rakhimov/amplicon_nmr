@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Methodology
-permalink: /methods
+permalink: /amplicon_nmr/methods
 ---
   
 # Methodology of this project
