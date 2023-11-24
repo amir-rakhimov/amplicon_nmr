@@ -1,5 +1,5 @@
 ---
-title: "Processing the QIIME2 output with R phyloseq markdown style"
+title: "Processing the QIIME2 output with R phyloseq (won't be shown)"
 output: html_notebook
 layout: post
 tags: qiime2
