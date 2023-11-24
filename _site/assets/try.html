@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- each page will have page title followed by site title in the tab name-->
+    <title> | PhD project: Analysis of naked mole-rat gut microbiota </title>
+    <!--the line below we reference the compiled version (.css) that’s going
+         to live under _site/ once your site is built, not the .scss version that
+          we have access to only in the precompiled source. -->
+    <link rel="stylesheet" type="text/css" href="/assets/styles/main.css">
+
+<!-- Top navigation bar-->
+</head>
+<body>
+    <!-- this is the top navigation bar: Homepage, About, etc.-->
+    <!-- The navigation bar applies a class of active-page selectively, depending on what page we’re currently on.-->
+    <!-- The  "content"  is a Liquid object. -->
+    <!-- This is a reserved variable that refers to the literal contents of whatever file Jekyll is currently processing-->
+     <!-- that has its layout set to this layout’s name (i.e. default). So, when Jekyll goes to process _pages/index.md, -->
+     <!-- encounters the layout variable, and goes to process _layouts/default.html, the content variable will refer to the-->
+       <!-- contents of index.md. -->
+       <!-- It will show the navigation link on top, and the contents below-->
+    <div class="navbar">
+        <a href="/" ><b>Project home</b></a>
+        <a href="/" >About</a>
+        <a href="/vignettes" >Vignettes</a>
+        <a href="/methods" >Methods</a>
+        <a href="/contact" >Contact</a>
+    </div>
+    
+<!--page content is anything--> 
+    <main class="page-content">
+        
+
+    </main>
+
+<!-- Footer-->
+        <div class="footer">
+        <a href="github.com/amir-rakhimov">Github page</a>
+        <a href>Mishima, Shizuoka, Japan</a>
+    </div>
+</body>
+</html>
