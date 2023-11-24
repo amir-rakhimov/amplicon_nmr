@@ -9,7 +9,7 @@ agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+load(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
                                 "phyloseq-workspace.RData",sep = "-")))
 
@@ -422,7 +422,7 @@ ggsave(paste0("./images/diversity/pcoa/",
 
 # PCA ####
 # import rarefied dataframe
-ps.q.df.pca.input<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
+ps.q.df.pca.input<-read.table(paste0("./output/rtables/",authorname,"/ps.q.df.",
                   rare.status,".",filter.status,"-",agglom.rank,"-",
                   paste(custom.levels,collapse = '-'),".tsv"),
            header = T)
@@ -447,6 +447,8 @@ if(agglom.rank=="OTU"){
 rownames(ps.q.df.wide)<-ps.q.df.wide$Sample
 ps.q.df.wide<-ps.q.df.wide[,-1] # prune after this command 
 ps.q.df.wide<-as.matrix(ps.q.df.wide)
+# RCLR: natural log
+ps.q.df.wide<-decostand(ps.q.df.wide,method="rclr",logbase = exp)
 ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
 
 #### >if you want to exclude specific samples
