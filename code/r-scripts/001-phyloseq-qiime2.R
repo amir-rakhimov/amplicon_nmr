@@ -173,6 +173,8 @@ ps.q.agg$Taxon.bp<-ifelse(ps.q.agg$class_agglom.rank %in% ps.q.1pc$class_agglom.
 
 # if our Taxon is in the 1pc dataset (mean abundance >1%), keep it as it is
 # otherwise, set it as Remainder (Mean abundance < 1%)
+
+# Save the workspace
 save.image(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
                                       truncationlvl,agglom.rank,
                                       "phyloseq-workspace.RData",sep = "-")))
