@@ -9,6 +9,6 @@ permalink: /vignettes
 
 <ul>
   {% for vignette in site.posts %}
-  <li><a href="{{ vignette.url }}" class="vignette-preview">{{ vignette.title }}</a></li>
+  <li><a href="{{site.baseurl}}/{{ vignette.url }}" class="vignette-preview">{{ vignette.title }}</a></li>
   {% endfor %}
 </ul>
