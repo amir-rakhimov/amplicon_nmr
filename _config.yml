@@ -37,7 +37,7 @@ defaults:
     values:
       is_post: true
       layout: post
-      permalink: /amplicon_nmr/vignettes/:title/
+      permalink: /vignettes/:title/
 
   -
     scope:
