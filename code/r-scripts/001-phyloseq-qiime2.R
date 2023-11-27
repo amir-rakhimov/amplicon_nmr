@@ -1,8 +1,15 @@
-# Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank 
+# Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank ####
+
+# Once you produce the feature table, taxonomic classification, and the 
+# phylogenetic tree in QIIME2, it's time to perform downstream processing
+# in R. First, we need to import the QZA files using `qiime2R` package.
+# We convert the QZA files directly into phyloseq objects.
+
+# Import libraries ####
 library(qiime2R)
 library(phyloseq)
 library(tidyverse)
-
+# Specifying parameters and directory/file names #### 
 asvlevel=F # specify if we're agglomerating at ASV level (not Species)
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 
@@ -37,12 +44,15 @@ ps.q<-qza_to_phyloseq(
 # add custom metadata cause previous command loses metadata for some reason
 custom.md<-read.table(metadata.filename, header = T)
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
-# convert the Sample column into row names
+# convert the Sample column into row names because phyloseq needs samples
+# as rownames
 custom.md<-custom.md%>%column_to_rownames(var = "Sample") 
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
-# you can exclude some samples based on class
+# you can exclude some samples based on class. Specify the excluded classes
+# in a vector, then use the `%in%` operator. It will remove entries 
+# of the `class` column (animal hosts) from the `custom.md` object (metadata)
 # custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','pvo','tx',
 #                                               'ntccontrol','rabbitcontrol',
 #                                               'harecontrol'),]
@@ -62,7 +72,7 @@ ps.q<-ps.foo
 rm(ps.foo)
 
 # Create a dataframe of absolute abundances ####
-## extract absolute abundances ####
+## Extract absolute abundances ####
 if (asvlevel==TRUE){
   ps.q.agg<-ps.q %>%
     subset_taxa(Kingdom=="d__Bacteria")%>% # choose only bacteria
@@ -80,6 +90,8 @@ ps.q.agg<-ps.q.agg%>%
 ps.q.agg$Kingdom<-
   gsub("d__","",ps.q.agg$Kingdom)
 ## Replace empty taxa with Unclassified+previous taxon ####
+# Because we want to remove NA values and make ambiguous "uncultured" or 
+# "unclassified" taxa more understandable.
 if (asvlevel==TRUE){
   ps.q.agg.pretty<-make_ps_pretty(ps.q.agg,"OTU")
 }else{
@@ -88,7 +100,7 @@ if (asvlevel==TRUE){
 ps.q.agg<-ps.q.agg.pretty
 rm(ps.q.agg.pretty)
 
-# add relative abundance column: Abundance divided by total abundance in a sample
+# Add relative abundance column: Abundance divided by total abundance in a sample
 ps.q.agg<-ps.q.agg%>%
   group_by(Sample)%>%
   mutate(RelativeAbundance=Abundance/sum(Abundance)*100)
@@ -107,13 +119,16 @@ ps.q.total<-ps.q.agg%>%
   summarise(TotalAbundance=sum(Abundance))
 
 # Extract taxa with highest mean relative abundance (i.e. mean relative abundance >1%) ####
-# We will get a dataset of four columns: class (animal host), 
-# two taxonomic ranks (e.g Genus, Family)  and abundance 
+# We will group the dataset by three columns: class (animal host), 
+# two taxonomic ranks (e.g Genus, Family), and maybe OTU (actually ASV)
+# if we agglomerate at ASV level.
 
 # group the dataframe by classes (animal hosts)
 classcol<-which(colnames(ps.q.agg) =="class")
 # find a column by which we agglomerated the dataset
 # for ASV, we actually use Species
+# We find the column index because we can derive the previous taxonomic 
+# rank with a simple agglom.rank.col-1.
 if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
 }else{
@@ -137,17 +152,22 @@ if(asvlevel==TRUE){
     mutate(MeanRelativeAbundance = mean(RelativeAbundance))
 }
 
-## get taxa with mean abundance >1% ####
+## Get taxa with mean abundance >1% ####
 # ps.q.agg[ps.q.agg$MeanRelativeAbundance>1,] will output TRUE/FALSE
 # depending which MeanRelativeAbundance values are >1
-# then, we keep only TRUE values and take columns "class", agglom.rank, and
+# Then, we keep only TRUE values and take columns "class", agglom.rank, and
 # MeanRelativeAbundance
 ps.q.1pc<-distinct(ps.q.agg[ps.q.agg$MeanRelativeAbundance>1,
                             c("class",agglom.rank,"MeanRelativeAbundance")])
 
 
-# we need to decide whether a taxon in a specific host is present in 1%
-# create a dummy column with "class agglom.rank" strings
+# We need to decide whether a taxon in a specific host is present in 1%
+# Create a dummy column with "class agglom.rank" strings because we 
+# need to compare whether a certain taxon has at least 1%
+# mean relative abundance in a certain host.
+# So, we're comparing two columns of `ps.q.agg` (`class` and `agglom.rank`/`OTU`) 
+# with two columns of `ps.q.1pc`. It's easier to merge these two columns 
+# into one column of strings instead of using some external packages
 if(agglom.rank=="OTU"){
   ps.q.agg<-ps.q.agg%>%
     ungroup()%>% # ungroup because the dataset was grouped previously

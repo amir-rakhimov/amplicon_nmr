@@ -1,13 +1,15 @@
+# Creating barplots
 library(phyloseq)
 library(vegan)
 library(tidyverse)
 library(patchwork)
 library(Polychrome)
-authorname<-"pooled"
-agglom.rank<-"Genus"
-truncationlvl<-"234"
-read.end.type<-"single"
-
+# Specifying parameters and directory/file names #### 
+authorname<-"pooled" # name of the folder with QIIME2 output
+agglom.rank<-"Genus" # this is the taxonomic rank that was used for agglomeration
+truncationlvl<-"234" #  truncation level that we chose in QIIME2
+read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+# Load the Workspace from phyloseq (output of 001-phyloseq-qiime2.R)
 load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
                                 "phyloseq-workspace.RData",sep = "-")))
@@ -23,14 +25,21 @@ pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for fa
                        "pvo" = "*Pteromys volans orii*",
                        "NMRwt"="Wild *Heterocephalus glaber*"
 )
-# merge metadata
+# use only the taxa that are present in the workspace
+# (custom.md is metadata from the rdafile)
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+# filter the phyloseq object to retain animal hosts from custom.levels
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
 
 # "Clean" column: Strip families from "Unclassified" ####
 # Order the data frame by the higher taxonomic rank 
 # (which is the "Clean" column)
+# The purpose is to order our barplot legend by a higher taxonomic rank. 
+# For example, if we build a barplot of genera, we may have a lot of genera
+# but few families. So, for readers, it's easier to check the families first,
+# and then move to genera. And when our families are ordered, it's clearly
+# easier to do the checking.
 if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
 }else{
@@ -41,7 +50,7 @@ ps.q.agg$Clean<-
 ps.q.agg$Clean<-
   gsub("\\)", "", ps.q.agg$Clean)
 
-# Convert taxa with abundance<1% into Remainder ####
+# Convert taxa with mean relative abundance<1% into Remainder ####
 ps.q.agg$Clean<-
   ifelse(ps.q.agg$MeanRelativeAbundance<1,
          "Remainder (Mean abundance < 1%)",
