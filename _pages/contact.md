@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Contact
-permalink: /contact
+permalink: /amplicon_nmr/contact
 ---
 Hope you enjoyed my project!
 
