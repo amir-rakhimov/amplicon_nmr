@@ -23,7 +23,7 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+load(paste0("./output/rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
@@ -40,7 +40,7 @@ if(host=="NMR"){
 
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./rtables/pooled/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./output/rtables/pooled/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
@@ -64,8 +64,15 @@ if(host=="NMR"){
   # select mice and add age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     filter(Abundance!=0)
-  ps.q.df.preprocessed$age_group<-ifelse(ps.q.df.preprocessed$class=="B6mouse","B6",
-                                         ifelse(grepl("2020",ps.q.df.preprocessed$birthday),"old","young"))
+  # this is an if/else statement to create the age_group column
+  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+    mutate(age_group=case_when(
+      class == "B6mouse" ~ "B6",
+      class == "MSMmouse" & grepl("2020", birthday) ~ "MSM/Ms old",
+      class == "MSMmouse" & as.Date(birthday) > as.Date("2021-01-01") ~ "MSM/Ms young",
+      class == "FVBNmouse" ~ "FVB/N young",
+      TRUE ~ NA_character_ # NA if none of the conditions are satisfied
+    ))
 }
 
 
@@ -256,6 +263,7 @@ max.values<-all.div%>%
   group_by(metric)%>%
   summarise(max_val=max(value))
 
+# Prepare data for plotting
 if(comparison=="age"){
   all.div$age_group<-factor(all.div$age_group,levels=custom.levels)
 }else if (comparison=="sex"){
@@ -295,7 +303,8 @@ div.plot<-div.plot+
              ncol=length(plot.metrics),
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
-  theme_bw()+
+  theme_bw()+ 
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.8)+
   labs(color=gg.labs.name)+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+
@@ -312,7 +321,7 @@ div.plot<-div.plot+
         plot.title = element_text(size = 27),
         legend.text = element_text(size = 20),
         legend.title = element_text(size = 25),
-        legend.position = "right")+
+        legend.position = "none")+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
 

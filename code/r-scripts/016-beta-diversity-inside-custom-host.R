@@ -18,7 +18,7 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+load(paste0("./output/rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
@@ -47,8 +47,15 @@ if(host=="NMR"){
                    "FVBNmouse")
   ps.q.df.preprocessed<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
-  ps.q.df.preprocessed$age_group<-ifelse(ps.q.df.preprocessed$class=="B6mouse","B6",
-                              ifelse(grepl("2020",ps.q.df.preprocessed$birthday),"old","young"))
+  # this is an if/else statement to create the age_group column
+  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+    mutate(age_group=case_when(
+      class == "B6mouse" ~ "B6",
+      class == "MSMmouse" & grepl("2020", birthday) ~ "MSM/Ms old",
+      class == "MSMmouse" & as.Date(birthday) > as.Date("2021-01-01") ~ "MSM/Ms young",
+      class == "FVBNmouse" ~ "FVB/N young",
+      TRUE ~ NA_character_ # NA if none of the conditions are satisfied
+    ))
 }
 
 
@@ -430,7 +437,7 @@ ggsave(paste0("./images/diversity/pcoa/",
 ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
 
 #### >if you want to exclude specific samples
-ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)=="mf_1"),]
+ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%c("mf_1","MSM343")),]
 ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
 ps.q.df.wide.centered<-scale(ps.q.pruned,scale=F,center=T)
 ####<
@@ -508,7 +515,6 @@ pca.plot<-pca.plot +
                     labels=custom.levels,
                     values = custom.colors)+
   guides(fill="none")+
-  # ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE)+ # add labels to samples+
   theme(
     axis.text.x = element_text(angle=0,size=20,hjust=1),
     axis.text.y = element_text(size=20),
@@ -519,6 +525,10 @@ pca.plot<-pca.plot +
     legend.position = "right",
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
+
+pca.labeled<-pca.plot+
+  ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # add labels to samples
+
 ggsave(paste0("./images/diversity/pca/",
               paste(Sys.Date(),"pca",host,
                     comparison,agglom.rank,truncationlvl,sep = "-"),".png"),
@@ -533,6 +543,13 @@ ggsave(paste0("./images/diversity/pca/",
        width = 4500,height = 3000,
        units = "px",dpi=300,device = "tiff")
 
+
+ggsave(paste0("./images/diversity/pca/",
+              paste(Sys.Date(),"pca-labeled",host,
+                    comparison,agglom.rank,truncationlvl,sep = "-"),".png"),
+       plot=pca.labeled,
+       width = 4500,height = 3000,
+       units = "px",dpi=300,device = "png")
 
 # find ASVs that contribute to PCs
 aload<-abs(pca.q$rotation)

@@ -11,7 +11,7 @@ read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+load(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
                                 "phyloseq-workspace.RData",sep = "-")))
 
@@ -193,6 +193,7 @@ div.plot<-ggplot(all.div[all.div$metric %in%
              ncol=length(plot.metrics),
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.8)+
   theme_bw()+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+
@@ -209,7 +210,7 @@ div.plot<-ggplot(all.div[all.div$metric %in%
         plot.title = element_text(size = 27),
         legend.text = element_text(size = 20),
         legend.title = element_text(size = 25),
-        legend.position = "right")+
+        legend.position = "none")+
   ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))
 
 coord.combs<-combn(seq_along(custom.levels),2)
