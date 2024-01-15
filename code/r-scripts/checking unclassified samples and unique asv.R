@@ -23,3 +23,20 @@ ps.q.agg%>%
   distinct(Taxon)%>%
   summarise(Taxon_count=n())%>%
   arrange(-Taxon_count)
+
+# sanity check
+ps.q.agg[grep("Unclassified|Uncultured",ps.q.agg$Taxon),]%>%
+  filter(Sample=="2D10")%>%
+  select(RelativeAbundance)%>%
+  sum()
+
+# find hosts with max unclassified
+ps.q.agg[grep("Unclassified|Uncultured",ps.q.agg$Taxon),]%>%
+  filter(Abundance>0)%>%
+  group_by(Sample,class)%>%
+  summarise(freq=sum(RelativeAbundance))%>%
+  arrange(-freq)%>%
+  ungroup()%>%
+  slice_head(n=20)%>%
+  group_by(class)%>%
+  summarise(classn=n())

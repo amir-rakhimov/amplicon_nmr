@@ -7,8 +7,9 @@
 library(phyloseq)
 library(tidyverse)
 library(Polychrome)
+library(ggtext)
 ## Specifying parameters and directory/file names #### 
-authorname<-"pooled" # name of the folder with QIIME2 output
+authorname<-"merged" # name of the folder with QIIME2 output
 agglom.rank<-"Genus" # this is the taxonomic rank that was used for agglomeration
 truncationlvl<-"234" #  truncation level that we chose in QIIME2
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
@@ -101,15 +102,15 @@ ps.q.agg.clas<-
 ps.q.agg.rem<-
   ps.q.agg[grep("Remainder", ps.q.agg$Clean),]
 # Taxon.bp is for the barplot
-ps.q.agg.rem$Taxon<-ps.q.agg.rem$Clean
+ps.q.agg.rem$Taxon.bp<-ps.q.agg.rem$Clean
 
 
 ### Order by the Clean column ####
-ps.q.agg.unclas<-
-  ps.q.agg.unclas[order(ps.q.agg.unclas$Clean),]
+ps.q.agg.unclas<-ps.q.agg.unclas%>%
+  arrange(Clean,Taxon.bp)
 
-ps.q.agg.clas<-
-  ps.q.agg.clas[order(ps.q.agg.clas$Clean),]
+ps.q.agg.clas<- ps.q.agg.clas%>%
+  arrange(Clean,Taxon.bp)
 
 
 # Merge them back into a new ps.q.agg
@@ -120,12 +121,24 @@ ps.q.agg<-rbind(ps.q.agg.rem,ps.q.agg.unclas,
 # We just copy the ps.q.agg.unclas, ps.q.agg.clas, and ps.q.agg.rem, but we remove
 # duplicate taxa and order by the Clean column
 ps.q.legend.unclas<-ps.q.agg.unclas
-ps.q.legend.unclas<-ps.q.legend.unclas[!duplicated(ps.q.legend.unclas$Taxon),]
-ps.q.legend.unclas<-ps.q.legend.unclas[order(ps.q.legend.unclas$Clean),]
+ps.q.legend.unclas<-ps.q.legend.unclas%>%
+  distinct(Taxon,.keep_all = TRUE)%>%
+  arrange(Clean,Taxon)
+
+ps.q.legend.clas<-ps.q.agg.clas
+ps.q.legend.clas<-ps.q.legend.clas%>%
+  distinct(Taxon,.keep_all = TRUE)%>%
+  arrange(Clean,Taxon)
+
+
+ps.q.legend.unclas<-ps.q.agg.unclas
+ps.q.legend.unclas<-ps.q.legend.unclas[!duplicated(ps.q.legend.unclas$Taxon.bp),]
+ps.q.legend.unclas<-ps.q.legend.unclas[order(ps.q.legend.unclas$Clean,ps.q.legend.unclas$Taxon.bp),]
 
 ps.q.legend.clas<-ps.q.agg.clas
 ps.q.legend.clas<-ps.q.legend.clas[!duplicated(ps.q.legend.clas$Taxon),]
-ps.q.legend.clas<-ps.q.legend.clas[order(ps.q.legend.clas$Clean),]
+ps.q.legend.clas<-ps.q.legend.clas[order(ps.q.legend.clas$Clean,ps.q.legend.clas$Taxon.bp),]
+
 
 # All remainder taxa will be mapped to a single row on the legend
 # Here, we use `sapply` function to find remainder taxa. All text entries
@@ -143,6 +156,26 @@ ps.q.legend<-rbind(ps.q.legend.rem,ps.q.legend.unclas,
 ps.q.legend<-ps.q.legend%>%
   select(Taxon,Taxon.bp,Clean) # for legend
 
+nmr.set<-ps.q.agg%>%
+  filter(class=="NMR")%>%
+  select(Taxon)%>%
+  unique()%>%
+  pull()
+
+others.set<-ps.q.agg%>%
+  filter(class!="NMR")%>%
+  select(Taxon)%>%
+  unique()%>%
+  pull()
+
+nmr.uniq<-setdiff(nmr.set,others.set)
+nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+
+# New font colors
+ps.q.legend<-ps.q.legend%>%
+  mutate(new.colors=ifelse(ps.q.legend$Taxon%in%nmr.uniq.legend,
+                           paste("<span style='color: red'>",ps.q.legend$Taxon,"</span>"),
+                           ps.q.legend$Taxon))
 ## Plot the barplots ####
 # We need to choose colors for the taxa in our barplot. They should be 
 # distinguishable, so we can't choose similar colors. Or at least we shouldn't 
@@ -166,7 +199,7 @@ plot.cols<-createPalette(nrow(ps.q.legend),
 # correspond to each color in the legend. Remember, remainder taxa are 
 # all merged into a single entry ("Remainder"), so there's just one color for 
 # remainder portion.
-col.vec<-setNames(plot.cols,ps.q.legend$Taxon)
+col.vec<-setNames(plot.cols,ps.q.legend$Taxon.bp)
 
 # Create the barplot with ggplot2. First, we take the agglomerated
 # dataset that we obtained in the `001-phyloseq-qiime2.R` and merge it with
@@ -210,7 +243,8 @@ mainplot<-ps.q.agg%>%
   # change facet labels to custom
   # guides(fill=guide_legend(ncol=1))+ # legend as one column
   coord_cartesian(expand=FALSE) +
-  scale_fill_manual(values = col.vec)+ # custom fill that is based on our 
+  scale_fill_manual(values = col.vec,
+                    labels=ps.q.legend$new.colors)+ # custom fill that is based on our 
   # custom palette
   xlab("") +
   ylab("Relative Abundance (%)")+
@@ -230,7 +264,7 @@ mainplot<-ps.q.agg%>%
         axis.title = element_text(size = 20), # size of axis names
         plot.title = element_text(size = 25), # size of plot title
         plot.caption = element_text(size=23), # size of plot caption
-        legend.text = element_text(size = 20), # size of legend text
+        legend.text = element_markdown(size = 20), # size of legend text
         legend.title = element_text(size = 25), # size of legend title
         legend.position = "bottom") # legend under the plot
 ggsave(paste0(barplot.directory,
@@ -320,11 +354,33 @@ lvl.df<-ps.q.agg%>%
 lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","B6mouse")])
 lvl.name<-gsub("<br>"," ", lvl.name)
 # the total legend is big, we need to narrow down to our host
-host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon%in%names(table(lvl.df$Taxon.bp))]
+host.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Taxon.bp))]
+
+nmr.set<-lvl.df%>%
+  filter(class=="NMR")%>%
+  select(Taxon)%>%
+  unique()%>%
+  pull()
+
+b6.set<-lvl.df%>%
+  filter(class=="B6mouse")%>%
+  select(Taxon)%>%
+  unique()%>%pull()
+
+nmr.uniq<-setdiff(nmr.set,b6.set)
+nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+
+# New font colors
+host.legend<-data.frame(host.legend,host.legend)%>%
+  rename(old.colors="host.legend",
+         new.colors="host.legend.1")%>%
+  mutate(new.colors=ifelse(host.legend%in%nmr.uniq.legend,
+                           paste("<span style='color: red'>",new.colors,"</span>"),
+                           old.colors))
 
 lvl.plot<-lvl.df%>%
   ggplot(aes(x=NewSample, y=RelativeAbundance,  
-             fill=factor(Taxon.bp, levels=host.legend)))+
+             fill=factor(Taxon.bp, levels=host.legend$old.colors)))+
   # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
   geom_bar(stat = "identity")+ # barplot
   facet_grid(~class, # separate species
@@ -334,7 +390,9 @@ lvl.plot<-lvl.df%>%
   )+
   guides(fill=guide_legend(ncol=1))+ # legend as one column
   coord_cartesian(expand=FALSE) +
-  scale_fill_manual(values = col.vec,breaks = names(col.vec))+
+  scale_fill_manual(values = col.vec[names(col.vec)%in%host.legend$old.colors],
+                    breaks = names(col.vec)[names(col.vec)%in%host.legend$old.colors],
+                    labels=host.legend$new.colors)+
   xlab("") +
   ylab("Relative Abundance (%)")+
   labs(fill="Taxon")+
@@ -349,7 +407,7 @@ lvl.plot<-lvl.df%>%
         axis.title = element_text(size = 20),
         plot.title = ggtext::element_markdown(size = 25),
         plot.caption = element_text(size=23),
-        legend.text = element_text(size = 20),
+        legend.text = element_markdown(size = 20),
         legend.title = element_text(size = 25),
         legend.position = "right")
 
@@ -379,9 +437,32 @@ lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","NMRw
 lvl.name<-gsub("<br>"," ", lvl.name)
 # the total legend is big, we need to narrow down to our host
 host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon%in%names(table(lvl.df$Taxon.bp))]
+nmr.set<-lvl.df%>%
+  filter(class=="NMR")%>%
+  select(Taxon)%>%
+  unique()%>%
+  pull()
 
-lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,  
-                              fill=factor(Taxon.bp, levels=host.legend)))+
+nmrwt.set<-lvl.df%>%
+  filter(class=="NMRwt")%>%
+  select(Taxon)%>%
+  unique()%>%
+  pull()
+
+nmr.uniq<-setdiff(nmr.set,nmrwt.set)
+nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+
+# New font colors
+host.legend<-data.frame(host.legend,host.legend)%>%
+  rename(old.colors="host.legend",
+         new.colors="host.legend.1")%>%
+  mutate(new.colors=ifelse(host.legend%in%nmr.uniq.legend,
+                           paste("<span style='color: red'>",new.colors,"</span>"),
+                           old.colors))
+
+lvl.plot<-lvl.df%>%
+  ggplot(aes(x=NewSample, y=RelativeAbundance,  
+                              fill=factor(Taxon.bp, levels=host.legend$old.colors)))+
   # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
   geom_bar(stat = "identity")+ # barplot
   facet_grid(~class, # separate species
@@ -391,7 +472,9 @@ lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,
   )+
   guides(fill=guide_legend(ncol=1))+ # legend as one column
   coord_cartesian(expand=FALSE) +
-  scale_fill_manual(values = col.vec,breaks = names(col.vec))+
+  scale_fill_manual(values = col.vec[names(col.vec)%in%host.legend$old.colors],
+                    breaks = names(col.vec)[names(col.vec)%in%host.legend$old.colors],
+                    labels=host.legend$new.colors)+
   xlab("") +
   ylab("Relative Abundance (%)")+
   labs(fill="Taxon")+
@@ -406,7 +489,7 @@ lvl.plot<-lvl.df%>%ggplot(aes(x=NewSample, y=RelativeAbundance,
         axis.title = element_text(size = 20),
         plot.title = ggtext::element_markdown(size = 25),
         plot.caption = element_text(size=23),
-        legend.text = element_text(size = 20),
+        legend.text = element_markdown(size = 20),
         legend.title = element_text(size = 25),
         legend.position = "right")
 

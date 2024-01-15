@@ -5,6 +5,11 @@ do
   SAMPLE=$(echo ${i} | sed "s/_R1_001\.fastq\.gz//")
   echo ${SAMPLE}_L001_R1_001.fastq.gz ${SAMPLE}_L001_R2_001.fastq.gz
 done
+# sed command uses s/ at the start, then comes the pattern we want to substitute, 
+# followed by another / after which we put the substitution and close the 
+# command with a final /. But we're not substituting  with anything, 
+# so the command is s/text_to_be_substituted//
+# Here, we substitute _R1_001.fastq.gz with nothing (we remove this string from filenames)
 
 # How to see sample names without showing the "_L001_R1_001.fastq.gz" part
 # sed will substitute the part after s/

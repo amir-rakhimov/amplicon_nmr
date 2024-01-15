@@ -29,8 +29,8 @@ pretty.axis.labels<-
   )
 
 excluded.samples<-
-  c("MSMmouse",
-    "FVBNmouse",
+  c(#"MSMmouse",
+    #"FVBNmouse",
     "NMRwt")
 custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
 
@@ -72,7 +72,7 @@ if(exists("excluded.samples")){
 }
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./output/rtables/",authorname,"/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(custom.levels,collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
@@ -193,7 +193,7 @@ div.plot<-ggplot(all.div[all.div$metric %in%
              ncol=length(plot.metrics),
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.8)+
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4)+ # add dots
   theme_bw()+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+

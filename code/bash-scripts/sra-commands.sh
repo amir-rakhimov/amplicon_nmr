@@ -1,8 +1,12 @@
-../../sratoolkit.3.0.0-ubuntu64/bin/prefetch --option-file ../../song/sra-list.txt 
+#run `nano .bashrc`
+
+# add this to the bottom of the file export PATH=sratoolkit.3.0.0-ubuntu64/bin:$PATH 
+
+sra_list=../../song/sra-list.txt 
+fastq_dir=../../song/data/fastq/raw
 
 
-../../sratoolkit.3.0.0-ubuntu64/bin/fastq-dump --outdir ../../song/data --gzip --skip-technical  --readids --read-filter pass --dumpbase --split-3 --clip ./*sra
+prefetch --option-file $sra_list --output-directory ./
 
-../../../sratoolkit.3.0.0-ubuntu64/bin/prefetch --option-file ../sra-list.txt --output-directory ./
-
-../../../sratoolkit.3.0.0-ubuntu64/bin/fastq-dump --outdir ../raw --gzip --skip-technical  --readids --read-filter pass --dumpbase --split-3 --clip ./*sra
+fastq-dump --outdir $fastq_dir --gzip --skip-technical  --readids --read-filter pass \
+--dumpbase --split-3 --clip ./*sra

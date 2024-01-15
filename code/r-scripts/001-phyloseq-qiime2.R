@@ -5,6 +5,9 @@
 # in R. First, we need to import the QZA files using `qiime2R` package.
 # We convert the QZA files directly into phyloseq objects.
 
+# The final output of this script is an ASV table with X columns:  
+# `Sample`: 
+
 ## Import libraries ####
 library(qiime2R)
 library(phyloseq)
