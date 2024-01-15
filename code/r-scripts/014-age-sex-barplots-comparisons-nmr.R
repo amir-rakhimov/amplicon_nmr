@@ -1,4 +1,3 @@
-library(eeptools)
 library(vegan)
 library(tidyverse)
 library(phyloseq)
@@ -10,7 +9,7 @@ agglom.rank<-"Genus"
 agglom.rank<-"OTU"
 read.end.type<-"single"
 
-load(paste0("./rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
+load(paste0("./output/rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
             "-phyloseq-workspace.RData"))
 
 
@@ -24,12 +23,11 @@ pretty.facet.labels<-c("NMR"= "*Heterocephalus glaber*", # better labels for fac
                        "NMRwt"="*Heterocephalus glaber* wild-type")
 
 
-ps.q.nmr.with.ages<-ps.q.agg.rel%>%
+ps.q.nmr.with.ages<-ps.q.agg%>%
   filter(class=="NMR",Abundance!=0)%>%
   group_by(Sample)%>%
   mutate(birthday=as.Date(birthday))%>%
-  mutate(age=age_calc(birthday,units = "years"))%>%
-  mutate(age=round(age))%>%
+  mutate(age=year(as.period(interval(birthday,now()))))%>%
   mutate(age_group = cut(age, breaks = c(0,5,10,15)))
 
 age.barplot<-ggplot(nmr.age.groups,aes(x=Sample, y=Abundance,

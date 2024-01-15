@@ -1,4 +1,3 @@
-library(eeptools)
 library(tidyverse)
 library(phyloseq)
 library(vegan)
@@ -44,8 +43,7 @@ if(host=="NMR"){
     filter(class=="NMR",Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=age_calc(birthday,units = "years"))%>%
-    mutate(age=round(age))
+    mutate(age=year(as.period(interval(birthday,now()))))
   
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
@@ -60,8 +58,7 @@ if(host=="NMR"){
     filter(class=="NMR")%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=age_calc(birthday,units = "years"))%>%
-    mutate(age=round(age))
+    mutate(age=year(as.period(interval(birthday,now()))))
   min_boundary <- floor(min(custom.md$age)/5) * 5
   max_boundary <- ceiling(max(custom.md$age)/5) * 5
   
