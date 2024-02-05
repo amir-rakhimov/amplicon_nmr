@@ -9,7 +9,7 @@ library(tidyverse)
 library(Polychrome)
 library(ggtext)
 ## Specifying parameters and directory/file names #### 
-authorname<-"merged" # name of the folder with QIIME2 output
+authorname<-"pooled" # name of the folder with QIIME2 output
 agglom.rank<-"Genus" # this is the taxonomic rank that was used for agglomeration
 truncationlvl<-"234" #  truncation level that we chose in QIIME2
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
@@ -45,137 +45,261 @@ custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
 
-## "Clean" column: Strip families from "Unclassified" ####
-# Order the data frame by the higher taxonomic rank 
-# (which is the "Clean" column).
-# The purpose is to order our barplot legend by a higher taxonomic rank. 
-# For example, if we build a barplot of genera, we may have a lot of genera
-# but few families. So, for readers, it's easier to check the families first,
-# and then move to genera. And when our families are ordered, it's clearly
-# easier to do the checking.
+
+# Ordering the legend
+if(asvlevel==TRUE){
+  taxa.list<-ps.q.agg%>%
+    group_by(class,OTU)%>%
+    filter(MeanRelativeAbundance>=1)%>%
+    ungroup()%>%
+    select(matches(paste0("^",agglom.rank,"$")))%>%
+    pull(.)%>%
+    unique()
+}else{
+  taxa.list<-ps.q.agg%>%
+    group_by_at(c("class",agglom.rank))%>%
+    filter(MeanRelativeAbundance>=1)%>%
+    ungroup()%>%
+    select(matches(paste0("^",agglom.rank,"$")))%>%
+    pull(.)%>%
+    unique()
+}
+
+taxa.list<-c(taxa.list,"Remainder")
+custom_order <- c("Remainder","Kingdom", "Phylum", "Class", "Order", "Family")
+# If we agglomerate by higher level (Order,Class, etc), need to adjust the rank
+if(agglom.rank%in%custom_order){
+  agglom.rank.index<-match(agglom.rank,custom_order)
+  custom_order<-custom_order[1:agglom.rank.index-1]
+}
+
+# Get only classified taxa to create Genus + Family names
+rank <- match(sub(".* ", "", taxa.list),custom_order)
+rank[is.na(rank)] <- length(custom_order) + 1
+
+# Only agglom.rank: their rank is the last in the custom_order vector
+classified.taxa<-taxa.list[rank==length(custom_order) + 1]
+unclassified.taxa<-taxa.list[rank!=length(custom_order) + 1]
+
 if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
 }else{
   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
+  preceding.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)-1
+  preceding.rank<-colnames(ps.q.agg)[preceding.rank.col]
 }
-ps.q.agg$Clean<-
-  gsub("Unclassified \\(|Uncultured \\(", "", ps.q.agg[[agglom.rank.col-1]])
-ps.q.agg$Clean<-
-  gsub("\\)", "", ps.q.agg$Clean)
 
-## Convert taxa with mean relative abundance<1% into Remainder ####
-# These taxa are too rare to be shown on the barplot
-ps.q.agg$Clean<-
-  ifelse(ps.q.agg$MeanRelativeAbundance<1,
-         "Remainder (Mean abundance < 1%)",
-         ps.q.agg$Clean)
+taxa.for_bp.df<-ps.q.agg%>%
+  ungroup()%>%
+  filter(get(agglom.rank)%in%classified.taxa)%>%
+  select(all_of(c(agglom.rank,preceding.rank)))%>%
+  distinct()%>%
+  unite("Taxon.bp",agglom.rank:preceding.rank,sep = " (",remove = FALSE)%>%
+  select(all_of(c(agglom.rank,preceding.rank,"Taxon.bp")))%>%
+  mutate("Append"=")")%>%
+  unite("Taxon.bp",Taxon.bp:Append,sep = "")
 
-## Separate Unclassified taxa from the rest and sort by agglom.rank-1 (higher rank) ####
-# We want to split the dataset into three sub-datasets: unclassified taxa, 
-# classified taxa, and remainders. The purpose is to order the barplots because
-# they're stacked. When we split, reorder, and merge back, our barplots will have
-# remainder taxa on top (for each bar), then unclassified taxa, and then finally 
-# classified taxa. Moreover, we will order the data by taxonomic rank that 
-# precedes the agglomerating rank (e.g. Family if we agglomerate by genera). 
-# Our legend will also be ordered like the bars.
+# taxa.for_bp.df$Taxon[is.na(taxa.for_bp.df$Taxon)]<-taxa.for_bp.df$Genus[is.na(taxa.for_bp.df$Taxon)]
+# taxa.for_bp.df$Family[is.na(taxa.for_bp.df$Family)]<-taxa.for_bp.df$Genus[is.na(taxa.for_bp.df$Family)]
+# Order by higher rank then agglom.rank
+taxa.for_bp.df<-taxa.for_bp.df%>%
+  arrange(get(preceding.rank),get(agglom.rank))
+taxa.for_bp.list<-taxa.for_bp.df$Taxon.bp
 
-# ps.q.agg.unclas is ps.q.agg dataset with Unclassified taxa only
-
-ps.q.agg.unclas<-
-  ps.q.agg[grep("Unclassified|Uncultured", 
-                          ps.q.agg[[agglom.rank.col]]),]
-# But it doesn't have Remainder taxa 
-ps.q.agg.unclas<-
-  ps.q.agg.unclas[!grepl("Remainder", ps.q.agg.unclas$Clean),]
-
-# clas is ps.q.agg dataset without unclassified taxa
-ps.q.agg.clas<-
-  ps.q.agg[!grepl("Unclassified|Uncultured", 
-                            ps.q.agg[[agglom.rank.col]]),]
-# But no Remainders
-ps.q.agg.clas<-
-  ps.q.agg.clas[!grepl("Remainder", ps.q.agg.clas$Clean),]
+# Now we do proper order
+# newrank <- match(sub(".* ", "", taxa.for_bp.list),custom_order)
+# newrank[is.na(newrank)] <- length(custom_order) + 1
+# 
+# 
+# taxa.for_bp.list<-taxa.for_bp.list[order(newrank)]
+# split_vec <- split(taxa.for_bp.list, newrank[order(newrank)])
+# sorted_vec <- unlist(lapply(split_vec, sort))
+# sorted_vec<-unname(sorted_vec)
 
 
-## Remainders ####
-# Only remainder taxa
-ps.q.agg.rem<-
-  ps.q.agg[grep("Remainder", ps.q.agg$Clean),]
-# Taxon.bp is for the barplot
-ps.q.agg.rem$Taxon.bp<-ps.q.agg.rem$Clean
+newrank <- match(sub(".* ", "", unclassified.taxa),custom_order)
+# newrank[is.na(newrank)] <- length(custom_order) + 1
+
+unclassified.taxa<-unclassified.taxa[order(newrank)]
+
+unclassified.taxa.split <- split(unclassified.taxa, newrank[order(newrank)])
+unclassified.taxa.sorted <- unlist(lapply(unclassified.taxa.split, sort))
+unclassified.taxa.sorted<-unname(unclassified.taxa.sorted)
+
+taxa.for_bp.list<-c(unclassified.taxa.sorted,taxa.for_bp.list)
+taxa.for_bp.list[1]<-"Remainder (Mean abundance < 1%)"
+
+ps.q.agg<-ps.q.agg%>%
+  left_join(taxa.for_bp.df,by=agglom.rank)%>%
+  ungroup()%>%
+  select(-Family.y)%>%
+  rename("Family"="Family.x")
 
 
-### Order by the Clean column ####
-ps.q.agg.unclas<-ps.q.agg.unclas%>%
-  arrange(Clean,Taxon.bp)
+ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=1&is.na(ps.q.agg$Taxon.bp)),"Taxon.bp"]<-
+  ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=1&is.na(ps.q.agg$Taxon.bp)),"Genus"]
 
-ps.q.agg.clas<- ps.q.agg.clas%>%
-  arrange(Clean,Taxon.bp)
+ps.q.agg[which(ps.q.agg$MeanRelativeAbundance<1&is.na(ps.q.agg$Taxon.bp)),"Taxon.bp"]<-
+  "Remainder (Mean abundance < 1%)"
 
-
-# Merge them back into a new ps.q.agg
-ps.q.agg<-rbind(ps.q.agg.rem,ps.q.agg.unclas,
-                           ps.q.agg.clas)
-
-## Create a common legend ####
-# We just copy the ps.q.agg.unclas, ps.q.agg.clas, and ps.q.agg.rem, but we remove
-# duplicate taxa and order by the Clean column
-ps.q.legend.unclas<-ps.q.agg.unclas
-ps.q.legend.unclas<-ps.q.legend.unclas%>%
-  distinct(Taxon,.keep_all = TRUE)%>%
-  arrange(Clean,Taxon)
-
-ps.q.legend.clas<-ps.q.agg.clas
-ps.q.legend.clas<-ps.q.legend.clas%>%
-  distinct(Taxon,.keep_all = TRUE)%>%
-  arrange(Clean,Taxon)
-
-
-ps.q.legend.unclas<-ps.q.agg.unclas
-ps.q.legend.unclas<-ps.q.legend.unclas[!duplicated(ps.q.legend.unclas$Taxon.bp),]
-ps.q.legend.unclas<-ps.q.legend.unclas[order(ps.q.legend.unclas$Clean,ps.q.legend.unclas$Taxon.bp),]
-
-ps.q.legend.clas<-ps.q.agg.clas
-ps.q.legend.clas<-ps.q.legend.clas[!duplicated(ps.q.legend.clas$Taxon),]
-ps.q.legend.clas<-ps.q.legend.clas[order(ps.q.legend.clas$Clean,ps.q.legend.clas$Taxon.bp),]
+  # left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))#%>% # merge our data 
+  # with the dataset of total abundances, so we can have info about sample size
+  # mutate(class=factor(class,levels=custom.levels))%>% # change the order of
+  # # our class column, so the NMR will be first
+  # mutate(NewSample=paste0(Sample," (n = ", TotalAbundance, ")"))%>% # add a 
+  # # column where sample names are together with sample sizes
+  # 
+  # ggplot(aes(x=NewSample, y=RelativeAbundance,  
+  #            fill=factor(Taxon, levels=taxa.for_bp.list)))+
+  # # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
+  # geom_bar(stat = "identity")+ # barplot
+  # facet_grid(~class, # separate animal hosts
+  #            scales="free",  # each species will have its own bars inside
+  #            # facet (instead of all bars)
+  #            space = "free", # bars will have same widths
+  #            labeller = labeller(class=pretty.facet.labels))+
+  # guides(fill=guide_legend(ncol=1))
 
 
-# All remainder taxa will be mapped to a single row on the legend
-# Here, we use `sapply` function to find remainder taxa. All text entries
-# in the row such as class, Sample, or taxonomic ranks will be 
-# substituted by "Remainder (Mean abundance < 1%)". Set numeric entries as zero.
-ps.q.legend.rem<-ps.q.agg.clas[1,] # take the first row of ps.q.agg.clas
-ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.character))]<-"Remainder (Mean abundance < 1%)" # substitute all text entries with "remainder" string
-ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.numeric))]<-0 # set numeric
-# entries as zero
+####################
+
+# 
+# 
+# ## "Clean" column: Strip families from "Unclassified" ####
+# # Order the data frame by the higher taxonomic rank 
+# # (which is the "Clean" column).
+# # The purpose is to order our barplot legend by a higher taxonomic rank. 
+# # For example, if we build a barplot of genera, we may have a lot of genera
+# # but few families. So, for readers, it's easier to check the families first,
+# # and then move to genera. And when our families are ordered, it's clearly
+# # easier to do the checking.
+# if(agglom.rank=="OTU"){
+#   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
+# }else{
+#   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
+# }
+# ps.q.agg$Clean<-
+#   gsub("Unclassified \\(|Uncultured \\(", "", ps.q.agg[[agglom.rank.col-1]])
+# ps.q.agg$Clean<-
+#   gsub("\\)", "", ps.q.agg$Clean)
+# 
+# ## Convert taxa with mean relative abundance<1% into Remainder ####
+# # These taxa are too rare to be shown on the barplot
+# ps.q.agg<-ps.q.agg%>%
+#   mutate(Clean=replace(Clean,MeanRelativeAbundance<1,"Remainder (Mean abundance < 1%)"))
+# 
+# ## Separate Unclassified taxa from the rest and sort by agglom.rank-1 (higher rank) ####
+# # We want to split the dataset into three sub-datasets: unclassified taxa, 
+# # classified taxa, and remainders. The purpose is to order the barplots because
+# # they're stacked. When we split, reorder, and merge back, our barplots will have
+# # remainder taxa on top (for each bar), then unclassified taxa, and then finally 
+# # classified taxa. Moreover, we will order the data by taxonomic rank that 
+# # precedes the agglomerating rank (e.g. Family if we agglomerate by genera). 
+# # Our legend will also be ordered like the bars.
+# 
+# # ps.q.agg.unclas is ps.q.agg dataset with Unclassified taxa only
+# 
+# ps.q.agg.unclas<-
+#   ps.q.agg[grep("Unclassified|Uncultured", 
+#                           ps.q.agg[[agglom.rank.col]]),]
+# # But it doesn't have Remainder taxa 
+# ps.q.agg.unclas<-
+#   ps.q.agg.unclas[!grepl("Remainder", ps.q.agg.unclas$Clean),]
+# 
+# # clas is ps.q.agg dataset without unclassified taxa
+# ps.q.agg.clas<-
+#   ps.q.agg[!grepl("Unclassified|Uncultured", 
+#                             ps.q.agg[[agglom.rank.col]]),]
+# # But no Remainders
+# ps.q.agg.clas<-
+#   ps.q.agg.clas[!grepl("Remainder", ps.q.agg.clas$Clean),]
+# 
+# 
+# ## Remainders ####
+# # Only remainder taxa
+# ps.q.agg.rem<-
+#   ps.q.agg[grep("Remainder", ps.q.agg$Clean),]
+# # Taxon.bp is for the barplot
+# ps.q.agg.rem$Taxon.bp<-ps.q.agg.rem$Clean
+# 
+# 
+# ### Order by the Clean column ####
+# ps.q.agg.unclas<-ps.q.agg.unclas%>%
+#   arrange(Clean,Taxon.bp)
+# 
+# ps.q.agg.clas<- ps.q.agg.clas%>%
+#   arrange(Clean,Taxon.bp)
+# 
+# 
+# # Merge them back into a new ps.q.agg
+# ps.q.agg<-rbind(ps.q.agg.rem,ps.q.agg.unclas,
+#                            ps.q.agg.clas)
+# 
+# ## Create a common legend ####
+# # We just copy the ps.q.agg.unclas, ps.q.agg.clas, and ps.q.agg.rem, but we remove
+# # duplicate taxa and order by the Clean column
+# ps.q.legend.unclas<-ps.q.agg.unclas
+# ps.q.legend.unclas<-ps.q.legend.unclas%>%
+#   distinct(Taxon,.keep_all = TRUE)%>%
+#   arrange(Clean,Taxon)
+# 
+# ps.q.legend.clas<-ps.q.agg.clas
+# ps.q.legend.clas<-ps.q.legend.clas%>%
+#   distinct(Taxon,.keep_all = TRUE)%>%
+#   arrange(Clean,Taxon)
+# 
+# 
+# ps.q.legend.unclas<-ps.q.agg.unclas
+# ps.q.legend.unclas<-ps.q.legend.unclas[!duplicated(ps.q.legend.unclas$Taxon.bp),]
+# ps.q.legend.unclas<-ps.q.legend.unclas[order(ps.q.legend.unclas$Clean,ps.q.legend.unclas$Taxon.bp),]
+# 
+# ps.q.legend.clas<-ps.q.agg.clas
+# ps.q.legend.clas<-ps.q.legend.clas[!duplicated(ps.q.legend.clas$Taxon),]
+# ps.q.legend.clas<-ps.q.legend.clas[order(ps.q.legend.clas$Clean,ps.q.legend.clas$Taxon.bp),]
+# 
+# 
+# # All remainder taxa will be mapped to a single row on the legend
+# # Here, we use `sapply` function to find remainder taxa. All text entries
+# # in the row such as class, Sample, or taxonomic ranks will be 
+# # substituted by "Remainder (Mean abundance < 1%)". Set numeric entries as zero.
+# ps.q.legend.rem<-ps.q.agg.clas[1,] # take the first row of ps.q.agg.clas
+# ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.character))]<-"Remainder (Mean abundance < 1%)" # substitute all text entries with "remainder" string
+# ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.numeric))]<-0 # set numeric
+# # entries as zero
 
 # Bind sub-datasets into a new legend. For legend, select only three columns:
 #   `Taxon`, `Taxon.bp`, and `Clean`
-ps.q.legend<-rbind(ps.q.legend.rem,ps.q.legend.unclas,
-                   ps.q.legend.clas)
-ps.q.legend<-ps.q.legend%>%
-  select(Taxon,Taxon.bp,Clean) # for legend
+# ps.q.legend<-rbind(ps.q.legend.rem,ps.q.legend.unclas,
+#                    ps.q.legend.clas)
+# ps.q.legend<-ps.q.legend%>%
+#   select(Taxon,Taxon.bp,Clean) # for legend
 
 nmr.set<-ps.q.agg%>%
   filter(class=="NMR")%>%
-  select(Taxon)%>%
+  select(agglom.rank)%>%
   unique()%>%
   pull()
 
 others.set<-ps.q.agg%>%
   filter(class!="NMR")%>%
-  select(Taxon)%>%
+  select(agglom.rank)%>%
   unique()%>%
   pull()
 
 nmr.uniq<-setdiff(nmr.set,others.set)
-nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+agglom.rank.vec<-ps.q.agg%>%
+  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=1)%>%
+  select(Genus)%>%
+  pull()%>%
+  unique()
+nmr.uniq.legend<-agglom.rank.vec[agglom.rank.vec%in%nmr.uniq]
 
 # New font colors
-ps.q.legend<-ps.q.legend%>%
-  mutate(new.colors=ifelse(ps.q.legend$Taxon%in%nmr.uniq.legend,
-                           paste("<span style='color: red'>",ps.q.legend$Taxon,"</span>"),
-                           ps.q.legend$Taxon))
+ps.q.legend<-as.data.frame(taxa.for_bp.list)%>%
+  rename("Taxon.bp"="taxa.for_bp.list")%>%
+  mutate(new.colors=ifelse(Taxon.bp%in%nmr.uniq.legend,
+                           paste("<span style='color: red'><b>",Taxon.bp,"</b></span>"),
+                           Taxon.bp))
 ## Plot the barplots ####
 # We need to choose colors for the taxa in our barplot. They should be 
 # distinguishable, so we can't choose similar colors. Or at least we shouldn't 
@@ -190,8 +314,12 @@ ps.q.legend<-ps.q.legend%>%
 # is a bit random. The output is a vector of colors.
 
 set.seed(1)
-plot.cols<-createPalette(nrow(ps.q.legend),
-                         seedcolors = rainbow(7))# input: number of rows
+plot.cols<-c("#C1CDCD")
+
+
+plot.cols<-createPalette(nrow(ps.q.legend)-1,
+                         seedcolors =palette.colors(palette = "Okabe-Ito"))# input: number of rows
+plot.cols<-c("#C1CDCD",plot.cols)
 # in our legend and the seed colors that we decide to be rainbow
 
 # The vector of colors should be named according to our legend
@@ -232,7 +360,7 @@ mainplot<-ps.q.agg%>%
   mutate(NewSample=paste0(Sample," (n = ", TotalAbundance, ")"))%>% # add a 
   # column where sample names are together with sample sizes
   ggplot(aes(x=NewSample, y=RelativeAbundance,  
-             fill=factor(Taxon.bp, levels=ps.q.legend$Taxon)))+
+             fill=factor(Taxon.bp, levels=ps.q.legend$Taxon.bp)))+
   # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
   geom_bar(stat = "identity")+ # barplot
   facet_grid(~class, # separate animal hosts
@@ -358,24 +486,31 @@ host.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Tax
 
 nmr.set<-lvl.df%>%
   filter(class=="NMR")%>%
-  select(Taxon)%>%
+  select(agglom.rank)%>%
   unique()%>%
   pull()
 
 b6.set<-lvl.df%>%
   filter(class=="B6mouse")%>%
-  select(Taxon)%>%
-  unique()%>%pull()
+  select(agglom.rank)%>%
+  unique()%>%
+  pull()
 
 nmr.uniq<-setdiff(nmr.set,b6.set)
-nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+nmr.uniq.legend<-ps.q.agg%>%
+  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=1)%>%
+  distinct(Genus,Taxon.bp)%>%
+  filter(Genus%in%nmr.uniq)%>%
+  select(Taxon.bp)%>%
+  pull()
 
+# nmr.uniq.legend<-agglom.rank.vec[agglom.rank.vec%in%nmr.uniq]
 # New font colors
 host.legend<-data.frame(host.legend,host.legend)%>%
   rename(old.colors="host.legend",
          new.colors="host.legend.1")%>%
   mutate(new.colors=ifelse(host.legend%in%nmr.uniq.legend,
-                           paste("<span style='color: red'>",new.colors,"</span>"),
+                           paste("<span style='color: red'><b>",new.colors,"</b></span>"),
                            old.colors))
 
 lvl.plot<-lvl.df%>%
