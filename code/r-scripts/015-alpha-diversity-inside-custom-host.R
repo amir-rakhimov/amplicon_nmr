@@ -51,8 +51,7 @@ if(host=="NMR"){
     filter(Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=age_calc(birthday,units = "years"))%>%
-    mutate(age=round(age))
+    mutate(age=year(as.period(interval(birthday,now()))))
   
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
@@ -135,7 +134,7 @@ ps.q.df <-ps.q.df.preprocessed%>%
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
-if(comparison=="age"){
+if(comparison=="age"||comparison=="sex"){
   all.div<-ps.q.df%>%
     group_by(Sample)%>%
     reframe(sobs=specnumber(Abundance), # richness (num of species)
@@ -143,19 +142,7 @@ if(comparison=="age"){
             # simpson=diversity(Abundance, index="simpson"),
             invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
             tot=sum(Abundance),
-            age_group=age_group)%>%
-    group_by(Sample)%>%
-    pivot_longer(cols=c(sobs,shannon,invsimpson),
-                 names_to="metric")%>%
-    distinct()
-}else if (comparison=="sex"){
-  all.div<-ps.q.df%>%
-    group_by(Sample)%>%
-    reframe(sobs=specnumber(Abundance), # richness (num of species)
-            shannon=diversity(Abundance,index = "shannon"),
-            # simpson=diversity(Abundance, index="simpson"),
-            invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-            tot=sum(Abundance),
+            age_group=age_group,
             sex=sex)%>%
     group_by(Sample)%>%
     pivot_longer(cols=c(sobs,shannon,invsimpson),
@@ -304,7 +291,7 @@ div.plot<-div.plot+
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
   theme_bw()+ 
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.8)+
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5)+
   labs(color=gg.labs.name)+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+
@@ -324,131 +311,203 @@ div.plot<-div.plot+
         legend.position = "none")+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
-
-
-
-coord.combs<-combn(seq_along(custom.levels),2)
-
-# First, find significant results (stars)
-stars.list<-matrix(NA,nrow=length(div.indices),ncol = ncol(coord.combs))
-for (k in 1:dim(w.results)[3]) { # loop over each sub array
-  for (i in 1:dim(w.results)[1]) { # then each row
-    for (j in 1:dim(w.results)[2]) { # then each column
-      if (!is.na(w.results[i,j,k])) { # extract non-NA values
-        ith.row<-rownames(w.results[,,k])[i] 
-        jth.col<-colnames(w.results[,,k])[j]
-        w.val<- w.results[i,j,k]
-        
-        # e.g. ith.row="NMR"
-        # jth.col="hare"
-        # find in custom.levels the positions that correspond to c("NMR","hare")
-        # the result: level.position = c(1,4)
-        levels.position<-which(custom.levels%in%c(ith.row,jth.col))
-        # find these positions in the coord.combs to get the column 
-        # that stores levels.position
-        # result: level.col=3 
-        level.col<-which(apply(coord.combs,2,function(x) 
-          return(all(x==levels.position))))
-        # assign the w.val to stars.list:kth row is diversity metric
-        # level.col column is the combination of levels
-        # we must assign either "*" or "n.s." depeding on w.result[i,j,k]
-        stars.list[k,level.col]<-ifelse(w.val!="n.s.",ifelse(w.val<0.05,"*","n.s."),w.val)
-      }
-    }
-  }
-}
-
-stars.list<-as.vector(t(stars.list))
-
-stars<-tibble(
-  metric=factor(rep(plot.metrics,each=ncol(coord.combs)), # each plot metric repeated by the number of combinations
-                levels = plot.metrics), # names of our metrics
-  label=stars.list
-)
-star.indices<-which(stars$label=="*") # only significant results
-
-freqs<-as.data.frame(table(stars))%>%filter(label=="*")
-yvalues<-c()
-for (i in seq_along(freqs)){
-  vec<-seq(from=1, by=0.08,length.out=freqs[i,"Freq"])*
-    as.numeric(max.values[max.values$metric==freqs[i,"metric"],"max_val"])
-  yvalues<-c(yvalues,vec)
-}
-
-
-# the horizontal lines
-# merge two vectors: two rows
-# c() turns them into a vector
-
-# y coordinates
-# multiply vectors to get a matrix: nrows is the number of comparisons
-# ncols is the number of plot.metrics
-# seq is the sequence of values that will multiply maxvalues
-
-# start and end values can be found from pairwise combinations
-# x values have dimensions: num of metrics * num of pairwise comparisons
-xvalues<-rep(coord.combs[1,],
-             length=length(div.indices)*ncol(coord.combs)) # first row is x start values
-xendvalues<-rep(coord.combs[2,],
-                length=length(div.indices)*ncol(coord.combs)) # second row is x end values
-
-# select only significant results
-xvalues<-xvalues[star.indices]
-xendvalues<-xendvalues[star.indices]
-
-horizontal.lines<-tibble(
-  metric=factor(rep(plot.metrics,each=ncol(coord.combs)),
-                levels = plot.metrics)[star.indices], # names of our metrics
-  x = xvalues,       #1 2 1 1 2 1 1 2 1 1 2 1
-  xend = xendvalues, #2 3 3 2 3 3 2 3 3 2 3 3
-  y =yvalues,
-  yend = yvalues
-)
-
-
-
-
-# labels depend on our tests (statistical significance)
-xstars<-(xvalues+xendvalues)/2
-stars<-stars%>% filter(label=="*")%>%
-  mutate(x= xstars,
-         y =c(yvalues)*1.01)
-
-
-
-newplot<-div.plot+
-  geom_segment(data=horizontal.lines, # add horizontal.lines of significance
-               aes(x=x, xend=xend, y=y, yend=yend),
-               inherit.aes = FALSE)+# no conflict with different fills
-  geom_text(data = stars,aes(x=x, y=y, label=label),
-            inherit.aes = FALSE,size=10) # add stars 
-
-ggsave(paste0("./images/diversity/alpha/",paste(Sys.Date(),"alpha",
-              paste(plot.metrics,collapse = "-"),host,comparison,agglom.rank,truncationlvl,
-              sep="-"),".png"),
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    host,comparison,agglom.rank,truncationlvl,
+                    sep="-"),".png"),
        plot=div.plot,
        width = 6000,height = 3000,
        units = "px",dpi=300,device = "png")
 
-ggsave(paste0("./images/diversity/alpha/",paste(Sys.Date(),"alpha",
-              paste(plot.metrics,collapse = "-"),host,comparison,agglom.rank,truncationlvl,
-              sep="-"),".tiff"),
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    host,comparison,agglom.rank,truncationlvl,
+                    sep="-"),".tiff"),
        plot=div.plot,
        width = 6000,height = 3000,
        units = "px",dpi=300,device = "tiff")
+# Per-sample plot ####
+# We need to invert the custom.levels for the rotated plot
+# Create a vector of sample factors (also inverted within their group)
+# sample.factors<-
+sample.factors<-all.div%>%
+  ungroup()%>%
+  pivot_wider(names_from = "metric",
+              values_from ="value")%>%
+  arrange(fct_rev(age_group),sobs,shannon,invsimpson)%>%
+  select(Sample)%>%
+  distinct()%>%
+  pull
+  
+
+# Assign factors to the Sample column
+all.div$Sample<-factor(all.div$Sample,levels=sample.factors)
+# Revert the age_group order, otherwise the legend will be wrong
+all.div$age_group<-factor(all.div$age_group,levels=custom.levels)
+per.sample.div.plot<-ggplot(all.div[all.div$metric %in%
+                 plot.metrics,],
+       aes(x=value,y=Sample,colour=age_group))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             ncol=length(plot.metrics),
+             scales="free_x", # free y axis range
+             labeller = as_labeller(metric.labs))+ # rename facets
+  theme_bw()+ 
+  labs(color=gg.labs.name)+
+  scale_color_manual(values = custom.fill)+
+  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = ggtext::element_markdown(hjust=1,size=18),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        strip.text.x = element_text(size=20),
+        plot.title = element_text(size = 27),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25),
+        legend.position = "right")+
+  ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
+                gg.title.taxon))
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha-per-sample",
+                    paste(plot.metrics,collapse = "-"),
+                    host,comparison,agglom.rank,truncationlvl,
+                    sep="-"),".png"),
+       plot=per.sample.div.plot,
+       width = 6000,height = 3000,
+       units = "px",dpi=300,device = "png")
+
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha-per-sample",
+                    paste(plot.metrics,collapse = "-"),
+                    host,comparison,agglom.rank,truncationlvl,
+                    sep="-"),".tiff"),
+       plot=per.sample.div.plot,
+       width = 6000,height = 3000,
+       units = "px",dpi=300,device = "tiff")
+
+# Add significance stars if we have significant results ####
+if(length(which(as.vector(w.results)<0.05))>0){
+  coord.combs<-combn(seq_along(custom.levels),2)
+  
+  # First, find significant results (stars)
+  stars.list<-matrix(NA,nrow=length(div.indices),ncol = ncol(coord.combs))
+  for (k in 1:dim(w.results)[3]) { # loop over each sub array
+    for (i in 1:dim(w.results)[1]) { # then each row
+      for (j in 1:dim(w.results)[2]) { # then each column
+        if (!is.na(w.results[i,j,k])) { # extract non-NA values
+          ith.row<-rownames(w.results[,,k])[i] 
+          jth.col<-colnames(w.results[,,k])[j]
+          w.val<- w.results[i,j,k]
+          
+          # e.g. ith.row="NMR"
+          # jth.col="hare"
+          # find in custom.levels the positions that correspond to c("NMR","hare")
+          # the result: level.position = c(1,4)
+          levels.position<-which(custom.levels%in%c(ith.row,jth.col))
+          # find these positions in the coord.combs to get the column 
+          # that stores levels.position
+          # result: level.col=3 
+          level.col<-which(apply(coord.combs,2,function(x) 
+            return(all(x==levels.position))))
+          # assign the w.val to stars.list:kth row is diversity metric
+          # level.col column is the combination of levels
+          # we must assign either "*" or "n.s." depeding on w.result[i,j,k]
+          stars.list[k,level.col]<-ifelse(w.val!="n.s.",ifelse(w.val<0.05,"*","n.s."),w.val)
+        }
+      }
+    }
+  }
+  
+  stars.list<-as.vector(t(stars.list))
+  
+  stars<-tibble(
+    metric=factor(rep(plot.metrics,each=ncol(coord.combs)), # each plot metric repeated by the number of combinations
+                  levels = plot.metrics), # names of our metrics
+    label=stars.list
+  )
+  star.indices<-which(stars$label=="*") # only significant results
+  
+  freqs<-as.data.frame(table(stars))%>%filter(label=="*")
+  yvalues<-c()
+  for (i in seq_along(freqs)){
+    vec<-seq(from=1, by=0.08,length.out=freqs[i,"Freq"])*
+      as.numeric(max.values[max.values$metric==freqs[i,"metric"],"max_val"])
+    yvalues<-c(yvalues,vec)
+  }
+  
+  
+  # the horizontal lines
+  # merge two vectors: two rows
+  # c() turns them into a vector
+  
+  # y coordinates
+  # multiply vectors to get a matrix: nrows is the number of comparisons
+  # ncols is the number of plot.metrics
+  # seq is the sequence of values that will multiply maxvalues
+  
+  # start and end values can be found from pairwise combinations
+  # x values have dimensions: num of metrics * num of pairwise comparisons
+  xvalues<-rep(coord.combs[1,],
+               length=length(div.indices)*ncol(coord.combs)) # first row is x start values
+  xendvalues<-rep(coord.combs[2,],
+                  length=length(div.indices)*ncol(coord.combs)) # second row is x end values
+  
+  # select only significant results
+  xvalues<-xvalues[star.indices]
+  xendvalues<-xendvalues[star.indices]
+  
+  horizontal.lines<-tibble(
+    metric=factor(rep(plot.metrics,each=ncol(coord.combs)),
+                  levels = plot.metrics)[star.indices], # names of our metrics
+    x = xvalues,       #1 2 1 1 2 1 1 2 1 1 2 1
+    xend = xendvalues, #2 3 3 2 3 3 2 3 3 2 3 3
+    y =yvalues,
+    yend = yvalues
+  )
+  
+  
+  
+  
+  # labels depend on our tests (statistical significance)
+  xstars<-(xvalues+xendvalues)/2
+  stars<-stars%>% filter(label=="*")%>%
+    mutate(x= xstars,
+           y =c(yvalues)*1.01)
+  
+  
+  
+  newplot<-div.plot+
+    geom_segment(data=horizontal.lines, # add horizontal.lines of significance
+                 aes(x=x, xend=xend, y=y, yend=yend),
+                 inherit.aes = FALSE)+# no conflict with different fills
+    geom_text(data = stars,aes(x=x, y=y, label=label),
+              inherit.aes = FALSE,size=10) # add stars 
+  
+  
+  
+  
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(Sys.Date(),
+                      "alpha-shannon-sobs",
+                      host,comparison,agglom.rank,"signif"
+                      ,truncationlvl,sep = "-"),
+                ".png"),
+         plot=newplot,
+         width = 6000,height = 5000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/diversity/",
+                paste(Sys.Date(),
+                      "alpha-shannon-sobs",
+                      host,comparison,agglom.rank,"signif"
+                      ,truncationlvl,sep = "-"),
+                ".tiff"),
+         plot=newplot,
+         width = 6000,height = 5000,
+         units = "px",dpi=300,device = "png")
+}
 
 
-ggsave(paste0("./images/diversity/alpha/",paste(Sys.Date(),
-              "alpha-shannon-sobs",host,comparison,agglom.rank,"signif"
-              ,truncationlvl,sep = "-"),
-              ".png"),
-       plot=newplot,
-       width = 6000,height = 5000,
-       units = "px",dpi=300,device = "png")
-ggsave(paste0("./images/diversity/",paste(Sys.Date(),
-              "alpha-shannon-sobs",host,comparison,agglom.rank,"signif"
-              ,truncationlvl,sep = "-"),
-              ".tiff"),
-       plot=newplot,
-       width = 6000,height = 5000,
-       units = "px",dpi=300,device = "png")
