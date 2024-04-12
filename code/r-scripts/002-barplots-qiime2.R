@@ -10,7 +10,7 @@ library(Polychrome)
 library(ggtext)
 ## Specifying parameters and directory/file names #### 
 authorname<-"pooled" # name of the folder with QIIME2 output
-agglom.rank<-"Genus" # this is the taxonomic rank that was used for agglomeration
+agglom.rank<-"Order" # this is the taxonomic rank that was used for agglomeration
 truncationlvl<-"234" #  truncation level that we chose in QIIME2
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
 barplot.directory<-"./images/barplots/" # set the path where barplots will
@@ -50,7 +50,7 @@ ps.q.agg<-ps.q.agg%>%
 if(asvlevel==TRUE){
   taxa.list<-ps.q.agg%>%
     group_by(class,OTU)%>%
-    filter(MeanRelativeAbundance>=1)%>%
+    filter(MeanRelativeAbundance>=0.1)%>%
     ungroup()%>%
     select(matches(paste0("^",agglom.rank,"$")))%>%
     pull(.)%>%
@@ -58,7 +58,7 @@ if(asvlevel==TRUE){
 }else{
   taxa.list<-ps.q.agg%>%
     group_by_at(c("class",agglom.rank))%>%
-    filter(MeanRelativeAbundance>=1)%>%
+    filter(MeanRelativeAbundance>=0.1)%>%
     ungroup()%>%
     select(matches(paste0("^",agglom.rank,"$")))%>%
     pull(.)%>%
@@ -102,21 +102,12 @@ taxa.for_bp.df<-ps.q.agg%>%
 # taxa.for_bp.df$Taxon[is.na(taxa.for_bp.df$Taxon)]<-taxa.for_bp.df$Genus[is.na(taxa.for_bp.df$Taxon)]
 # taxa.for_bp.df$Family[is.na(taxa.for_bp.df$Family)]<-taxa.for_bp.df$Genus[is.na(taxa.for_bp.df$Family)]
 # Order by higher rank then agglom.rank
+# These are agglom.rank (preceding.rank) format strings for barplot
 taxa.for_bp.df<-taxa.for_bp.df%>%
   arrange(get(preceding.rank),get(agglom.rank))
 taxa.for_bp.list<-taxa.for_bp.df$Taxon.bp
 
-# Now we do proper order
-# newrank <- match(sub(".* ", "", taxa.for_bp.list),custom_order)
-# newrank[is.na(newrank)] <- length(custom_order) + 1
-# 
-# 
-# taxa.for_bp.list<-taxa.for_bp.list[order(newrank)]
-# split_vec <- split(taxa.for_bp.list, newrank[order(newrank)])
-# sorted_vec <- unlist(lapply(split_vec, sort))
-# sorted_vec<-unname(sorted_vec)
-
-
+# Now we order unclassified taxa
 newrank <- match(sub(".* ", "", unclassified.taxa),custom_order)
 # newrank[is.na(newrank)] <- length(custom_order) + 1
 
@@ -126,170 +117,40 @@ unclassified.taxa.split <- split(unclassified.taxa, newrank[order(newrank)])
 unclassified.taxa.sorted <- unlist(lapply(unclassified.taxa.split, sort))
 unclassified.taxa.sorted<-unname(unclassified.taxa.sorted)
 
+# Add sorted unclassified taxa to the sorted classified taxa
 taxa.for_bp.list<-c(unclassified.taxa.sorted,taxa.for_bp.list)
-taxa.for_bp.list[1]<-"Remainder (Mean abundance < 1%)"
-
+taxa.for_bp.list[1]<-"Remainder (Mean abundance < 0.1%)"
+# Add barplot taxa to the main dataframe
 ps.q.agg<-ps.q.agg%>%
   left_join(taxa.for_bp.df,by=agglom.rank)%>%
   ungroup()%>%
-  select(-Family.y)%>%
-  rename("Family"="Family.x")
+  select(-paste0(preceding.rank,".y"))%>% # remove the preceding.rank column from taxa.for_bp.df
+  rename(!!preceding.rank:=paste0(preceding.rank,".x")) # rename the preceding.rank column
+# !!preceding.rank:= will evaluate the variable
 
+ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=0.1&is.na(ps.q.agg$Taxon.bp)),"Taxon.bp"]<-
+  ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=0.1&is.na(ps.q.agg$Taxon.bp)),agglom.rank]
 
-ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=1&is.na(ps.q.agg$Taxon.bp)),"Taxon.bp"]<-
-  ps.q.agg[which(ps.q.agg$MeanRelativeAbundance>=1&is.na(ps.q.agg$Taxon.bp)),"Genus"]
+ps.q.agg[which(ps.q.agg$MeanRelativeAbundance<0.1),"Taxon.bp"]<-
+  "Remainder (Mean abundance < 0.1%)"
 
-ps.q.agg[which(ps.q.agg$MeanRelativeAbundance<1&is.na(ps.q.agg$Taxon.bp)),"Taxon.bp"]<-
-  "Remainder (Mean abundance < 1%)"
-
-  # left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))#%>% # merge our data 
-  # with the dataset of total abundances, so we can have info about sample size
-  # mutate(class=factor(class,levels=custom.levels))%>% # change the order of
-  # # our class column, so the NMR will be first
-  # mutate(NewSample=paste0(Sample," (n = ", TotalAbundance, ")"))%>% # add a 
-  # # column where sample names are together with sample sizes
-  # 
-  # ggplot(aes(x=NewSample, y=RelativeAbundance,  
-  #            fill=factor(Taxon, levels=taxa.for_bp.list)))+
-  # # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
-  # geom_bar(stat = "identity")+ # barplot
-  # facet_grid(~class, # separate animal hosts
-  #            scales="free",  # each species will have its own bars inside
-  #            # facet (instead of all bars)
-  #            space = "free", # bars will have same widths
-  #            labeller = labeller(class=pretty.facet.labels))+
-  # guides(fill=guide_legend(ncol=1))
-
-
-####################
-
-# 
-# 
-# ## "Clean" column: Strip families from "Unclassified" ####
-# # Order the data frame by the higher taxonomic rank 
-# # (which is the "Clean" column).
-# # The purpose is to order our barplot legend by a higher taxonomic rank. 
-# # For example, if we build a barplot of genera, we may have a lot of genera
-# # but few families. So, for readers, it's easier to check the families first,
-# # and then move to genera. And when our families are ordered, it's clearly
-# # easier to do the checking.
-# if(agglom.rank=="OTU"){
-#   agglom.rank.col<-which(colnames(ps.q.agg) =="Species")
-# }else{
-#   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
-# }
-# ps.q.agg$Clean<-
-#   gsub("Unclassified \\(|Uncultured \\(", "", ps.q.agg[[agglom.rank.col-1]])
-# ps.q.agg$Clean<-
-#   gsub("\\)", "", ps.q.agg$Clean)
-# 
-# ## Convert taxa with mean relative abundance<1% into Remainder ####
-# # These taxa are too rare to be shown on the barplot
-# ps.q.agg<-ps.q.agg%>%
-#   mutate(Clean=replace(Clean,MeanRelativeAbundance<1,"Remainder (Mean abundance < 1%)"))
-# 
-# ## Separate Unclassified taxa from the rest and sort by agglom.rank-1 (higher rank) ####
-# # We want to split the dataset into three sub-datasets: unclassified taxa, 
-# # classified taxa, and remainders. The purpose is to order the barplots because
-# # they're stacked. When we split, reorder, and merge back, our barplots will have
-# # remainder taxa on top (for each bar), then unclassified taxa, and then finally 
-# # classified taxa. Moreover, we will order the data by taxonomic rank that 
-# # precedes the agglomerating rank (e.g. Family if we agglomerate by genera). 
-# # Our legend will also be ordered like the bars.
-# 
-# # ps.q.agg.unclas is ps.q.agg dataset with Unclassified taxa only
-# 
-# ps.q.agg.unclas<-
-#   ps.q.agg[grep("Unclassified|Uncultured", 
-#                           ps.q.agg[[agglom.rank.col]]),]
-# # But it doesn't have Remainder taxa 
-# ps.q.agg.unclas<-
-#   ps.q.agg.unclas[!grepl("Remainder", ps.q.agg.unclas$Clean),]
-# 
-# # clas is ps.q.agg dataset without unclassified taxa
-# ps.q.agg.clas<-
-#   ps.q.agg[!grepl("Unclassified|Uncultured", 
-#                             ps.q.agg[[agglom.rank.col]]),]
-# # But no Remainders
-# ps.q.agg.clas<-
-#   ps.q.agg.clas[!grepl("Remainder", ps.q.agg.clas$Clean),]
-# 
-# 
-# ## Remainders ####
-# # Only remainder taxa
-# ps.q.agg.rem<-
-#   ps.q.agg[grep("Remainder", ps.q.agg$Clean),]
-# # Taxon.bp is for the barplot
-# ps.q.agg.rem$Taxon.bp<-ps.q.agg.rem$Clean
-# 
-# 
-# ### Order by the Clean column ####
-# ps.q.agg.unclas<-ps.q.agg.unclas%>%
-#   arrange(Clean,Taxon.bp)
-# 
-# ps.q.agg.clas<- ps.q.agg.clas%>%
-#   arrange(Clean,Taxon.bp)
-# 
-# 
-# # Merge them back into a new ps.q.agg
-# ps.q.agg<-rbind(ps.q.agg.rem,ps.q.agg.unclas,
-#                            ps.q.agg.clas)
-# 
-# ## Create a common legend ####
-# # We just copy the ps.q.agg.unclas, ps.q.agg.clas, and ps.q.agg.rem, but we remove
-# # duplicate taxa and order by the Clean column
-# ps.q.legend.unclas<-ps.q.agg.unclas
-# ps.q.legend.unclas<-ps.q.legend.unclas%>%
-#   distinct(Taxon,.keep_all = TRUE)%>%
-#   arrange(Clean,Taxon)
-# 
-# ps.q.legend.clas<-ps.q.agg.clas
-# ps.q.legend.clas<-ps.q.legend.clas%>%
-#   distinct(Taxon,.keep_all = TRUE)%>%
-#   arrange(Clean,Taxon)
-# 
-# 
-# ps.q.legend.unclas<-ps.q.agg.unclas
-# ps.q.legend.unclas<-ps.q.legend.unclas[!duplicated(ps.q.legend.unclas$Taxon.bp),]
-# ps.q.legend.unclas<-ps.q.legend.unclas[order(ps.q.legend.unclas$Clean,ps.q.legend.unclas$Taxon.bp),]
-# 
-# ps.q.legend.clas<-ps.q.agg.clas
-# ps.q.legend.clas<-ps.q.legend.clas[!duplicated(ps.q.legend.clas$Taxon),]
-# ps.q.legend.clas<-ps.q.legend.clas[order(ps.q.legend.clas$Clean,ps.q.legend.clas$Taxon.bp),]
-# 
-# 
-# # All remainder taxa will be mapped to a single row on the legend
-# # Here, we use `sapply` function to find remainder taxa. All text entries
-# # in the row such as class, Sample, or taxonomic ranks will be 
-# # substituted by "Remainder (Mean abundance < 1%)". Set numeric entries as zero.
-# ps.q.legend.rem<-ps.q.agg.clas[1,] # take the first row of ps.q.agg.clas
-# ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.character))]<-"Remainder (Mean abundance < 1%)" # substitute all text entries with "remainder" string
-# ps.q.legend.rem[which(sapply(ps.q.legend.rem,is.numeric))]<-0 # set numeric
-# # entries as zero
-
-# Bind sub-datasets into a new legend. For legend, select only three columns:
-#   `Taxon`, `Taxon.bp`, and `Clean`
-# ps.q.legend<-rbind(ps.q.legend.rem,ps.q.legend.unclas,
-#                    ps.q.legend.clas)
-# ps.q.legend<-ps.q.legend%>%
-#   select(Taxon,Taxon.bp,Clean) # for legend
-
+# We want to highlight NMR-specific taxa
 nmr.set<-ps.q.agg%>%
   filter(class=="NMR")%>%
-  select(agglom.rank)%>%
+  select(all_of(agglom.rank))%>%
   unique()%>%
   pull()
 
 others.set<-ps.q.agg%>%
   filter(class!="NMR")%>%
-  select(agglom.rank)%>%
+  select(all_of(agglom.rank))%>%
   unique()%>%
   pull()
 
 nmr.uniq<-setdiff(nmr.set,others.set)
 agglom.rank.vec<-ps.q.agg%>%
-  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=1)%>%
-  select(Genus)%>%
+  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=0.1)%>%
+  select(agglom.rank)%>%
   pull()%>%
   unique()
 nmr.uniq.legend<-agglom.rank.vec[agglom.rank.vec%in%nmr.uniq]
@@ -312,14 +173,10 @@ ps.q.legend<-as.data.frame(taxa.for_bp.list)%>%
 #                                               next to each other). 
 # We also need to set the random seed because the output
 # is a bit random. The output is a vector of colors.
-
 set.seed(1)
-plot.cols<-c("#C1CDCD")
+plot.cols<-createPalette(length(taxa.for_bp.list)-1,
+                         seedcolors =rainbow(7))# input: number of rows
 
-
-plot.cols<-createPalette(nrow(ps.q.legend)-1,
-                         seedcolors =palette.colors(palette = "Okabe-Ito"))# input: number of rows
-plot.cols<-c("#C1CDCD",plot.cols)
 # in our legend and the seed colors that we decide to be rainbow
 
 # The vector of colors should be named according to our legend
@@ -327,8 +184,14 @@ plot.cols<-c("#C1CDCD",plot.cols)
 # correspond to each color in the legend. Remember, remainder taxa are 
 # all merged into a single entry ("Remainder"), so there's just one color for 
 # remainder portion.
-col.vec<-setNames(plot.cols,ps.q.legend$Taxon.bp)
 
+# Decrease alpha for unclassified
+plot.cols<-c("#C1CDCD",plot.cols)
+plot.cols[which(taxa.for_bp.list%in%unclassified.taxa.sorted)]<-
+  adjustcolor(plot.cols[which(taxa.for_bp.list%in%unclassified.taxa.sorted)],
+              alpha.f = 0.5)
+
+col.vec<-setNames(plot.cols,ps.q.legend$Taxon.bp)
 # Create the barplot with ggplot2. First, we take the agglomerated
 # dataset that we obtained in the `001-phyloseq-qiime2.R` and merge it with
 # the dataset of total abundances, so we can know how many reads were in
@@ -353,15 +216,16 @@ col.vec<-setNames(plot.cols,ps.q.legend$Taxon.bp)
 # factor, so it can map to the vector of color. **The order of factorised
 # `Taxon.bp` is based on the `Taxon` column from the legend**.
 mainplot<-ps.q.agg%>%
-  left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data 
-  # with the dataset of total abundances, so we can have info about sample size
+  group_by(Sample)%>%
+  mutate(TotalAbundance=sum(Abundance))%>% # add total counts per sample, 
+  # so we can have info about sample size
+  ungroup()%>%
   mutate(class=factor(class,levels=custom.levels))%>% # change the order of
   # our class column, so the NMR will be first
   mutate(NewSample=paste0(Sample," (n = ", TotalAbundance, ")"))%>% # add a 
   # column where sample names are together with sample sizes
   ggplot(aes(x=NewSample, y=RelativeAbundance,  
              fill=factor(Taxon.bp, levels=ps.q.legend$Taxon.bp)))+
-  # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
   geom_bar(stat = "identity")+ # barplot
   facet_grid(~class, # separate animal hosts
              scales="free",  # each species will have its own bars inside
@@ -414,8 +278,10 @@ ggsave(paste0(barplot.directory,
 for(i in seq_along(custom.levels)){
   lvl.df<-ps.q.agg%>% #lvl.df is ps.q.agg. that was narrowed down
     # to the specific animal host
-    left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data 
-    # with the dataset of total abundances, so we can have info about sample size
+    group_by(Sample)%>%
+    mutate(TotalAbundance=sum(Abundance))%>% # add total counts per sample, 
+    # so we can have info about sample size
+    ungroup()%>%
     mutate(class=factor(class,levels=custom.levels))%>% # change the order of 
     # our class column, so the NMR will be first
     mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%# add a 
@@ -429,7 +295,7 @@ for(i in seq_along(custom.levels)){
   lvl.name<-gsub("<br>"," ", lvl.name) # also remove all line breaks
   # the total legend is big, we need to narrow down to our host. 
   # Take the legend and extract taxa that are present in the lvl.df
-  host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon%in%names(table(lvl.df$Taxon.bp))]
+  host.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Taxon.bp))]
   
   
   lvl.plot<-lvl.df%>%
@@ -439,8 +305,9 @@ for(i in seq_along(custom.levels)){
     geom_bar(stat = "identity")+ # barplot
     guides(fill=guide_legend(ncol=1))+ # legend as one column
     coord_cartesian(expand=FALSE) +
-    scale_fill_manual(values = col.vec,
-                      breaks = names(col.vec))+# custom fill that is 
+    scale_fill_manual(values = col.vec[names(col.vec)%in%host.legend],
+                      breaks = names(col.vec)[names(col.vec)%in%host.legend],
+                      labels=host.legend)+# custom fill that is 
     # based on our custom palette
     xlab("") +
     ylab("Relative Abundance (%)")+
@@ -473,8 +340,10 @@ for(i in seq_along(custom.levels)){
 
 ## Barplot for NMR and mice ####
 lvl.df<-ps.q.agg%>%
-  left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data 
-  # with the dataset of total abundances, so we can have info about sample size
+  group_by(Sample)%>%
+  mutate(TotalAbundance=sum(Abundance))%>% # add total counts per sample, 
+  # so we can have info about sample size
+  ungroup()%>%
   mutate(class=factor(class,levels=custom.levels))%>% # change the order of 
   # our class column, so the NMR will be first
   mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
@@ -498,13 +367,13 @@ b6.set<-lvl.df%>%
 
 nmr.uniq<-setdiff(nmr.set,b6.set)
 nmr.uniq.legend<-ps.q.agg%>%
-  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=1)%>%
-  distinct(Genus,Taxon.bp)%>%
-  filter(Genus%in%nmr.uniq)%>%
+  filter(Taxon.bp%in%taxa.for_bp.list,MeanRelativeAbundance>=0.1)%>%
+  distinct(get(agglom.rank),Taxon.bp)%>%
+  rename(!!agglom.rank:="get(agglom.rank)")%>%
+  filter(get(agglom.rank)%in%nmr.uniq)%>%
   select(Taxon.bp)%>%
   pull()
 
-# nmr.uniq.legend<-agglom.rank.vec[agglom.rank.vec%in%nmr.uniq]
 # New font colors
 host.legend<-data.frame(host.legend,host.legend)%>%
   rename(old.colors="host.legend",
@@ -559,87 +428,131 @@ ggsave(paste0("./images/barplots/",
        width = 8000,height = 6000,
        units = "px",dpi=300,device = "tiff")
 
-
-
 ## Barplot for NMR and NMR wt ####
-lvl.df<-ps.q.agg%>%
-  left_join(.,ps.q.total,by="Sample",suffix=c("",".y"))%>% # merge our data with the dataset of total abundances, so we can have info about sample size
-  # mutate(class=factor(class,levels=c("NMRwt","NMR","control")))%>% # change the order of our class column, so the NMR will be first
-  mutate(class=factor(class,levels=custom.levels))%>% # change the order of our class column, so the NMR will be first
-  mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
-  filter(class%in%c("NMR","NMRwt"),Abundance!=0)
-lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","NMRwt")])
-lvl.name<-gsub("<br>"," ", lvl.name)
-# the total legend is big, we need to narrow down to our host
-host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon%in%names(table(lvl.df$Taxon.bp))]
-nmr.set<-lvl.df%>%
-  filter(class=="NMR")%>%
-  select(Taxon)%>%
-  unique()%>%
-  pull()
-
-nmrwt.set<-lvl.df%>%
-  filter(class=="NMRwt")%>%
-  select(Taxon)%>%
-  unique()%>%
-  pull()
-
-nmr.uniq<-setdiff(nmr.set,nmrwt.set)
-nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
-
-# New font colors
-host.legend<-data.frame(host.legend,host.legend)%>%
-  rename(old.colors="host.legend",
-         new.colors="host.legend.1")%>%
-  mutate(new.colors=ifelse(host.legend%in%nmr.uniq.legend,
-                           paste("<span style='color: red'>",new.colors,"</span>"),
-                           old.colors))
-
-lvl.plot<-lvl.df%>%
-  ggplot(aes(x=NewSample, y=RelativeAbundance,  
-                              fill=factor(Taxon.bp, levels=host.legend$old.colors)))+
-  # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
-  geom_bar(stat = "identity")+ # barplot
-  facet_grid(~class, # separate species
-             scales="free",  # each species will have its own bars inside facet (instead of all bars)
-             space = "free", # bars will have same widths
-             labeller = labeller(class=pretty.facet.labels) # labeller will change facet labels to custom
-  )+
-  guides(fill=guide_legend(ncol=1))+ # legend as one column
-  coord_cartesian(expand=FALSE) +
-  scale_fill_manual(values = col.vec[names(col.vec)%in%host.legend$old.colors],
-                    breaks = names(col.vec)[names(col.vec)%in%host.legend$old.colors],
-                    labels=host.legend$new.colors)+
-  xlab("") +
-  ylab("Relative Abundance (%)")+
-  labs(fill="Taxon")+
-  theme_bw()+
-  ggtitle(paste(agglom.rank,"level gut microbiota profiles of fecal samples from", paste(lvl.name,collapse = " and ")))+
-  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
-        axis.line = element_blank(), 
-        strip.text.x = ggtext::element_markdown(size = 20),
-        panel.spacing = unit(0.8, "cm"), # increase distance between facets
-        axis.text.x = element_text(angle=45,size=20,hjust=1),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size = 20),
-        plot.title = ggtext::element_markdown(size = 25),
-        plot.caption = element_text(size=23),
-        legend.text = element_markdown(size = 20),
-        legend.title = element_text(size = 25),
-        legend.position = "right")
-
-ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"barplot","NMR-NMRwt",truncationlvl,
-                    agglom.rank,sep = "-"),".png"),
-       plot=lvl.plot,
-       width = 9000,height = 6000,
-       units = "px",dpi=300,device = "png")
-ggsave(paste0("./images/barplots/",
-              paste(Sys.Date(),"barplot","NMR-NMRwt",truncationlvl,
-                    agglom.rank,sep = "-"),".tiff"),
-       plot=lvl.plot,
-       width = 9000,height = 6000,
-       units = "px",dpi=300,device = "tiff")
+if("NMRwt"%in%custom.levels){
+  lvl.df<-ps.q.agg%>%
+    group_by(Sample)%>%
+    mutate(TotalAbundance=sum(Abundance))%>% # add total counts per sample, 
+    # so we can have info about sample size
+    ungroup()%>%
+    # mutate(class=factor(class,levels=c("NMRwt","NMR","control")))%>% # change the order of our class column, so the NMR will be first
+    mutate(class=factor(class,levels=custom.levels))%>% # change the order of our class column, so the NMR will be first
+    mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
+    filter(class%in%c("NMR","NMRwt"),Abundance!=0)
+  lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","NMRwt")])
+  lvl.name<-gsub("<br>"," ", lvl.name)
+  # the total legend is big, we need to narrow down to our host
+  host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Taxon.bp))]
+  nmr.set<-lvl.df%>%
+    filter(class=="NMR")%>%
+    select(Taxon.bp)%>%
+    unique()%>%
+    pull()
+  
+  nmrwt.set<-lvl.df%>%
+    filter(class=="NMRwt")%>%
+    select(Taxon.bp)%>%
+    unique()%>%
+    pull()
+  
+  nmr.uniq<-setdiff(nmr.set,nmrwt.set)
+  nmr.uniq.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%nmr.uniq]
+  
+  # New font colors
+  host.legend<-data.frame(host.legend,host.legend)%>%
+    rename(old.colors="host.legend",
+           new.colors="host.legend.1")%>%
+    mutate(new.colors=ifelse(host.legend%in%nmr.uniq.legend,
+                             paste("<span style='color: red'>",new.colors,"</span>"),
+                             old.colors))
+  
+  lvl.plot<-lvl.df%>%
+    ggplot(aes(x=NewSample, y=RelativeAbundance,  
+               fill=factor(Taxon.bp, levels=host.legend$old.colors)))+
+    # Taxon.bp is from ps.q.agg.rel, while Taxon is from ps.q.legend
+    geom_bar(stat = "identity")+ # barplot
+    facet_grid(~class, # separate species
+               scales="free",  # each species will have its own bars inside facet (instead of all bars)
+               space = "free", # bars will have same widths
+               labeller = labeller(class=pretty.facet.labels) # labeller will change facet labels to custom
+    )+
+    guides(fill=guide_legend(ncol=1))+ # legend as one column
+    coord_cartesian(expand=FALSE) +
+    scale_fill_manual(values = col.vec[names(col.vec)%in%host.legend$old.colors],
+                      breaks = names(col.vec)[names(col.vec)%in%host.legend$old.colors],
+                      labels=host.legend$new.colors)+
+    xlab("") +
+    ylab("Relative Abundance (%)")+
+    labs(fill="Taxon")+
+    theme_bw()+
+    ggtitle(paste(agglom.rank,"level gut microbiota profiles of fecal samples from", paste(lvl.name,collapse = " and ")))+
+    theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+          axis.line = element_blank(), 
+          strip.text.x = ggtext::element_markdown(size = 20),
+          panel.spacing = unit(0.8, "cm"), # increase distance between facets
+          axis.text.x = element_text(angle=45,size=20,hjust=1),
+          axis.text.y = element_text(size=20),
+          axis.title = element_text(size = 20),
+          plot.title = ggtext::element_markdown(size = 25),
+          plot.caption = element_text(size=23),
+          legend.text = element_markdown(size = 20),
+          legend.title = element_text(size = 25),
+          legend.position = "right")
+  
+  ggsave(paste0("./images/barplots/",
+                paste(Sys.Date(),"barplot","NMR-NMRwt",truncationlvl,
+                      agglom.rank,sep = "-"),".png"),
+         plot=lvl.plot,
+         width = 9000,height = 6000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/barplots/",
+                paste(Sys.Date(),"barplot","NMR-NMRwt",truncationlvl,
+                      agglom.rank,sep = "-"),".tiff"),
+         plot=lvl.plot,
+         width = 9000,height = 6000,
+         units = "px",dpi=300,device = "tiff")
+}
 
 # Session Info
 sessionInfo()
+
+plot1<-ps.q.agg%>%
+  filter(Genus=="Lactobacillus",
+         Abundance!=0)%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
+  geom_bar(stat="identity")+
+  facet_grid(.~class,scales = "free",
+             space = "free")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1))+
+  ggtitle("Lactobacillus")
+ggsave(filename = paste0("./images/barplots/Lactobacillus.png"),
+       plot1,
+       height = 800,width = 1500,units = "px",dpi = 120)
+
+plot2<-ps.q.agg%>%
+  filter(Genus=="Bifidobacterium",
+         Abundance!=0)%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
+  geom_bar(stat="identity")+
+  facet_grid(~class,scales = "free",
+             space = "free")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1))+
+  ggtitle("Bifidobacterium")
+ggsave(filename = paste0("./images/barplots/Bifidobacterium.png"),
+       plot2,
+       height = 800,width = 1500,units = "px",dpi = 120)
+plot3<-ps.q.agg%>%
+  filter(Genus=="Desulfovibrio",
+         Abundance!=0)%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
+  geom_bar(stat="identity")+
+  facet_grid(~class,scales = "free",
+             space = "free")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45,hjust=1))+
+  ggtitle("Desulfovibrio")
+ggsave(filename = paste0("./images/barplots/Desulfovibrio.png"),
+       plot3,
+       height = 800,width = 1500,units = "px",dpi = 120)
