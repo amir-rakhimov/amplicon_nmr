@@ -41,17 +41,17 @@ ps.q.df<-ps.q.df%>%
 
 
 # convert the data frame into wide format
-if (agglom.rank!="OTU"){
+if (agglom.rank=="OTU"){
   ps.q.df.wide<-ps.q.df%>%
-    select(-OTU)%>%
-    pivot_wider(names_from = "Taxon", # or OTU
+    select(-Taxon)%>%
+    pivot_wider(names_from = "OTU", # or OTU
                 values_from = "Abundance",
                 values_fill = 0)%>%
     as.data.frame()
 }else{
   ps.q.df.wide<-ps.q.df%>%
-    select(-Taxon)%>%
-    pivot_wider(names_from = "OTU", # or OTU
+    select(-OTU)%>%
+    pivot_wider(names_from = "Taxon", # or OTU
                 values_from = "Abundance",
                 values_fill = 0)%>%
     as.data.frame()
@@ -73,23 +73,20 @@ min.n_seqs.all<-ps.q.agg%>%
 
 # rarefied asv table with vegan
 set.seed(1)
-if(agglom.rank!="OTU"){
-  ps.q.df.rare<-rrarefy(ps.q.df.wide,sample=min.n_seqs.all)%>%
-    as_tibble(rownames="Sample")%>%
-    pivot_longer(-Sample)%>%
-    as.data.frame()%>%
-    inner_join(unique(ps.q.agg[,c("Sample","class","sex","birthday")]),
-               by="Sample")%>%
-    rename(Taxon=name,Abundance=value)%>%
-    filter(Abundance!=0)
-}else{
-  ps.q.df.rare<-rrarefy(ps.q.df.wide,sample=min.n_seqs.all)%>%
-    as_tibble(rownames="Sample")%>%
-    pivot_longer(-Sample)%>%
-    as.data.frame()%>%
-    inner_join(unique(ps.q.agg[,c("Sample","class","sex","birthday")]),
-               by="Sample")%>%
+ps.q.df.rare<-rrarefy(ps.q.df.wide,sample=min.n_seqs.all)
+ps.q.df.rare<-ps.q.df.rare%>%
+  as_tibble(rownames="Sample")%>%
+  pivot_longer(-Sample)%>%
+  as.data.frame()%>%
+  left_join(unique(ps.q.agg[,c("Sample","class","sex","birthday")]),
+             by="Sample")
+if(agglom.rank=="OTU"){
+  ps.q.df.rare<-ps.q.df.rare%>%
     rename(OTU=name,Abundance=value)%>%
+    filter(Abundance!=0)  
+}else{
+  ps.q.df.rare<-ps.q.df.rare%>%
+    rename(Taxon=name,Abundance=value)%>%
     filter(Abundance!=0)
 }
 
