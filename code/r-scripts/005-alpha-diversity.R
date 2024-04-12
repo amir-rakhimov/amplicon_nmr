@@ -115,6 +115,8 @@ all.div<-ps.q.df%>%
   distinct()
 
 ## Alpha diversity tests ####
+# The Kruskal-Wallis rank sum test analyzes differences in each alpha diversity
+# metric across animal hosts
 kt.results<-data.frame(matrix(nrow = 2,ncol=length(div.indices)))
 colnames(kt.results)<-div.indices
 rownames(kt.results)<-c("statistic", "pvalue")
@@ -213,6 +215,28 @@ div.plot<-ggplot(all.div[all.div$metric %in%
         legend.position = "none")+
   ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))
 
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    paste(custom.levels,collapse = '-'),
+                    agglom.rank,truncationlvl,sep = "-"),
+              ".png"),
+       plot=div.plot,
+       width = 6000,height = 3000,
+       units = "px",dpi=300,device = "png")
+
+ggsave(paste0("./images/diversity/alpha/",
+              paste(Sys.Date(),"alpha",
+                    paste(plot.metrics,collapse = "-"),
+                    paste(custom.levels,collapse = '-'),
+                    agglom.rank,truncationlvl,sep = "-"),
+              ".tiff"),
+       plot=div.plot,
+       width = 6000,height = 3000,
+       units = "px",dpi=300,device = "tiff")
+
+
+# Add significance stars ####
 coord.combs<-combn(seq_along(custom.levels),2)
 
 # First, find significant results (stars)
@@ -309,25 +333,6 @@ newplot<-div.plot+
   geom_text(data = stars,aes(x=x, y=y, label=label),
             inherit.aes = FALSE,size=10) # add stars 
 
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    paste(custom.levels,collapse = '-'),
-                    agglom.rank,truncationlvl,sep = "-"),
-              ".png"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "png")
-
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    paste(custom.levels,collapse = '-'),
-                    agglom.rank,truncationlvl,sep = "-"),
-              ".tiff"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "tiff")
 
 # save plot with significance bars
 # Use the table of wilcoxon tests, check if there are any pairwise comparisons
