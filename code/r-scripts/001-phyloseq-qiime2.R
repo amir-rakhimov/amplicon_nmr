@@ -31,7 +31,7 @@ library(tidyverse)
 library(microViz)
 ## Specifying parameters and directory/file names #### 
 # This is the taxonomic rank that will be used for agglomeration
-agglom.rank<-"Phylum"
+agglom.rank<-"Genus"
 # specify if we're agglomerating at ASV level (not Species)
 if(agglom.rank=="OTU"){
   asvlevel<-TRUE
@@ -40,24 +40,30 @@ if(agglom.rank=="OTU"){
 }
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 authorname<-"pooled" # name of the folder with QIIME2 output
-qiimedir<-paste0("./output/qiime/",authorname,"-qiime/") # directory with QZA files
-metadatadir<-paste0("./data/metadata/",authorname,"-metadata/") # directory with metadata
-
-
+date_time<-"20240425_02_57_13"
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+qiimedir<-file.path("./output/qiime",paste0(authorname,"-qiime"),
+                    paste(date_time,read.end.type,truncationlvl,sep="-")) # directory with QZA files
+
+metadatadir<-file.path("./data/metadata",
+                       paste(authorname,"metadata",sep = "-")) # directory with metadata
+
 # Specify the name of your metadata file
-metadata.filename<-paste0(metadatadir,
+metadata.filename<-file.path(metadatadir,
                           paste("filenames",read.end.type,
                                 authorname,"raw-supercomp.tsv", sep = "-"))
 
 ## Import qza files and convert them into a phyloseq object ####
 ps.q<-qza_to_phyloseq(
-  features = paste0(qiimedir,authorname,"-",read.end.type,"-filtered-table-trimmed-dada2-",
-                    truncationlvl,".qza"), # feature table
-  taxonomy = paste0(qiimedir,authorname,"-",read.end.type,"-taxonomy-trimmed-dada2-",
-                    truncationlvl,".qza"), # taxonomy
-  tree = paste0(qiimedir,authorname,"-",read.end.type,"-rooted-tree-trimmed-dada2-",
-                truncationlvl,".qza") # rooted tree
+  features = file.path(qiimedir, paste0(paste(authorname,read.end.type,
+                                              "filtered-table-trimmed-dada2",
+                    truncationlvl,sep="-"),".qza")), # feature table
+  taxonomy = file.path(qiimedir,paste0(paste(authorname,read.end.type,
+                                             "filtered-taxonomy-trimmed-dada2",
+                    truncationlvl,sep="-"),".qza")), # taxonomy
+  tree = file.path(qiimedir,paste0(paste(authorname,read.end.type,
+                                         "rooted-tree-trimmed-dada2",
+                truncationlvl,sep="-"),".qza")) # rooted tree
 )
 # Change the name d__Kingdom to Kingdom
 ps.q.taxtab<-as.data.frame(tax_table(ps.q))
@@ -103,6 +109,17 @@ ps.foo <- phyloseq(otu_table(ps.q),
 ps.q<-ps.foo
 rm(ps.foo)
 
+# Number of features in the unfiltered dataset
+length(rownames(ps.q@tax_table@.Data))
+
+# Total frequency in the unfiltered dataset
+sum(colSums(ps.q@otu_table@.Data))
+
+# Summary statistics (min, median, max, quartiles) of the unfiltered dataset
+ps.q@otu_table@.Data%>%
+  colSums()%>%
+  summary()
+
 # Select only Bacteria
 ps.q<-ps.q %>%
   subset_taxa(Kingdom%in%"Bacteria")
@@ -119,6 +136,7 @@ ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
 ### Extract absolute abundances ####
 if (asvlevel==TRUE){
   ps.q.agg<-ps.q %>%
+    subset_taxa(Kingdom%in%"Bacteria")%>% # choose only bacteria
     psmelt()  # transform the phyloseq object into an R dataframe
 }else{
   ps.q.agg<-ps.q %>%
@@ -130,6 +148,28 @@ if (asvlevel==TRUE){
 # Remove entries with zero Abundance
 ps.q.agg<-ps.q.agg%>%
   filter(Abundance!=0)
+
+# Number of samples in the filtered dataset
+ps.q.agg%>%
+  distinct(Sample)%>%
+  tally()
+
+# Number of features in the filtered dataset
+ps.q.agg%>%
+  distinct(OTU)%>%
+  tally()
+
+# Total frequency in the filtered dataset
+ps.q.agg%>%
+  summarise(TotalAbundance=sum(Abundance))
+
+# Summary statistics (min, median, max, quartiles) of the filtered dataset
+ps.q.agg%>%
+  select(Sample,Abundance)%>%
+  group_by(Sample)%>%
+  summarise(FrequencyPerSample=sum(Abundance))%>%
+  select(FrequencyPerSample)%>%
+  summary()
 
 # Add relative abundance column: Abundance divided by total abundance in a sample
 ps.q.agg<-ps.q.agg%>%
@@ -190,8 +230,11 @@ objects.to.keep<-c("agglom.rank","ps.q.agg","asvlevel","custom.md",
 objects.to.keep<-which(ls()%in%objects.to.keep)
 rm(list = ls()[-objects.to.keep])
 # Save the workspace
-save.image(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                             truncationlvl,agglom.rank,
-                                             "phyloseq-workspace.RData",sep = "-")))
+save.image(file.path("./output/rdafiles",paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
 
 sessionInfo()
