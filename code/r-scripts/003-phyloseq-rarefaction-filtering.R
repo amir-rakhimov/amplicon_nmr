@@ -1,3 +1,8 @@
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install("phyloseq")
+# install.packages(c("tidyverse","vegan"))
 library(tidyverse)
 library(phyloseq)
 library(vegan)
@@ -6,10 +11,14 @@ truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
 authorname<-"pooled"
+date_time<-"20240426_21_44_30"
 
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+# Load the Workspace from phyloseq (output of 001-phyloseq-qiime2.R)
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
 
 # custom.levels<-c("NMR","B6mouse")
 pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
@@ -26,37 +35,29 @@ pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for fa
 custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
 
 # If we're working with NMR only
-custom.levels<-c("NMR")
-custom.levels<-c("B6mouse",
-                 "MSMmouse",
-                 "FVBNmouse")
+# custom.levels<-c("NMR")
+# custom.levels<-c("B6mouse",
+#                  "MSMmouse",
+#                  "FVBNmouse")
 
 # Import data ####
 ps.q.df <-ps.q.agg%>%
-  select(Sample,OTU,Abundance,class,Taxon)%>%
+  select(Sample,Abundance,class,all_of(agglom.rank))%>%
   filter(Abundance!=0)
 
 ps.q.df<-ps.q.df%>%
   filter(class %in% custom.levels,Abundance!=0)
 
 
-# convert the data frame into wide format
-if (agglom.rank=="OTU"){
-  ps.q.df.wide<-ps.q.df%>%
-    select(-Taxon)%>%
-    pivot_wider(names_from = "OTU", # or OTU
-                values_from = "Abundance",
-                values_fill = 0)%>%
-    as.data.frame()
-}else{
-  ps.q.df.wide<-ps.q.df%>%
-    select(-OTU)%>%
-    pivot_wider(names_from = "Taxon", # or OTU
-                values_from = "Abundance",
-                values_fill = 0)%>%
-    as.data.frame()
-}
+# Convert the data frame into wide format: rows are samples and columns
+# are taxa
+ps.q.df.wide<-ps.q.df%>%
+  pivot_wider(names_from = all_of(agglom.rank), # or OTU
+              values_from = "Abundance",
+              values_fill = 0)%>%
+  as.data.frame()
 
+# Set sample names as row names
 rownames(ps.q.df.wide)<-ps.q.df.wide$Sample
 ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]  
 
@@ -65,7 +66,7 @@ ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]
 # find the smallest sample size
 min.n_seqs.all<-ps.q.agg%>%
   filter(class %in% custom.levels)%>%
-  select(Sample,OTU,Abundance)%>%
+  select(Sample,all_of(agglom.rank),Abundance)%>%
   group_by(Sample)%>%
   summarize(n_seqs=sum(Abundance))%>%
   summarize(min=min(n_seqs))%>%
@@ -80,21 +81,29 @@ ps.q.df.rare<-ps.q.df.rare%>%
   as.data.frame()%>%
   left_join(unique(ps.q.agg[,c("Sample","class","sex","birthday")]),
              by="Sample")
-if(agglom.rank=="OTU"){
+if(asvlevel==TRUE){
   ps.q.df.rare<-ps.q.df.rare%>%
     rename(OTU=name,Abundance=value)%>%
     filter(Abundance!=0)  
 }else{
+  # rename the 'name' column corresponding to the agglom.rank
+  ps.q.df.rare[,paste(agglom.rank)]<-ps.q.df.rare$name
   ps.q.df.rare<-ps.q.df.rare%>%
-    rename(Taxon=name,Abundance=value)%>%
+    select(-name)%>%
+    rename(Abundance=value)%>%
     filter(Abundance!=0)
 }
-
 write.table(ps.q.df.rare,
-            file = paste0("./rtables/",authorname,"/ps.q.df.rare.nonfiltered-",
-                          agglom.rank,"-",paste(custom.levels,collapse = '-'),".tsv"),
+            file = file.path("./output/rtables",authorname,paste0(
+              paste(
+                paste(format(Sys.time(),format="%Y%m%d"),
+                      format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                "ps.q.df.rare-nonfiltered",agglom.rank,
+                paste(custom.levels,collapse = '-'),sep = "-"),
+              ".tsv")),
             row.names = F,
             sep = "\t")
+
 
 # Filtering by prevalence ####
 # for each host, calculate the number of samples an ASV was observed in 
