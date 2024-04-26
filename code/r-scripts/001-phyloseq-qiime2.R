@@ -25,13 +25,24 @@
 
 
 ## Import libraries ####
+# if (!requireNamespace("devtools", quietly = TRUE)){install.packages("devtools")}
+# devtools::install_github("jbisanz/qiime2R")
+# install.packages(
+#   "microViz",
+#   repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
+# )
+# install.packages(c("tidyverse"))
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install("phyloseq")
 library(qiime2R)
 library(phyloseq)
 library(tidyverse)
 library(microViz)
 ## Specifying parameters and directory/file names #### 
 # This is the taxonomic rank that will be used for agglomeration
-agglom.rank<-"Genus"
+agglom.rank<-"Phylum"
 # specify if we're agglomerating at ASV level (not Species)
 if(agglom.rank=="OTU"){
   asvlevel<-TRUE
@@ -207,23 +218,28 @@ if(agglom.rank=="OTU"){
   agglom.rank.col<-which(colnames(ps.q.agg) ==agglom.rank)
 }
 
-# for each class, we take a agglom.rank, sum its abundances from all samples,
+# First, we calculate the library size per sample.
+# Then, inside each class, we take a agglom.rank, sum its abundances from all samples,
 # then take a mean. This will be our MeanRelativeAbundance
 if(asvlevel==TRUE){
   ps.q.agg<-ps.q.agg%>%
     group_by(class)%>% # group by class (animal host),
     mutate(TotalClass=sum(Abundance))%>%
-    mutate(MeanRelativeAbundance = Abundance/TotalClass*100)
+    group_by_at(c("class",agglom.rank))%>%
+    mutate(TotalAgglomRank=sum(Abundance))%>%
+    mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
 }else{ 
   ps.q.agg<-ps.q.agg%>%
     group_by(class)%>% # group by class,
     # compute MeanRelativeAbundance from Abundance 
     mutate(TotalClass=sum(Abundance))%>%
-    mutate(MeanRelativeAbundance = Abundance/TotalClass*100)%>%
+    group_by_at(c("class",agglom.rank))%>%
+    mutate(TotalAgglomRank=sum(Abundance))%>%
+    mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)%>%
     select(-OTU)
 }
 ps.q.agg<-ps.q.agg%>%
-  select(-TotalClass,-TotalSample)
+  select(-TotalClass,-TotalSample,-TotalAgglomRank)
 
 objects.to.keep<-c("agglom.rank","ps.q.agg","asvlevel","custom.md",
                    "authorname","truncationlvl","read.end.type")
