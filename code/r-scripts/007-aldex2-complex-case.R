@@ -3,16 +3,19 @@ library(phyloseq)
 library(ALDEx2)
 library(vegan)
 ref.level<-"NMR"
-authorname<-"merged"
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+# Import data ####
+date_time<-"20240426_21_44_30"
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
 
 custom.levels<-c("NMR",
                  "B6mouse",
@@ -22,29 +25,28 @@ custom.levels<-c("NMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo",
-                 "NMRwt"
+                 "pvo"#,
+                 # "NMRwt"
                  )
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
 custom.md<-custom.md%>%
   filter(class%in%custom.levels)
-ps.q.total<-ps.q.total%>%
-  filter(Sample%in%rownames(custom.md))
-ps.q.1pc<-ps.q.1pc%>%
-  filter(class%in%custom.levels)
 
-# Import data ####
-ps.q.df.aldex.input<- read.table(paste0("./rtables/",authorname,"/ps.q.df.",
-                                          rare.status,".",filter.status,"-",agglom.rank,"-",
-                                          paste(custom.levels,collapse = '-'),".tsv"),
-                                   header = T)
+ps.q.df.aldex.input<- read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      "20240426_22_00_04",
+      "ps.q.df.rare-nonfiltered",agglom.rank,
+      paste(custom.levels,collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 # Prepare the dataset ####
 # convert the data frame into wide format
 ps.q.df.aldex.input.wide<-ps.q.df.aldex.input%>%
   filter(class%in%custom.levels,Abundance!=0)%>%
-  dplyr::select(Sample,Abundance,Taxon)%>%
-  pivot_wider(names_from = "Taxon",
+  dplyr::select(Sample,Abundance,all_of(agglom.rank))%>%
+  pivot_wider(names_from = all_of(agglom.rank),
               values_from = "Abundance",
               values_fill = 0)%>%
   as.data.frame()
@@ -94,14 +96,21 @@ aldex.signif.features%>%
   summarise(n=n())%>%
   arrange(-n)
 
-save.image(paste0("./rdafiles/",
-                  paste("aldex2",rare.status,filter.status,agglom.rank,
-                        paste(custom.levels,collapse = '-'),truncationlvl,
-                        ref.level,"workspace.RData",sep="-")))
+save.image(file.path("./output/rdafiles",paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  "aldex2",rare.status,filter.status,agglom.rank,
+  paste(custom.levels,collapse = '-'),
+  truncationlvl,ref.level,"workspace.RData",sep="-")))
+
 write.table(aldex.signif.features,
-            file=paste0("./rtables/",authorname,"/",
-                        paste("aldex2",rare.status,filter.status,
-                              agglom.rank,paste(custom.levels,collapse = '-'),
-                              truncationlvl,ref.level,"signif.tsv",sep = "-")),
+            file=file.path("./output/rtables",authorname,paste(
+              paste(format(Sys.time(),format="%Y%m%d"),
+                    format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+              "aldex2",rare.status,
+              filter.status,agglom.rank,
+              paste(custom.levels,collapse = '-'),truncationlvl,
+              ref.level,"signif.tsv",sep="-")),
             row.names = F,sep = "\t")
+
 q()
