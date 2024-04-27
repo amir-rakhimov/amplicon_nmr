@@ -1,3 +1,8 @@
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install(c("phyloseq","Maaslin2"))
+# install.packages(c("tidyverse","Polychrome"))
 library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
