@@ -11,6 +11,7 @@ authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
+# Import data ####
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
