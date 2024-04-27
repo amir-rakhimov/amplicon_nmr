@@ -24,14 +24,14 @@ if(host=="NMR"){
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
+load(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
                                 "phyloseq-workspace.RData",sep = "-")))
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
 # Import data ####
-ps.q.df.preprocessed<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
+ps.q.df.preprocessed<-read.table(paste0("./output/rtables/",authorname,"/ps.q.df.",
                                         rare.status,".",filter.status,"-",agglom.rank,"-",
                                         paste(names(host.labels),collapse = '-'),".tsv"),
                                  header = T,sep = "\t")
