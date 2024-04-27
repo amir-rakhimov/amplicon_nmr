@@ -1,8 +1,13 @@
-library(vegan)
-library(tidyverse)
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install("phyloseq")
+# install.packages(c("tidyverse","vegan","Polychrome"))
 library(phyloseq)
+library(tidyverse)
+library(vegan)
 library(Polychrome)
-authorname<-"merged"
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 
@@ -10,10 +15,14 @@ agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
+date_time<-"20240426_21_44_30"
+image.formats<-c("png","tiff")
 
-load(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
 
 pretty.axis.labels<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
@@ -72,10 +81,14 @@ if(exists("excluded.samples")){
 }
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./output/rtables/",authorname,"/ps.q.df.",
-                                        rare.status,".",filter.status,"-",agglom.rank,"-",
-                                        paste(custom.levels,collapse = '-'),".tsv"),
-                                 header = T,sep = "\t")
+ps.q.df.preprocessed<-read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      "20240426_22_00_04",
+      "ps.q.df.rare-nonfiltered",agglom.rank,
+      paste(custom.levels,collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 
 # colors
 scale.color.labels<-unname(pretty.axis.labels)
@@ -84,20 +97,14 @@ scale.color.breaks<-unname(pretty.axis.labels)
 if(exists("excluded.samples")){
   ps.q.df <-ps.q.df.preprocessed%>%
     filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)%>%
-    select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
+    select(Sample,Abundance,class,all_of(agglom.rank),sex)
   custom.fill<-custom.fill[!names(custom.fill)%in%excluded.samples]
 }else{
   ps.q.df <-ps.q.df.preprocessed%>%
     filter(class%in%custom.levels,Abundance!=0)%>%
-    select(Sample,Abundance,class,Taxon,sex)# select(Sample,OTU,Abundance,class,Taxon)
+    select(Sample,Abundance,class,all_of(agglom.rank),sex)
   
 }
-
-
-# ps.q.df <-ps.q.agg.rel%>%
-#   select(Sample,OTU,Abundance,class,Taxon)
-
-# ps.q.df<-ps.q.df[!grepl("Unclassified|Uncultured",ps.q.df$taxa.full),] # optional?
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
@@ -195,7 +202,6 @@ div.plot<-ggplot(all.div[all.div$metric %in%
              ncol=length(plot.metrics),
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4)+ # add dots
   theme_bw()+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+
@@ -215,26 +221,34 @@ div.plot<-ggplot(all.div[all.div$metric %in%
         legend.position = "none")+
   ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))
 
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    paste(custom.levels,collapse = '-'),
-                    agglom.rank,truncationlvl,sep = "-"),
-              ".png"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "png")
+div.plot.with.dots<-div.plot+
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4) # add dots
+  
 
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    paste(custom.levels,collapse = '-'),
-                    agglom.rank,truncationlvl,sep = "-"),
-              ".tiff"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "tiff")
-
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-dots",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.with.dots,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
 
 # Add significance stars ####
 coord.combs<-combn(seq_along(custom.levels),2)
@@ -339,24 +353,37 @@ newplot<-div.plot+
 # that were significant
 # if yes, save the plot
 if(table(w.results<0.05)[2]>0){
-  ggsave(paste0("./images/diversity/alpha/",
-                paste(Sys.Date(),"alpha",
-                      paste(plot.metrics,collapse = "-"),
-                      paste(custom.levels,collapse = '-'),
-                      agglom.rank,truncationlvl,sep = "-"),
-                "-signif.png"),
-         plot=newplot,
-         width = 6000,height = 5000,
-         units = "px",dpi=300,device = "png")
-  
-  ggsave(paste0("./images/diversity/alpha/",
-                paste(Sys.Date(),"alpha",
-                      paste(plot.metrics,collapse = "-"),
-                      paste(custom.levels,collapse = '-'),
-                      agglom.rank,truncationlvl,sep = "-"),
-                "-signif.tiff"),
-         plot=newplot,
-         width = 6000,height = 5000,
-         units = "px",dpi=300,device = "tiff")
+  # ggsave(paste0("./images/diversity/alpha/",
+  #               paste(Sys.Date(),"alpha",
+  #                     paste(plot.metrics,collapse = "-"),
+  #                     paste(custom.levels,collapse = '-'),
+  #                     agglom.rank,truncationlvl,sep = "-"),
+  #               "-signif.png"),
+  #        plot=newplot,
+  #        width = 6000,height = 5000,
+  #        units = "px",dpi=300,device = "png")
+  # 
+  # ggsave(paste0("./images/diversity/alpha/",
+  #               paste(Sys.Date(),"alpha",
+  #                     paste(plot.metrics,collapse = "-"),
+  #                     paste(custom.levels,collapse = '-'),
+  #                     agglom.rank,truncationlvl,sep = "-"),
+  #               "-signif.tiff"),
+  #        plot=newplot,
+  #        width = 6000,height = 5000,
+  #        units = "px",dpi=300,device = "tiff")
+  for(image.format in image.formats){
+    ggsave(paste0("./images/diversity/alpha/",
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        "alpha",
+                        paste(plot.metrics,collapse = "-"),
+                        paste(custom.levels,collapse = '-'),
+                        agglom.rank,truncationlvl,"signif",
+                        sep = "-"),".",image.format),
+           plot=newplot,
+           width = 6000,height = 5000,
+           units = "px",dpi=300,device = image.format)
+  }
 }
 
