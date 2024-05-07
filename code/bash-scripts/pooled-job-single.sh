@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 0. Install QIIME2
 # wget https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.2-py38-linux-conda.yml
-# conda env create -n qiime2-amplicon-2024.2 --file qiime2-amplicon-2024.2-py38-linux-conda.yml
+# mamba env create -n qiime2-amplicon-2024.2 --file qiime2-amplicon-2024.2-py38-linux-conda.yml
 # 1. Set up the variables
 time_var=$(date +%T |sed 's/:/_/g' )
 date_var=$(date -I|sed 's/-//g')
@@ -9,10 +9,10 @@ date_time=${date_var}_${time_var}
 ### Truncation length for DADA2
 trunc_len=234
 project_home_dir=~/projects/amplicon_nmr
-output_dir=output/qiime/pooled-qiime
+output_dir=${project_home_dir}/output/qiime/pooled-qiime
 metadata_dir=${project_home_dir}/data/metadata/pooled-metadata
-mkdir ${output_dir}/${date_time}-single-${trunc-len}
-cd ${output_dir}/${date_time}-single-${trunc-len}
+mkdir ${output_dir}/${date_time}-single-${trunc_len}
+cd ${output_dir}/${date_time}-single-${trunc_len}
 ### Front and reverse primers
 front_primer=CCTACGGGNGGCWGCAG
 rev_primer=GACTACHVGGGTATCTAATCC

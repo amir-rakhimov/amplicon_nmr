@@ -80,7 +80,7 @@ if(exists("excluded.samples")){
     filter(class%in%custom.levels,Abundance!=0)
 }
 
-# load the output of 003-phyloseq-rarefaction-filtering.R file
+# load the output of 003-phyloseq-rarefaction-filtering.R file ####
 ps.q.df.preprocessed<-read.table(
   file.path("./output/rtables",authorname,paste0(
     paste(
@@ -94,6 +94,7 @@ ps.q.df.preprocessed<-read.table(
 scale.color.labels<-unname(pretty.axis.labels)
 scale.color.breaks<-unname(pretty.axis.labels)
 
+# Exclude samples if you need ####
 if(exists("excluded.samples")){
   ps.q.df <-ps.q.df.preprocessed%>%
     filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)%>%
