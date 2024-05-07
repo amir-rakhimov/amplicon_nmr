@@ -20,6 +20,7 @@ truncationlvl<-"234" #  truncation level that we chose in QIIME2
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
 barplot.directory<-"./images/barplots/" # set the path where barplots will
 # be saved
+image.formats<-c("png","tiff")
 date_time="20240426_21_44_30"
 # Load the Workspace from phyloseq (output of 001-phyloseq-qiime2.R)
 load(file.path("./output/rdafiles",paste(
@@ -206,51 +207,22 @@ ps.q.agg.for_bp[which(ps.q.agg.for_bp$MeanRelativeAbundance<1),"Taxon.bp"]<-
 
 
 
-### 8. Check how many taxa are unclassified in each NMR sample ####
-all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
-# Do a grep to find unclassified taxa: we take the vector of all ranks from 
-# above except the agglom.rank (remove from the vector), and look for the 
-# remaining strings in the agglom.rank column (e.g if agglom.rank="Phylum", we
-# remove "Phylum" from all.ranks and look for other ranks in the ps.q.agg.for_bp Phylum
-# column, i.e Kingdom, Class, Order, Family, Genus)
-ps.q.agg.for_bp%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(Sample)%>%
-  filter(class=="NMR")%>%
-  summarise(total=sum(RelativeAbundance))%>%
-  summary()
-
-### 8.1 Check which animals have the highest proportion of unclassified taxa ####
-# In summarise(TotalUnclassified=sum(RelativeAbundance)), we check the total
-# proportion of unclassified taxa in each sample, then sort to find the 
-# most unclassified samples
-ps.q.agg.for_bp%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(Sample,class)%>%
-  summarise(TotalUnclassified=sum(RelativeAbundance))%>%
-  arrange(-TotalUnclassified)%>%
-  head(n = 30)%>%
-  group_by(class)%>%
-  summary()
-
-### 9. We want to highlight NMR-specific taxa on the barplot #### 
-### 9.1 Find all unique taxa in NMR samples ####
+### 8. We want to highlight NMR-specific taxa on the barplot #### 
+### 8.1 Find all unique taxa in NMR samples ####
 nmr.set<-ps.q.agg.for_bp%>%
   filter(class=="NMR")%>%
   select(all_of(agglom.rank))%>%
   unique()%>%
   pull()
-### 9.2 Find all unique taxa in non-NMR samples ####
+### 8.2 Find all unique taxa in non-NMR samples ####
 others.set<-ps.q.agg.for_bp%>%
   filter(class!="NMR")%>%
   select(all_of(agglom.rank))%>%
   unique()%>%
   pull()
-### 9.3  Get NMR-specific taxa ####
+### 8.3  Get NMR-specific taxa ####
 nmr.uniq<-setdiff(nmr.set,others.set)
-### 10. Obtain taxa found in the taxa.for_bp.list vector (sorted unclassified and  ####
+### 9. Obtain taxa found in the taxa.for_bp.list vector (sorted unclassified and  ####
 # classified taxa) with MeanRelativeAbundance>=1%. Keep only unique values in the
 # agglom.rank.vec vector
 agglom.rank.vec<-ps.q.agg.for_bp%>%
@@ -259,16 +231,16 @@ agglom.rank.vec<-ps.q.agg.for_bp%>%
   pull()%>%
   unique()
 
-### 10.1 Find NMR-specific taxa in the agglom.rank.vec vector  ####
+### 9.1 Find NMR-specific taxa in the agglom.rank.vec vector  ####
 nmr.uniq.legend<-agglom.rank.vec[agglom.rank.vec%in%nmr.uniq]
 
-### 11. New font colors: NMR-specific taxa will be red in the legend
+### 10. New font colors: NMR-specific taxa will be red in the legend
 ps.q.legend<-as.data.frame(taxa.for_bp.list)%>%
   rename("Taxon.bp"="taxa.for_bp.list")%>%
   mutate(new.colors=ifelse(Taxon.bp%in%nmr.uniq.legend,
                            paste("<span style='color: red'><b>",Taxon.bp,"</b></span>"),
                            Taxon.bp))
-## 12. Plot the barplots ####
+## 11. Plot the barplots ####
 # We need to choose colors for the taxa in our barplot. They should be 
 # distinguishable, so we can't choose similar colors. Or at least we shouldn't 
 # put them next to each other.
@@ -366,25 +338,35 @@ mainplot<-ps.q.agg.for_bp%>%
         legend.text = element_markdown(size = 20), # size of legend text
         legend.title = element_text(size = 25), # size of legend title
         legend.position = "bottom") # legend under the plot
-ggsave(paste0(barplot.directory,
-              paste(paste(format(Sys.time(),format="%Y%m%d"),
-                          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                    "barplot",paste(custom.levels,collapse = '-'),
-                    truncationlvl,
-                    agglom.rank,sep = "-"),".png"),
-       plot=mainplot,
-       width = 13500,height = 5200,
-       units = "px",dpi=300,device = "png")
-ggsave(paste0(barplot.directory,
-              paste(paste(format(Sys.time(),format="%Y%m%d"),
-                          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                    "barplot",paste(custom.levels,collapse = '-'),
-                    truncationlvl,
-                    agglom.rank,sep = "-"),".tiff"),
-       plot=mainplot,
-       width = 13500,height = 5200,
-       units = "px",dpi=300,device = "tiff")
-
+# ggsave(paste0(barplot.directory,
+#               paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                     "barplot",paste(custom.levels,collapse = '-'),
+#                     truncationlvl,
+#                     agglom.rank,sep = "-"),".png"),
+#        plot=mainplot,
+#        width = 13500,height = 5200,
+#        units = "px",dpi=300,device = "png")
+# ggsave(paste0(barplot.directory,
+#               paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                     "barplot",paste(custom.levels,collapse = '-'),
+#                     truncationlvl,
+#                     agglom.rank,sep = "-"),".tiff"),
+#        plot=mainplot,
+#        width = 13500,height = 5200,
+#        units = "px",dpi=300,device = "tiff")
+for(image.format in image.formats){
+  ggsave(paste0(barplot.directory,
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "barplot",paste(custom.levels,collapse = '-'),
+                      truncationlvl,agglom.rank,
+                      sep = "-"),".",image.format),
+         plot=mainplot,
+         width = 13500,height = 5200,
+         units = "px",dpi=300,device = image.format)
+}
 # Plot separate barplots for each host
 for(i in seq_along(custom.levels)){
   lvl.df<-ps.q.agg.for_bp%>% #lvl.df is ps.q.agg.for_bp. that was narrowed down
@@ -528,23 +510,33 @@ lvl.plot<-lvl.df%>%
         legend.title = element_text(size = 25),
         legend.position = "right")
 
-ggsave(paste0("./images/barplots/",
-              paste(paste(format(Sys.time(),format="%Y%m%d"),
-                          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                    "barplot","NMR-B6mouse",truncationlvl,
-                    agglom.rank,sep = "-"),".png"),
-       plot=lvl.plot,
-       width = 8000,height = 6000,
-       units = "px",dpi=300,device = "png")
-ggsave(paste0("./images/barplots/",
-              paste(paste(format(Sys.time(),format="%Y%m%d"),
-                          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                    "barplot","NMR-B6mouse",truncationlvl,
-                    agglom.rank,sep = "-"),".tiff"),
-       plot=lvl.plot,
-       width = 8000,height = 6000,
-       units = "px",dpi=300,device = "tiff")
-
+# ggsave(paste0("./images/barplots/",
+#               paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                     "barplot","NMR-B6mouse",truncationlvl,
+#                     agglom.rank,sep = "-"),".png"),
+#        plot=lvl.plot,
+#        width = 8000,height = 6000,
+#        units = "px",dpi=300,device = "png")
+# ggsave(paste0("./images/barplots/",
+#               paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                     "barplot","NMR-B6mouse",truncationlvl,
+#                     agglom.rank,sep = "-"),".tiff"),
+#        plot=lvl.plot,
+#        width = 8000,height = 6000,
+#        units = "px",dpi=300,device = "tiff")
+for(image.format in image.formats){
+  ggsave(paste0(barplot.directory,
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "barplot","NMR-B6mouse",
+                      truncationlvl,agglom.rank,
+                      sep = "-"),".",image.format),
+         plot=lvl.plot,
+         width = 8000,height = 6000,
+         units = "px",dpi=300,device = image.format)
+}
 ## Barplot for NMR and NMR wt ####
 if("NMRwt"%in%custom.levels){
   lvl.df<-ps.q.agg.for_bp%>%
@@ -616,26 +608,77 @@ if("NMRwt"%in%custom.levels){
           legend.title = element_text(size = 25),
           legend.position = "right")
   
-  ggsave(paste0("./images/barplots/",
-                paste(paste(format(Sys.time(),format="%Y%m%d"),
-                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "barplot","NMR-NMRwt",truncationlvl,
-                      agglom.rank,sep = "-"),".png"),
-         plot=lvl.plot,
-         width = 9000,height = 6000,
-         units = "px",dpi=300,device = "png")
-  ggsave(paste0("./images/barplots/",
-                paste(paste(format(Sys.time(),format="%Y%m%d"),
-                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "barplot","NMR-NMRwt",truncationlvl,
-                      agglom.rank,sep = "-"),".tiff"),
-         plot=lvl.plot,
-         width = 9000,height = 6000,
-         units = "px",dpi=300,device = "tiff")
+  # ggsave(paste0("./images/barplots/",
+  #               paste(paste(format(Sys.time(),format="%Y%m%d"),
+  #                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  #                     "barplot","NMR-NMRwt",truncationlvl,
+  #                     agglom.rank,sep = "-"),".png"),
+  #        plot=lvl.plot,
+  #        width = 9000,height = 6000,
+  #        units = "px",dpi=300,device = "png")
+  # ggsave(paste0("./images/barplots/",
+  #               paste(paste(format(Sys.time(),format="%Y%m%d"),
+  #                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  #                     "barplot","NMR-NMRwt",truncationlvl,
+  #                     agglom.rank,sep = "-"),".tiff"),
+  #        plot=lvl.plot,
+  #        width = 9000,height = 6000,
+  #        units = "px",dpi=300,device = "tiff")
+  for(image.format in image.formats){
+    ggsave(paste0(barplot.directory,
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        "barplot","NMR-NMRwt",
+                        truncationlvl,agglom.rank,
+                        sep = "-"),".",image.format),
+           plot=lvl.plot,
+           width = 9000,height = 6000,
+           units = "px",dpi=300,device = image.format)
+  }
 }
 
 # Session Info
+
+
+# Average barplots ####
+# For NMR
+ps.q.agg%>%
+  filter(class=="NMR",MeanRelativeAbundance>=1)%>%
+  group_by_at(agglom.rank)%>%
+  distinct(.,get(agglom.rank),.keep_all = TRUE)%>%
+  ungroup()%>%
+  dplyr::select(Phylum,all_of(agglom.rank),class,MeanRelativeAbundance)%>%
+  # pivot_wider(names_from = class,
+              # values_from = MeanRelativeAbundance,
+              # values_fill = 0)%>%
+  dplyr::arrange(-MeanRelativeAbundance)%>%
+  dplyr::mutate(csumNMR=cumsum(MeanRelativeAbundance))
+
+ps.q.agg%>%
+  filter(class=="B6mouse",MeanRelativeAbundance>=1)%>%
+  group_by_at(agglom.rank)%>%
+  distinct(.,get(agglom.rank),.keep_all = TRUE)%>%
+  ungroup()%>%
+  dplyr::select(Phylum,all_of(agglom.rank),class,MeanRelativeAbundance)%>%
+  # pivot_wider(names_from = class,
+  # values_from = MeanRelativeAbundance,
+  # values_fill = 0)%>%
+  dplyr::arrange(-MeanRelativeAbundance)%>%
+  dplyr::mutate(csumNMR=cumsum(MeanRelativeAbundance))
+
+
+ps.q.agg%>%
+  filter(class=="NMR",MeanRelativeAbundance>=1)%>%
+  distinct(get(agglom.rank),.keep_all = TRUE)%>%
+  ggplot(.,aes(x=get(agglom.rank),y=MeanRelativeAbundance))+
+  geom_bar(stat = "identity")+
+  coord_flip()
+
+
+
 sessionInfo()
+####
+
 
 plot1<-ps.q.agg%>%
   filter(Genus=="Lactobacillus",
