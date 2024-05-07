@@ -72,6 +72,42 @@ min.n_seqs.all<-ps.q.agg%>%
   summarize(min=min(n_seqs))%>%
   pull(min)
 
+# If you want to plot a rarefaction curve
+# library(ggrepel)
+# ps.q.mat<-as(t(otu_table(ps.q)),"matrix") # from phyloseq
+# ps.q.mat<-as.matrix(ps.q.df.wide) # from the ps.q.df matrix
+# set.seed(1)
+# rare.df<-rarecurve(ps.q.mat,step = 100,sample=min(rowSums(ps.q.mat)),tidy = TRUE)
+# rare.df%>%
+#   filter(Sample<=100000)%>%
+#   group_by(Site)%>%
+#   mutate(label=if_else(Sample==max(Sample),as.character(Site),NA_character_))%>%
+#   filter(Site%in%rownames(custom.md[which(custom.md$class=="NMR"),]))%>%
+#   ggplot(.,aes(x=Sample,y=Species,col=Site))+
+#   geom_line()+
+#   # coord_cartesian(xlim=c(0,100000))+
+#   geom_vline(xintercept = min(rowSums(ps.q.mat)))+
+#   annotate("text",
+#            x=min(rowSums(ps.q.mat))+2000,
+#            y=10,
+#            label=min(rowSums(ps.q.mat)))+
+#   geom_label_repel(aes(label = label),
+#                    nudge_x = 1,
+#                    na.rm = TRUE) +
+#   theme_bw()+
+#   labs(x="Sample size",
+#        y="ASV")+
+#   theme(legend.position = "none")
+# ggsave(paste0("./images/lineplots/",
+#               paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                     "rarecurve",
+#                     truncationlvl,agglom.rank,
+#                     sep = "-"),".png"),
+#        plot=last_plot(),
+#        width = 4500,height = 3000,
+#        units = "px",dpi=300,device = "png")
+
 # rarefied asv table with vegan
 set.seed(1)
 ps.q.df.rare<-rrarefy(ps.q.df.wide,sample=min.n_seqs.all)
