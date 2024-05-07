@@ -1,17 +1,23 @@
-#!/usr/bin/env bash
+#!/bin/env bash
+# change the shebang to /usr/bin/env bash if needed
+# Use supercomputer because fit-classifier-naive-bayes and classify-sklearn were killed on my desktop
 # 0. Install QIIME2
 # wget https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.2-py38-linux-conda.yml
 # mamba env create -n qiime2-amplicon-2024.2 --file qiime2-amplicon-2024.2-py38-linux-conda.yml
 # 1. Set up the variables
-time_var=$(date +%T |sed 's/:/_/g' )
-date_var=$(date -I|sed 's/-//g')
-date_time=${date_var}_${time_var}
+# time_var=$(date +%T |sed 's/:/_/g' )
+# date_var=$(date -I|sed 's/-//g')
+# date_time=${date_var}_${time_var}
+date_time=20240425_02_57_13
+# Start of the script execution
+date +%T
+date -I
 ### Truncation length for DADA2
 trunc_len=234
 project_home_dir=~/projects/amplicon_nmr
 output_dir=${project_home_dir}/output/qiime/pooled-qiime
 metadata_dir=${project_home_dir}/data/metadata/pooled-metadata
-mkdir ${output_dir}/${date_time}-single-${trunc_len}
+# mkdir ${output_dir}/${date_time}-single-${trunc_len}
 cd ${output_dir}/${date_time}-single-${trunc_len}
 ### Front and reverse primers
 front_primer=CCTACGGGNGGCWGCAG
@@ -22,37 +28,37 @@ front_primer_position=341f
 metadata_file=${metadata_dir}/filenames-single-pooled-raw-supercomp.tsv
 ### Truncation length for the taxonomic reference database
 ref_db_trunc_len=234
-conda activate  qiime2-amplicon-2024.2
+conda activate qiime2-amplicon-2024.2
 # 2. Import the fastq files using the metadata file.
 ### We need to specify the input format. Since we're using only
 ### front reads (single reads), we need to specify SingleEndFastqManifestPhred33V2
-qiime tools import \
-  --type  'SampleData[SequencesWithQuality]' \
-  --input-path ${metadata_file} \
-  --output-path pooled-single-end-demux.qza \
-  --input-format SingleEndFastqManifestPhred33V2 
+# qiime tools import \
+#   --type  'SampleData[SequencesWithQuality]' \
+#   --input-path ${metadata_file} \
+#   --output-path pooled-single-end-demux.qza \
+#   --input-format SingleEndFastqManifestPhred33V2 
 ### The command below will create a visualization file for quality check.
 ### Normally, you should open the file and decide the truncation length. 
 ### But I have already explored the final output with different truncation lentgths,
 ### so it's already set at the beginning of this script. 
 ### The file shows minimum, maximum, median, mean, and total reads. 
 ### It also shows quality plots, frequency histograms, and number of reads in each sample
-qiime demux summarize \
-  --i-data pooled-single-end-demux.qza \
-  --o-visualization pooled-single-end-demux.qzv
+# qiime demux summarize \
+#   --i-data pooled-single-end-demux.qza \
+#   --o-visualization pooled-single-end-demux.qzv
 # 3. Remove the sequencing adapters with cutadapt.
 ### Specify the primer sequences. We're using only front reads, so we specify
 ### only --p-front
-qiime cutadapt trim-single \
-  --i-demultiplexed-sequences pooled-single-end-demux.qza \
-  --p-cores 8 \
-  --p-front ${front_primer} \
-  --o-trimmed-sequences pooled-trimmed-single-end.qza
+# qiime cutadapt trim-single \
+#   --i-demultiplexed-sequences pooled-single-end-demux.qza \
+#   --p-cores 8 \
+#   --p-front ${front_primer} \
+#   --o-trimmed-sequences pooled-trimmed-single-end.qza
 ### Create a visualization to see that primers were removed: the sequences will get shorter.
 ### The contents are similar to the previous visualization
-qiime demux summarize \
-  --i-data pooled-trimmed-single-end.qza \
-  --o-visualization pooled-trimmed-single-end.qzv
+# qiime demux summarize \
+#   --i-data pooled-trimmed-single-end.qza \
+#   --o-visualization pooled-trimmed-single-end.qzv
 # 4. Denoise, dereplicate, and filter reads with DADA2.
 ### --denoise-single means we use single-end sequences
 ### --p-trim-left trims 5prime end 
@@ -60,6 +66,7 @@ qiime demux summarize \
 ### It will truncate the 3prime end. Reads that are shorter than
 ### p-trunc-len will be discarded.
 qiime dada2 denoise-single \
+  --p-n-threads 8 \
   --i-demultiplexed-seqs pooled-trimmed-single-end.qza \
   --p-trim-left 0 \
   --p-trunc-len ${trunc_len} \
@@ -85,12 +92,12 @@ qiime feature-table tabulate-seqs \
   --o-visualization pooled-single-rep-seqs-trimmed-dada2-${trunc_len}.qzv
 ### 5. Create the reference database with RESCRIPT for taxonomic classification.
 ### Use SILVA v138.1
-qiime rescript get-silva-data \
-  --p-version '138.1' \
-  --p-target 'SSURef_NR99' \
-  --p-include-species-labels \
-  --o-silva-sequences silva-138-1-ssu-nr99-rna-seqs.qza \
-  --o-silva-taxonomy silva-138-1-ssu-nr99-tax.qza
+# qiime rescript get-silva-data \
+#   --p-version '138.1' \
+#   --p-target 'SSURef_NR99' \
+#   --p-include-species-labels \
+#   --o-silva-sequences silva-138-1-ssu-nr99-rna-seqs.qza \
+#   --o-silva-taxonomy silva-138-1-ssu-nr99-tax.qza
 qiime rescript reverse-transcribe \
   --i-rna-sequences silva-138-1-ssu-nr99-rna-seqs.qza \
   --o-dna-sequences silva-138-1-ssu-nr99-seqs.qza
@@ -108,7 +115,6 @@ qiime feature-classifier extract-reads \
 qiime rescript dereplicate \
   --i-sequences silva-single-138-1-ssu-nr99-seqs-cleaned-${front_primer_position}-${ref_db_trunc_len}.qza \
   --i-taxa silva-138-1-ssu-nr99-tax.qza \
-  --p-rank-handles 'silva' \
   --p-mode 'uniq' \
   --o-dereplicated-sequences silva-single-138-1-ssu-nr99-seqs-cleaned-${front_primer_position}-${ref_db_trunc_len}-uniq.qza \
   --o-dereplicated-taxa  silva-single-138-1-ssu-nr99-tax-${front_primer_position}-${ref_db_trunc_len}-derep-uniq.qza
@@ -152,13 +158,13 @@ qiime feature-table tabulate-seqs \
 qiime feature-classifier classify-sklearn \
   --i-classifier silva-single-138-1-ssu-nr99-classifier-${front_primer_position}-${ref_db_trunc_len}-derep-uniq.qza\
   --i-reads pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}.qza \
-  --o-classification pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza
+  --o-classification pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qza
 ### 9. Filter the filtered feature table (pooled-single-filtered-table) by taxonomy (pooled-single-taxonomy): 
 ### remove mitochondria, archaea, and chloroplast DNA. Use --i-taxonomy as filtering metadata.
 ### Output: pooled-single-filtered-table-trimmed-dada2-${trunc_len}-nomitchlorarch
 qiime taxa filter-table \
   --i-table pooled-single-filtered-table-trimmed-dada2-${trunc_len}.qza \
-  --i-taxonomy pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
+  --i-taxonomy pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qza \
   --p-exclude mitochondria,chloroplast,archaea \
   --o-filtered-table pooled-single-filtered-table-trimmed-dada2-${trunc_len}-nomitchlorarch.qza
 ### Visualise the filtered table (pooled-single-filtered-table-trimmed-dada2-${trunc_len}-nomitchlorarch).
@@ -175,12 +181,12 @@ qiime feature-table summarize \
   --i-table pooled-single-filtered-table-trimmed-dada2-${trunc_len}.qza \
   --m-sample-metadata-file ${metadata_file} \
   --o-visualization pooled-single-filtered-table-trimmed-dada2-${trunc_len}-finalfiltercheck.qzv
-### 10. Filter representative sequences (pooled-single-filtered-rep-seqs) by taxonomy (pooled-single-taxonomy):
+### 10. Filter representative sequences (pooled-single-filtered-rep-seqs) by taxonomy (pooled-single-filtered-taxonomy):
 ### remove mitochondria, archaea, and chloroplast DNA. Use --i-taxonomy as filtering metadata.
 ### Output: pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch
 qiime taxa filter-seqs \
   --i-sequences pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}.qza \
-  --i-taxonomy pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
+  --i-taxonomy pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qza \
   --p-exclude mitochondria,chloroplast,archaea \
   --o-filtered-sequences pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch.qza
 ### Visualise filtered representative sequences (pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-nomitchlorarch)
@@ -197,12 +203,12 @@ qiime feature-table tabulate-seqs \
   --o-visualization pooled-single-filtered-rep-seqs-trimmed-dada2-${trunc_len}-finalfiltercheck.qzv
 ### Visualise taxonomy (not informative)
 qiime metadata tabulate \
-  --m-input-file pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
-  --o-visualization pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qzv
+  --m-input-file pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qza \
+  --o-visualization pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qzv
 ### 11. Build a taxa barplot: use metadata file for visualization
 qiime taxa barplot \
   --i-table pooled-single-filtered-table-trimmed-dada2-${trunc_len}.qza \
-  --i-taxonomy pooled-single-taxonomy-trimmed-dada2-${trunc_len}.qza \
+  --i-taxonomy pooled-single-filtered-taxonomy-trimmed-dada2-${trunc_len}.qza \
   --m-metadata-file ${metadata_file} \
   --o-visualization pooled-single-taxa-bar-plots-trimmed-dada2-${trunc_len}.qzv
 ### 12. Align filtered representative sequences (pooled-single-filtered-rep-seqs) to a tree.
@@ -212,3 +218,6 @@ qiime phylogeny align-to-tree-mafft-fasttree \
   --o-masked-alignment pooled-single-masked-aligned-rep-seqs-trimmed-dada2-${trunc_len}.qza \
   --o-tree pooled-single-unrooted-tree-trimmed-dada2-${trunc_len}.qza \
   --o-rooted-tree pooled-single-rooted-tree-trimmed-dada2-${trunc_len}.qza
+# End of the script execution
+date +%T
+date -I
