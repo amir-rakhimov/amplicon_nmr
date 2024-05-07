@@ -17,6 +17,8 @@ rare.status<-"rare"
 filter.status<-"nonfiltered"
 date_time<-"20240426_21_44_30"
 image.formats<-c("png","tiff")
+plot.types<-c("plot"="",
+              "plot.with.labels"="-with-labels")
 
 load(file.path("./output/rdafiles",paste(
   date_time,
@@ -88,7 +90,7 @@ permut.num<-1000 # number of permutations for PERMANOVA
 
 ps.sampledata<-ps.q.agg%>%
   ungroup()%>%
-  select(c("Sample","class","sex","birthday"))%>%
+  dplyr::select(c("Sample","class","sex","birthday"))%>%
   distinct() # metadata
 
 ps.q.df <-ps.q.agg%>%
@@ -274,8 +276,7 @@ if(all.test.p<0.05 &sum(pairwise_p<0.05)==ncol(combinations)){
 nmds.plot.with.labels<-nmds.plot+
   ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # label each point by sample name
 
-plot.types<-c("plot"="",
-              "plot.with.labels"="-with-labels")
+
 for(plot.type in seq_along(plot.types)){
   for(image.format in image.formats){
     ggsave(paste0("./images/diversity/nmds/",
@@ -406,7 +407,7 @@ ps.q.df.pca.input<-read.table(
            header = T)
 # Convert into wide format
 ps.q.df.wide.pca<-ps.q.df.pca.input%>%
-  select(-class,-sex,-birthday)%>%
+  dplyr::select(-class,-sex,-birthday)%>%
   pivot_wider(names_from = all_of(agglom.rank), 
               values_from = "Abundance",
               values_fill = 0)%>%
@@ -514,7 +515,7 @@ pca.plot.with.labels<-pca.plot+
 
 # Loop over the graphic devices
 for(plot.type in seq_along(plot.types)){
-  for(image.format in image.formats){
+  for(device.type in image.formats){
     ggsave(paste0("./images/diversity/pca/",
                   paste(paste(format(Sys.time(),format="%Y%m%d"),
                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
