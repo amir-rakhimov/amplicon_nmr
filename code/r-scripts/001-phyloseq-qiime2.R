@@ -160,21 +160,21 @@ if (asvlevel==TRUE){
 ps.q.agg<-ps.q.agg%>%
   filter(Abundance!=0)
 
-# Number of samples in the filtered dataset
+# Number of samples in the filtered dataset ####
 ps.q.agg%>%
   distinct(Sample)%>%
   tally()
 
-# Number of features in the filtered dataset
+# Number of features in the filtered dataset ####
 ps.q.agg%>%
   distinct(OTU)%>%
   tally()
 
-# Total frequency in the filtered dataset
+# Total frequency in the filtered dataset ####
 ps.q.agg%>%
   summarise(TotalAbundance=sum(Abundance))
 
-# Summary statistics (min, median, max, quartiles) of the filtered dataset
+# Summary statistics (min, median, max, quartiles) of the filtered dataset ####
 ps.q.agg%>%
   select(Sample,Abundance)%>%
   group_by(Sample)%>%
@@ -182,7 +182,7 @@ ps.q.agg%>%
   select(FrequencyPerSample)%>%
   summary()
 
-# Add relative abundance column: Abundance divided by total abundance in a sample
+# Add relative abundance column: Abundance divided by total abundance in a sample ####
 ps.q.agg<-ps.q.agg%>%
   group_by(class,Sample)%>%
   mutate(TotalSample=sum(Abundance))%>%
@@ -201,7 +201,7 @@ ps.q.agg %>%
   mutate(sumRelativeAbundance = sum(RelativeAbundance)) %>%
   ggplot(aes(x=Sample,y=sumRelativeAbundance))+
   geom_bar(stat="identity")
-## Extract taxa with highest mean relative abundance (i.e. mean relative abundance >1%) ####
+## Add mean relative abundance data ####
 # We will group the dataset by three columns: class (animal host), 
 # two taxonomic ranks (e.g Genus, Family), and maybe OTU (actually ASV)
 # if we agglomerate at ASV level.
