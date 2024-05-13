@@ -7,6 +7,7 @@ make_features_maaslin<-function(features.list, featurecolumn){
   features.list[[featurecolumn]]<-gsub("\\(\\[","\\(\\.",features.list[[featurecolumn]])
   features.list[[featurecolumn]]<-gsub("\\[","\\.",features.list[[featurecolumn]])
   features.list[[featurecolumn]]<-gsub("-","\\.",features.list[[featurecolumn]])
+  features.list[[featurecolumn]]<-gsub("\\+","\\.",features.list[[featurecolumn]])
   features.list[[featurecolumn]]<-gsub(" ","\\.",features.list[[featurecolumn]])
   return(features.list)
 }

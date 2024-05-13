@@ -2,14 +2,20 @@ library(tidyverse)
 library(phyloseq)
 library(vegan)
 library(ANCOMBC)
+# Import data ####
 ref.level<-"NMR"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
-authorname<-"merged"
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+authorname<-"pooled"
+date_time<-"20240426_21_44_30"
+
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
+
 custom.levels<-c("NMR",
                  "B6mouse",
                  "MSMmouse",
@@ -18,24 +24,23 @@ custom.levels<-c("NMR",
                  "hare",
                  "rabbit",
                  "spalax",
-                 "pvo",
-                 "NMRwt"
+                 "pvo"#,
+                 # "NMRwt"
                  )
-# Import data ####
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
-ps.q.df.ancombc.input<-read.table(paste0("./rtables/",authorname,"/ps.q.df.",
-                                          rare.status,".",filter.status,"-",agglom.rank,"-",
-                                          paste(custom.levels,collapse = '-'),".tsv"),
-                                   header = T)
+ps.q.df.ancombc.input<-read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      "20240426_22_00_04",
+      "ps.q.df.rare-nonfiltered",agglom.rank,
+      paste(custom.levels,collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
 custom.md<-custom.md%>%
-  filter(class%in%custom.levels)
-ps.q.total<-ps.q.total%>%
-  filter(Sample%in%rownames(custom.md))
-ps.q.1pc<-ps.q.1pc%>%
   filter(class%in%custom.levels)
 
 # ANCOMBC ####
@@ -43,8 +48,8 @@ ps.q.1pc<-ps.q.1pc%>%
 # convert the data frames into wide format
 ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input%>%
   filter(class%in%custom.levels,Abundance!=0)%>%
-  dplyr::select(Sample,Abundance,Taxon)%>%
-  pivot_wider(names_from = "Taxon", # or OTU
+  dplyr::select(Sample,Abundance,all_of(agglom.rank))%>%
+  pivot_wider(names_from = all_of(agglom.rank), # or OTU
               values_from = "Abundance",
               values_fill = 0)%>%
   as.data.frame()%>%
@@ -53,11 +58,25 @@ ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input%>%
 rownames(ps.q.df.ancombc.input.wide)<-ps.q.df.ancombc.input.wide$Sample
 ps.q.df.ancombc.input.wide<-ps.q.df.ancombc.input.wide[,-1] 
 
-taxmat<-ps.q.agg%>%
-  dplyr::select(Kingdom,Phylum,Class,Order,Family,Genus,Taxon)%>%
-  distinct()%>%
-  column_to_rownames(var = "Taxon")%>%
-  as.matrix()
+if(agglom.rank=="OTU"){
+  taxmat<-ps.q.agg%>%
+    dplyr::select(OTU,Kingdom,Phylum,Class,Order,Family,Genus)%>%
+    distinct()%>%
+    column_to_rownames(var = "OTU")%>%
+    as.matrix()
+}else{
+  all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
+  agglom.rank.index<-match(agglom.rank,all.ranks)
+  custom.ranks<-all.ranks[1:agglom.rank.index]
+  
+  taxmat<-ps.q.agg%>%
+    ungroup()%>%
+    dplyr::select(all_of(custom.ranks))%>%
+    distinct()%>%
+    column_to_rownames(var = all_of(agglom.rank))%>%
+    as.matrix()
+}
+
 ps.q.OTU<-t(ps.q.df.ancombc.input.wide)
 ps.q.OTU<-otu_table(ps.q.OTU,taxa_are_rows = T)
 ps.q.TAX<-tax_table(taxmat)
@@ -94,35 +113,35 @@ tab_lfc = ancombc.res$lfc
 #              "US - CE", "Overweight - Obese", "Lean - Obese")
 # colnames(tab_lfc) = col_name
 tab_lfc %>% 
-  datatable(caption = "Log Fold Changes from the Primary Result")# %>%
+  DT::datatable(caption = "Log Fold Changes from the Primary Result")# %>%
   # formatRound(col_name[-1], digits = 2)
 
 ### SE  ####
 tab_se = ancombc.res$se
 # colnames(tab_se) = col_name
 tab_se %>% 
-  datatable(caption = "SEs from the Primary Result")# %>%
+  DT::datatable(caption = "SEs from the Primary Result")# %>%
   # formatRound(col_name[-1], digits = 2)
 
 ### Test statistic ####
 tab_w = ancombc.res$W
 # colnames(tab_w) = col_name
 tab_w %>% 
-  datatable(caption = "Test Statistics from the Primary Result") #%>%
+  DT::datatable(caption = "Test Statistics from the Primary Result") #%>%
   # formatRound(col_name[-1], digits = 2)
 
 ### P-values  ####
 tab_p = ancombc.res$p_val
 # colnames(tab_p) = col_name
 tab_p %>% 
-  datatable(caption = "P-values from the Primary Result")# %>%
+  DT::datatable(caption = "P-values from the Primary Result")# %>%
   # formatRound(col_name[-1], digits = 2)
 
 ### Adjusted p-values ####
 tab_q = ancombc.res$q
 # colnames(tab_q) = col_name
 tab_q %>% 
-  datatable(caption = "Adjusted p-values from the Primary Result")# %>%
+  DT::datatable(caption = "Adjusted p-values from the Primary Result")# %>%
   # formatRound(col_name[-1], digits = 2)
 
 
@@ -130,7 +149,7 @@ tab_q %>%
 tab_diff = ancombc.res$diff_abn
 # colnames(tab_diff) = col_name
 tab_diff %>% 
-  datatable(caption = "Differentially Abundant Taxa from the Primary Result")
+  DT::datatable(caption = "Differentially Abundant Taxa from the Primary Result")
 
 # find differentially abundant taxa by multiplying fold change with TRUE/FALSE
 # for diff abund
@@ -146,7 +165,7 @@ uniq.increased<-subset(ancombc.signif.features,
                            rowSums(ancombc.signif.features[,-c(1,2)]>0)==ncol(ancombc.signif.features[,-c(1,2)]))
 
 ps.q.agg%>%
-  filter(Taxon=="Paludicola (Ruminococcaceae)",
+  filter(get(agglom.rank)=="Paludicola",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
@@ -154,7 +173,7 @@ ps.q.agg%>%
   ggtitle("Paludicola (Ruminococcaceae)")
 
 ps.q.agg%>%
-  filter(Taxon=="Alistipes (Rikenellaceae)",
+  filter(get(agglom.rank)=="Alistipes",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
@@ -185,7 +204,7 @@ p_class = df_fig_class %>%
 p_class
 
 ps.q.agg%>%
-  filter(Taxon=="Fibrobacter (Fibrobacteraceae)",
+  filter(get(agglom.rank)=="Fibrobacter",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
@@ -215,22 +234,27 @@ p_decreased_class = df_decreased %>%
 p_decreased_class
 
 ps.q.agg%>%
-  filter(Taxon=="Z20 (Oligosphaeraceae)",
+  filter(get(agglom.rank)=="Prevotellaceae_UCG-003",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))+
-  ggtitle("Z20 (Oligosphaeraceae)")
-save.image(paste0("./rdafiles/",paste("ancombc",rare.status,
-                                      filter.status,agglom.rank,
-                                      paste(custom.levels,collapse = '-'),
-                                      truncationlvl, ref.level,
-                                      "workspace.RData",sep="-")))
+  ggtitle("Prevotellaceae_UCG-003 (Prevotellaceae)")
+
+save.image(file.path("./output/rdafiles/",paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  "ancombc",rare.status,filter.status,agglom.rank,
+  paste(custom.levels,collapse = '-'),
+  truncationlvl, ref.level,"workspace.RData",sep="-")))
+
 write.table(ancombc.signif.features,
-            file=paste0("./rtables/",authorname,"/",
-                        paste("ancombc",rare.status,
-                              filter.status,agglom.rank,
-                              paste(custom.levels,collapse = '-'),
-                              truncationlvl, ref.level,
-                              "signif.tsv",sep="-")),
-            row.names = F,sep = "\t")
+            file.path("./output/rtables",authorname,paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  "ancombc",rare.status,
+  filter.status,agglom.rank,
+  paste(custom.levels,collapse = '-'),truncationlvl,
+  ref.level,"signif.tsv",sep="-")),
+  row.names = F,sep = "\t")
+

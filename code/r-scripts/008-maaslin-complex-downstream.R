@@ -1,3 +1,8 @@
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install(c("phyloseq","Maaslin2"))
+# install.packages(c("tidyverse","Polychrome","pheatmap"))
 library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
@@ -7,17 +12,17 @@ ref.level<-"NMR"
 
 truncationlvl<-"234"
 agglom.rank<-"Genus"
-agglom.rank<-"OTU"
-source("r-scripts/make_features_maaslin.R")
+source("./code/r-scripts/make_features_maaslin.R")
 
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 read.end.type<-"single"
 
+date_time<-"20240427_15_29_05"
 custom.levels<-c("NMR",
                  "B6mouse",
-                 # "MSMmouse",
-                 # "FVBNmouse",
+                 "MSMmouse",
+                 "FVBNmouse",
                  "DMR",
                  "hare",
                  "rabbit",
@@ -36,39 +41,41 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-# load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
-#                                 truncationlvl,agglom.rank,
-#                                 "phyloseq-workspace.RData",sep = "-")))
 
 if(agglom.rank=="OTU"){
-  load(file.path("./rdafiles",
-              paste("maaslin",rare.status,filter.status,host,agglom.rank,
+  load(file.path("./output/rdafiles",paste(
+    date_time,
+    "maaslin",rare.status,filter.status,host,agglom.rank,
                     comparison,truncationlvl,ref.level,
                     "workspace.RData",sep="-")))
 }else{
-  load(file.path("./rdafiles",
-              paste("maaslin",rare.status,filter.status,agglom.rank,
-                    paste(custom.levels,collapse = '-'),
-                    truncationlvl,ref.level,"workspace.RData",sep="-")))
+  load(file.path("./output/rdafiles",paste(
+    date_time,
+    "maaslin",rare.status,filter.status,agglom.rank,
+    paste(custom.levels,collapse = '-'),
+    truncationlvl,ref.level,"workspace.RData",sep="-")))
 }
+
 
 # extract features with qvalue<0.05
 maaslin.signif.features<-maaslin.fit_data$results%>%
-  filter(qval<0.05)
+  filter(qval<0.05)%>%
+  select(-name)
+
 # make features pretty
 if(agglom.rank=="OTU"){
   maaslin.signif.features$feature<-gsub("^X","",maaslin.signif.features$feature)
 }else{
   foo<-ps.q.agg
-  foo$maaslin<-foo$Taxon
+  foo<-foo%>%mutate("maaslin"=get(agglom.rank))
   foo<-make_features_maaslin(foo,"maaslin")
-  foo<-unique(foo[,c("maaslin","Taxon")])
+  foo<-unique(foo[,c("maaslin",agglom.rank)])
   maaslin.signif.features<-maaslin.signif.features%>%
-    left_join(foo[,c("maaslin","Taxon")],by=c("feature"="maaslin"))%>%
+    left_join(foo[,c("maaslin",agglom.rank)],by=c("feature"="maaslin"))%>%
     distinct()
   rm(foo)
-  maaslin.signif.features$feature<-maaslin.signif.features$Taxon
-  maaslin.signif.features<-subset(maaslin.signif.features, select=-Taxon)
+  maaslin.signif.features$feature<-maaslin.signif.features[,agglom.rank]
+  maaslin.signif.features<-subset(maaslin.signif.features, select=-get(agglom.rank))
 }
 # we had to make this exchange because maaslin output treats space and hyphen
 # as the same thing
@@ -96,21 +103,25 @@ maaslin.signif.decreased<-maaslin.signif.features%>%
 if(agglom.rank=="OTU"){
   table(maaslin.signif.decreased$feature%in%ps.q.agg$OTU)
 }else{
-  table(maaslin.signif.decreased$feature%in%ps.q.agg$Taxon)
+  table(maaslin.signif.decreased$feature%in%pull(ps.q.agg[,agglom.rank]))
 }
 
 if(agglom.rank=="OTU"){
   write.table(maaslin.signif.features,
-              file=file.path("./rtables",authorname,
-                          paste("maaslin",rare.status,
+              file=file.path("./output/rtables",authorname,paste(
+                paste(format(Sys.time(),format="%Y%m%d"),
+                      format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                "maaslin",rare.status,
                                 filter.status,host,agglom.rank,
                                 comparison,truncationlvl,
                                 ref.level,"signif.tsv",sep="-")),
               row.names = F,sep = "\t")
 }else{
   write.table(maaslin.signif.features,
-              file=file.path("./rtables",authorname,
-                          paste("maaslin",rare.status,
+              file=file.path("./output/rtables",authorname,paste(
+                paste(format(Sys.time(),format="%Y%m%d"),
+                      format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                "maaslin",rare.status,
                                 filter.status,agglom.rank,
                                 paste(custom.levels,collapse = '-'),truncationlvl,
                                 ref.level,"signif.tsv",sep="-")),
@@ -122,17 +133,18 @@ if(agglom.rank=="OTU"){
 # Heatmap ####
 heatmap.df<-maaslin.signif.features%>%
   mutate(assoc.str=-log(qval)*sign(coef))%>%
-  select(feature,assoc.str,name)%>%
+  select(feature,assoc.str,value)%>%
+  distinct(.,feature,.keep_all = TRUE)%>%
   pivot_wider(names_from = "feature",
               values_from = "assoc.str",
               values_fill = 0)%>%
   as.data.frame()
-heatmap.df$name<-gsub("class","",heatmap.df$name)
+heatmap.df$value<-gsub("class","",heatmap.df$value)
 heatmap.df<-heatmap.df%>%
-  arrange(factor(name, levels=custom.levels))
+  arrange(factor(value, levels=custom.levels))
 
-rownames(heatmap.df)<-heatmap.df$name
-heatmap.df<-heatmap.df%>%select(-name)
+rownames(heatmap.df)<-heatmap.df$value
+heatmap.df<-heatmap.df%>%select(-value)
 
 max_value <- ceiling(max(heatmap.df))
 min_value <- ceiling(min(heatmap.df))
@@ -162,14 +174,14 @@ pheatmap(t(heatmap.df)[1:50,],
 heatmap(as.matrix(t(heatmap.df)))
 
 ps.q.df.maaslin.input%>%
-  filter(Taxon=="Prevotellaceae UCG-001 (Prevotellaceae)",
+  filter(get(agglom.rank)=="Prevotellaceae Family",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
   scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
 
 ps.q.agg%>%
-  filter(Taxon=="Uncultured (Eubacteriaceae)",
+  filter(get(agglom.rank)=="Eubacteriaceae Family",
          class%in%custom.levels)%>%
   ggplot(aes(x=factor(class,level=custom.levels),y=Abundance,fill=class))+
   geom_boxplot()+
