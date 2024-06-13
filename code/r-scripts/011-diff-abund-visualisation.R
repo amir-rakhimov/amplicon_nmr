@@ -10,7 +10,6 @@ agglom.rank<-"Genus"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 read.end.type<-"single"
-source("r-scripts/make_features_maaslin.R")
 authorname<-"pooled"
 load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
                                 truncationlvl,agglom.rank,
@@ -34,10 +33,6 @@ custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
 custom.md<-custom.md%>%
-  filter(class%in%custom.levels)
-ps.q.total<-ps.q.total%>%
-  filter(Sample%in%rownames(custom.md))
-ps.q.1pc<-ps.q.1pc%>%
   filter(class%in%custom.levels)
 
 # custom color palette based on custom levels from metadata
