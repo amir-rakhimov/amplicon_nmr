@@ -208,12 +208,12 @@ summary.table<-ps.q.agg%>%
   left_join(n.genus.per.host)%>%
   rename(GeneraPerHost=n)
 
-write.table(summary.table,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "summary-table.tsv",sep="-")),
-            row.names = F,sep = "\t")
+# write.table(summary.table,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "summary-table.tsv",sep="-")),
+#             row.names = F,sep = "\t")
 
 
 
@@ -246,7 +246,7 @@ ps.q.agg.genus%>%
 # in their name. For example, Bacteria Kingdom is unclassified, and if it's in
 # the agglom.rank column, we find the word "Bacteria" which makes it an 
 # unclassified taxon.
-# In summarise(TotalUnclassified=sum(RelativeAbundance)), we check the total
+# In summarise(TotalUnclassifiedPercent=sum(RelativeAbundance)), we check the total
 # proportion of unclassified taxa in each sample, then sort to find the 
 # most unclassified samples
 # Summary stats: mean, SD, min, max
@@ -255,42 +255,185 @@ unclassified.genus.summary.table<-ps.q.agg.genus%>%
   filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
                      collapse='|'),get(agglom.rank)))%>%
   group_by(Sample,class)%>%
-  summarise(TotalUnclassified=sum(RelativeAbundance))%>%
+  summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
   group_by(class)%>%
-  mutate(MeanTotalUnclassified=round(mean(TotalUnclassified)),
-         SDTotalUnclassified=round(sd(TotalUnclassified)),
-         minTotalUnclassified=round(min(TotalUnclassified)),
-         maxTotalUnclassified=round(max(TotalUnclassified)))%>%
-  select(-Sample,-TotalUnclassified)%>%
+  mutate(MeanTotalUnclassifiedPercent=round(mean(TotalUnclassifiedPercent)),
+         SDTotalUnclassifiedPercent=round(sd(TotalUnclassifiedPercent)),
+         minTotalUnclassifiedPercent=round(min(TotalUnclassifiedPercent)),
+         maxTotalUnclassifiedPercent=round(max(TotalUnclassifiedPercent)),
+         MedianTotalUnclassifiedPercent=round(median(TotalUnclassifiedPercent)))%>%
+  select(-Sample,-TotalUnclassifiedPercent)%>%
   distinct(class,.keep_all = T)%>%
-  arrange(-MeanTotalUnclassified)
+  arrange(-MeanTotalUnclassifiedPercent)
 
-write.table(unclassified.genus.summary.table,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "unclassified-genus-summary-table.tsv",sep="-")),
-            row.names = F,sep = "\t")
+# write.table(unclassified.genus.summary.table,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "unclassified-genus-summary-table.tsv",sep="-")),
+#             row.names = F,sep = "\t")
+
+pretty.facet.labels<-c("NMR" = "Naked mole-rat", # better labels for facets
+                       "B6mouse" = "B6 mouse",
+                       "MSMmouse" = "MSM/Ms mouse",
+                       "FVBNmouse" = "FVB/N mouse",
+                       "DMR" = "Damaraland mole-rat",
+                       "hare" = "European rabbit",
+                       "rabbit" = "European brown hare",
+                       "spalax" = "Spalax (blind mole-rat)",
+                       "pvo" = "Siberian flying squirrel")
+# Use only the taxa that are present in the workspace
+# (custom.md is metadata from the rdafile)
+custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+barplot.directory<-"./images/barplots/" # set the path where barplots will
+boxplot.directory<-"./images/boxplots/"
+image.formats<-c("png","tiff")
+
+summary.table%>%
+  ggplot(aes(x=reorder(class,-GeneraPerHost),y=GeneraPerHost))+
+  geom_bar(stat = "identity")+
+  theme_bw()+
+  labs(x="",
+       y="Genera per host")+
+  scale_x_discrete(labels =pretty.facet.labels) +
+  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+        axis.line = element_blank(), #TODO: what does it do?
+        panel.spacing = unit(0.8, "cm"), # increase distance between facets
+        axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+        # the x-axis labels by 45 degrees and shift to the right
+        axis.text.y = element_text(size=20), # size of y axis ticks
+        axis.title = element_text(size = 20), # size of axis names
+        plot.title = element_text(size = 25), # size of plot title
+        plot.caption = element_text(size=23), # size of plot caption
+        legend.text = element_text(size = 20), # size of legend text
+        legend.title = element_text(size = 25), # size of legend title
+        legend.position = "bottom")
+
+# for(image.format in image.formats){
+#   ggsave(paste0(barplot.directory,
+#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                       "barplot-total-genera",paste(custom.levels,collapse = '-'),
+#                       truncationlvl,agglom.rank,
+#                       sep = "-"),".",image.format),
+#          plot=last_plot(),
+#          width = 4000,height = 3000,
+#          units = "px",dpi=300,device = image.format)
+# }
+  
+
+
+# unclassified.genus.summary.table%>%
+#   ggplot(aes(x=reorder(class,-MeanTotalUnclassifiedPercent),y=MeanTotalUnclassifiedPercent))+
+#   geom_bar(stat = "identity")+
+#   theme_bw()+
+#   labs(x="",
+#        y="Unclassified genera per sample (%)")+
+#   scale_x_discrete(labels =pretty.facet.labels) +
+#   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+#         axis.line = element_blank(), #TODO: what does it do?
+#         panel.spacing = unit(0.8, "cm"), # increase distance between facets
+#         axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+#         # the x-axis labels by 45 degrees and shift to the right
+#         axis.text.y = element_text(size=20), # size of y axis ticks
+#         axis.title = element_text(size = 20), # size of axis names
+#         plot.title = element_text(size = 25), # size of plot title
+#         plot.caption = element_text(size=23), # size of plot caption
+#         legend.text = element_text(size = 20), # size of legend text
+#         legend.title = element_text(size = 25), # size of legend title
+#         legend.position = "bottom")
+# 
+# for(image.format in image.formats){
+#   ggsave(paste0(barplot.directory,
+#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                       "barplot-unclas-genera",paste(custom.levels,collapse = '-'),
+#                       truncationlvl,agglom.rank,
+#                       sep = "-"),".",image.format),
+#          plot=last_plot(),
+#          width = 4000,height = 3000,
+#          units = "px",dpi=300,device = image.format)
+# }
+
+
+# boxplot of genera
+ps.q.agg.genus%>%
+  group_by(Sample,class,Genus)%>% # group by class (animal host),
+  distinct(Genus)%>%
+  group_by(class,Sample)%>%
+  tally%>%
+  ggplot(aes(x=class,y=n))+
+  geom_boxplot()
+
+# Arrange boxplot by mean unclassified genera
+mean.factors<-unclassified.genus.summary.table%>%
+  arrange(-MeanTotalUnclassifiedPercent)%>%
+  pull(class)%>%
+  as.character()
+ps.q.agg.genus%>%
+  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
+                     collapse='|'),get(agglom.rank)))%>%
+  group_by(Sample,class)%>%
+  summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
+  ggplot(aes(x=factor(class,levels=mean.factors),y=TotalUnclassifiedPercent))+
+  geom_boxplot()+
+  stat_summary(fun=mean, geom='point', shape=23,fill="red",size=4)+
+  theme_bw()+
+  labs(x="",
+       y="Unclassified genera per sample (%)")+
+  scale_x_discrete(labels =pretty.facet.labels) +
+  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+        axis.line = element_blank(), #TODO: what does it do?
+        panel.spacing = unit(0.8, "cm"), # increase distance between facets
+        axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+        # the x-axis labels by 45 degrees and shift to the right
+        axis.text.y = element_text(size=20), # size of y axis ticks
+        axis.title = element_text(size = 20), # size of axis names
+        plot.title = element_text(size = 25), # size of plot title
+        plot.caption = element_text(size=23), # size of plot caption
+        legend.text = element_text(size = 20), # size of legend text
+        legend.title = element_text(size = 25), # size of legend title
+        legend.position = "bottom")
+# for(image.format in image.formats){
+#   ggsave(paste0(boxplot.directory,
+#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                       "boxplot-unclassified-genera",paste(custom.levels,collapse = '-'),
+#                       truncationlvl,agglom.rank,
+#                       sep = "-"),".",image.format),
+#          plot=last_plot(),
+#          width = 4000,height = 3000,
+#          units = "px",dpi=300,device = image.format)
+# }
+
+
 
 # Top 30 samples with unclassified taxa
 ps.q.agg.genus%>%
   filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
                      collapse='|'),get(agglom.rank)))%>%
   group_by(Sample,class)%>%
-  summarise(TotalUnclassified=sum(RelativeAbundance))%>%
-  arrange(-TotalUnclassified)%>%
+  summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
+  arrange(-TotalUnclassifiedPercent)%>%
   head(n = 30)%>%
   group_by(class)%>%
   summary()
 
 
 # Check the number of distinct OTU/taxa
-ps.q.agg.genus%>%
+num.distinct.genera<-ps.q.agg.genus%>%
   group_by(class)%>%
   filter(Abundance!=0)%>%
   distinct(get(agglom.rank))%>%
-  summarise(Taxon_count=n())%>%
-  arrange(-Taxon_count)
+  summarise(Genus_count=n())%>%
+  arrange(-Genus_count)
+write.table(num.distinct.genera,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "num-distinct-genera-summary-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
 
 # sanity check
 ps.q.agg.genus%>%
@@ -303,8 +446,8 @@ ps.q.agg.genus%>%
 
 
 
-# Most abundant phyla ####
-ps.q.agg.phylum%>%
+# Most abundant phyla in NMR ####
+ps.q.agg.dominant.phyla<-ps.q.agg.phylum%>%
   filter(class=="NMR")%>%
   mutate(TotalClass=sum(Abundance))%>%
   group_by(Phylum)%>%
@@ -313,9 +456,15 @@ ps.q.agg.phylum%>%
   select(Phylum,MeanRelativeAbundance)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
+write.table(ps.q.agg.dominant.phyla,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "dominant-phyla-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
 
-# Most abundant families ####
-ps.q.agg.family%>%
+# Most abundant families in NMR  ####
+ps.q.agg.dominant.families<-ps.q.agg.family%>%
   filter(class=="NMR")%>%
   mutate(TotalClass=sum(Abundance))%>%
   group_by(Family)%>%
@@ -324,6 +473,30 @@ ps.q.agg.family%>%
   select(Phylum,Family,MeanRelativeAbundance)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
+write.table(ps.q.agg.dominant.families,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "dominant-families-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+# Most abundant genera in NMR  ####
+ps.q.agg.dominant.genera<-ps.q.agg.genus%>%
+  ungroup()%>%
+  filter(class=="NMR")%>%
+  mutate(TotalClass=sum(Abundance))%>%
+  group_by(Genus)%>%
+  mutate(TotalAgglomRank=sum(Abundance))%>%
+  mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)%>%
+  select(Phylum,Family,Genus,MeanRelativeAbundance)%>%
+  distinct()%>%
+  arrange(-MeanRelativeAbundance)
+write.table(ps.q.agg.dominant.genera,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "dominant-genera-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
 
 
 
