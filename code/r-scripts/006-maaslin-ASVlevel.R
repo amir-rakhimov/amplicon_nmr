@@ -11,7 +11,7 @@ comparison<-"age"
 # choose the host of interest
 host<-"NMR"
 # host<-"mice"
-ref.level<-"agegroup0_5" # choose the reference level
+ref.level<-"agegroup0_10" # choose the reference level
 # this is for file names
 if(host=="NMR"){
   host.labels<-c("NMR" = "*Heterocephalus glaber*")
@@ -54,11 +54,15 @@ if(host=="NMR"){
   # minimum age and maximum age
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
+  
   # add age group to the dataset of abundances
   # each group is 5 years
+  # ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  #   mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
+  #                       include.lowest = TRUE))
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
-                        include.lowest = TRUE))
+    mutate(agegroup=cut(age, breaks =c(0,10,16),
+                         right = FALSE))
   # we create these new levels because maaslin is itsy bitsy
   unique_levels <- ps.q.df.preprocessed %>%
     ungroup()%>%
@@ -77,26 +81,9 @@ if(host=="NMR"){
     filter(class=="NMR")%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
-  
-  min_boundary <- floor(min(custom.md$age)/5) * 5
-  max_boundary <- ceiling(max(custom.md$age)/5) * 5
-  
-  custom.md<-custom.md%>%
-    mutate(agegroup=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
-                        include.lowest = TRUE))%>%
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))%>%
+    left_join(unique(ps.q.df.preprocessed[,c("Sample","agegroup")]),by="Sample")%>%
     as.data.frame()
-  # Extract unique levels from the original_vector
-  unique_levels <- custom.md %>%
-    distinct(agegroup) %>%
-    arrange(agegroup) %>%
-    mutate(new_agegroup = paste0("agegroup", agegroup))%>%
-    mutate(new_agegroup = gsub("\\(|\\)|\\[|\\]","",new_agegroup))%>%
-    mutate(new_agegroup = gsub("\\,","_",new_agegroup))
-  custom.md <- custom.md %>%
-    left_join(unique_levels, by = "agegroup")
-  colnames(custom.md)[which(colnames(custom.md)=="agegroup")]<-"old_agegroup"
-  colnames(custom.md)[which(colnames(custom.md)=="new_agegroup")]<-"agegroup"
   rownames(custom.md)<-custom.md$Sample
 }else if(host=="mice"){
   # select mice and add age groups: B6, old, or young
@@ -165,20 +152,23 @@ if (comparison=="age"){
   maaslin.comparison<-"class"
 }
 
-foo<-custom.md
-set.seed(1)
-foo$relation<-rbinom(n = nrow(custom.md),size = 1,prob = 0.5)
-foo$relation<-ifelse(foo$relation==0,"G0","G1")
+relations<-read.table("./data/metadata/pooled-metadata/nmr-relations.tsv",
+                      header = T,
+                      sep = "\t")
+custom.md<-custom.md%>%
+  left_join(relations,by="Sample")
+rownames(custom.md)<-custom.md$Sample
+
 
 set.seed(1)
 maaslin.fit_data = 
   Maaslin2(input_data = ps.q.df.maaslin.input.wide, 
-           input_metadata = foo, 
+           input_metadata = custom.md, 
            min_prevalence = 0,
            normalization = "TSS",
            transform = "AST",
            analysis_method = "LM",
-           random_effects = c("relation"), #TODO: fix
+           random_effects = c("relation"), 
            standardize = FALSE,
            output = file.path("./output/maaslin2",paste0(authorname,"-output"),
                               rare.status,paste(
@@ -198,6 +188,6 @@ save.image(file.path("./output/rdafiles",paste(
         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
   "maaslin",host,rare.status,filter.status,agglom.rank,
   comparison,truncationlvl,
-  paste(custom.levels,collapse = '-'),
+  paste(custom.levels,collapse = '-'),"ref",
   ref.level,"workspace.RData",sep="-")))
 q()
