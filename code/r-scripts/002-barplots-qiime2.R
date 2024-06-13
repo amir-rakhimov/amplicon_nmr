@@ -497,35 +497,20 @@ lvl.plot<-lvl.df%>%
   labs(fill="Taxon")+
   theme_bw()+
   ggtitle(paste(agglom.rank,"level gut microbiota profiles of fecal samples from", paste(lvl.name,collapse = " and ")))+
-  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+  theme(plot.margin=unit(c(1,1,1,2.5), 'cm'),
         axis.line = element_blank(), 
-        strip.text.x = ggtext::element_markdown(size = 20),
+        strip.text.x = ggtext::element_markdown(size = 30),
         panel.spacing = unit(0.8, "cm"), # increase distance between facets
-        axis.text.x = element_text(angle=45,size=20,hjust=1),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size = 20),
-        plot.title = ggtext::element_markdown(size = 25),
+        axis.text.x = element_text(angle=45,size=30,hjust=1),
+        axis.text.y = element_text(size=30),
+        axis.title = element_text(size = 30),
+        plot.title = ggtext::element_markdown(size = 30),
         plot.caption = element_text(size=23),
-        legend.text = element_markdown(size = 20),
-        legend.title = element_text(size = 25),
+        legend.text = element_markdown(size = 30),
+        legend.title = element_text(size = 35),
         legend.position = "right")
 
-# ggsave(paste0("./images/barplots/",
-#               paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                     "barplot","NMR-B6mouse",truncationlvl,
-#                     agglom.rank,sep = "-"),".png"),
-#        plot=lvl.plot,
-#        width = 8000,height = 6000,
-#        units = "px",dpi=300,device = "png")
-# ggsave(paste0("./images/barplots/",
-#               paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                     "barplot","NMR-B6mouse",truncationlvl,
-#                     agglom.rank,sep = "-"),".tiff"),
-#        plot=lvl.plot,
-#        width = 8000,height = 6000,
-#        units = "px",dpi=300,device = "tiff")
+
 for(image.format in image.formats){
   ggsave(paste0(barplot.directory,
                 paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -534,7 +519,7 @@ for(image.format in image.formats){
                       truncationlvl,agglom.rank,
                       sep = "-"),".",image.format),
          plot=lvl.plot,
-         width = 8000,height = 6000,
+         width = 9000,height = 6000,
          units = "px",dpi=300,device = image.format)
 }
 ## Barplot for NMR and NMR wt ####
