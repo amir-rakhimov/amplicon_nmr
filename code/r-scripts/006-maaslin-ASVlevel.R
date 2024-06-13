@@ -2,15 +2,16 @@ library(tidyverse)
 library(phyloseq)
 library(Maaslin2)
 library(vegan)
+date_time<-"20240524_13_54_21"
 authorname<-"pooled"
 # choose what to compare
-# comparison<-"age"
+comparison<-"age"
 # comparison<-"sex"
-comparison<-"strain"
+# comparison<-"strain"
 # choose the host of interest
-# host<-"NMR"
-host<-"mice"
-ref.level<-"FVBNmouse" # choose the reference level
+host<-"NMR"
+# host<-"mice"
+ref.level<-"agegroup0_5" # choose the reference level
 # this is for file names
 if(host=="NMR"){
   host.labels<-c("NMR" = "*Heterocephalus glaber*")
@@ -24,17 +25,24 @@ if(host=="NMR"){
 truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
-load(paste0("./output/rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
+
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 
 # Import data ####
-ps.q.df.preprocessed<-read.table(paste0("./output/rtables/",authorname,"/ps.q.df.",
-                                        rare.status,".",filter.status,"-",agglom.rank,"-",
-                                        paste(names(host.labels),collapse = '-'),".tsv"),
-                                 header = T,sep = "\t")
+ps.q.df.preprocessed<-read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      "20240524_13_58_11",
+      paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
+      paste(names(host.labels),collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 
 if(host=="NMR"){
   # select nmr and add age groups
@@ -42,7 +50,7 @@ if(host=="NMR"){
     filter(class=="NMR",Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,now()))))
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
   # minimum age and maximum age
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
@@ -56,7 +64,9 @@ if(host=="NMR"){
     ungroup()%>%
     distinct(agegroup)%>%
     arrange(agegroup) %>%
-    mutate(new_agegroup = paste0("agegroup", row_number()))
+    mutate(new_agegroup = paste0("agegroup", agegroup))%>%
+    mutate(new_agegroup = gsub("\\(|\\)|\\[|\\]","",new_agegroup))%>%
+    mutate(new_agegroup = gsub("\\,","_",new_agegroup))
   ps.q.df.preprocessed <- ps.q.df.preprocessed %>%
     left_join(unique_levels, by = "agegroup")
   colnames(ps.q.df.preprocessed)[which(colnames(ps.q.df.preprocessed)=="agegroup")]<-"old_agegroup"
@@ -67,7 +77,7 @@ if(host=="NMR"){
     filter(class=="NMR")%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,now()))))
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
   
   min_boundary <- floor(min(custom.md$age)/5) * 5
   max_boundary <- ceiling(max(custom.md$age)/5) * 5
@@ -80,7 +90,9 @@ if(host=="NMR"){
   unique_levels <- custom.md %>%
     distinct(agegroup) %>%
     arrange(agegroup) %>%
-    mutate(new_agegroup = paste0("agegroup", row_number()))
+    mutate(new_agegroup = paste0("agegroup", agegroup))%>%
+    mutate(new_agegroup = gsub("\\(|\\)|\\[|\\]","",new_agegroup))%>%
+    mutate(new_agegroup = gsub("\\,","_",new_agegroup))
   custom.md <- custom.md %>%
     left_join(unique_levels, by = "agegroup")
   colnames(custom.md)[which(colnames(custom.md)=="agegroup")]<-"old_agegroup"
@@ -153,27 +165,39 @@ if (comparison=="age"){
   maaslin.comparison<-"class"
 }
 
+foo<-custom.md
+set.seed(1)
+foo$relation<-rbinom(n = nrow(custom.md),size = 1,prob = 0.5)
+foo$relation<-ifelse(foo$relation==0,"G0","G1")
+
 set.seed(1)
 maaslin.fit_data = 
   Maaslin2(input_data = ps.q.df.maaslin.input.wide, 
-           input_metadata = custom.md, 
+           input_metadata = foo, 
            min_prevalence = 0,
            normalization = "TSS",
            transform = "AST",
            analysis_method = "LM",
-           random_effects = NULL,
+           random_effects = c("relation"), #TODO: fix
            standardize = FALSE,
-           output = paste0("./output/maaslin2/",authorname,"-output/",
-                          rare.status,"/",paste(host,filter.status,agglom.rank,
-                                                comparison,truncationlvl,
-                                                ref.level,sep="-")), 
+           output = file.path("./output/maaslin2",paste0(authorname,"-output"),
+                              rare.status,paste(
+                                paste(format(Sys.time(),format="%Y%m%d"),
+                                      format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                host,filter.status,agglom.rank,
+                                comparison,truncationlvl,
+                                paste(custom.levels,collapse = '-'),
+                                "ref",ref.level,sep = "-")), 
            fixed_effects = maaslin.comparison,
            reference = maaslin.reference,
            max_significance = 0.05)
 
 
-save.image(paste0("./rdafiles/",
-                  paste("maaslin",rare.status,filter.status,host,agglom.rank,
-                        comparison,truncationlvl,ref.level,
-                  "workspace.RData",sep="-")))
+save.image(file.path("./output/rdafiles",paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  "maaslin",host,rare.status,filter.status,agglom.rank,
+  comparison,truncationlvl,
+  paste(custom.levels,collapse = '-'),
+  ref.level,"workspace.RData",sep="-")))
 q()
