@@ -3,13 +3,21 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
-
+# Import data ####
+date_time<-"20240524_13_54_21"
+authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"OTU"
-
-# Import data ####
 read.end.type<-"single"
 rare.status<-"rare"
+
+load(file.path("./output/rdafiles",paste(
+  date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
+image.formats<-c("png","tiff")
+
 # rare.status<-"nonrare"
 # filter.status<-"filtered"
 filter.status<-"nonfiltered"
@@ -23,8 +31,6 @@ comparison<-"age"
 comparison<-"sex"
 comparison<-"strain"
 
-load(paste0("./output/rdafiles/pooled-",read.end.type,"-qiime2-",truncationlvl,"-",agglom.rank,
-            "-phyloseq-workspace.RData"))
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
 
@@ -40,10 +46,14 @@ if(host=="NMR"){
 
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
-ps.q.df.preprocessed<-read.table(paste0("./output/rtables/pooled/ps.q.df.",
-                                        rare.status,".",filter.status,"-",agglom.rank,"-",
-                                        paste(names(host.labels),collapse = '-'),".tsv"),
-                                 header = T,sep = "\t")
+ps.q.df.preprocessed<-read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      "20240524_13_58_11",
+      paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
+      paste(names(host.labels),collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 
 if(host=="NMR"){
   # select nmr and add age groups
@@ -51,7 +61,7 @@ if(host=="NMR"){
     filter(Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,now()))))
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
   
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
@@ -127,10 +137,6 @@ swatch(custom.fill)
 ps.q.df <-ps.q.df.preprocessed%>%
   select(Sample,Abundance,class,OTU,age_group,sex)# select(Sample,OTU,Abundance,class,Taxon)
 
-# ps.q.df <-ps.q.agg.rel%>%
-#   select(Sample,OTU,Abundance,class,Taxon)
-
-# ps.q.df<-ps.q.df[!grepl("Unclassified|Uncultured",ps.q.df$taxa.full),] # optional?
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
@@ -291,7 +297,6 @@ div.plot<-div.plot+
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
   theme_bw()+ 
-  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5)+
   labs(color=gg.labs.name)+
   scale_color_manual(breaks = scale.color.breaks,
                      labels=scale.color.labels)+
@@ -311,23 +316,33 @@ div.plot<-div.plot+
         legend.position = "none")+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    host,comparison,agglom.rank,truncationlvl,
-                    sep="-"),".png"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "png")
 
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha",
-                    paste(plot.metrics,collapse = "-"),
-                    host,comparison,agglom.rank,truncationlvl,
-                    sep="-"),".tiff"),
-       plot=div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "tiff")
+
+div.plot.with.dots<-div.plot+
+  geom_dotplot(binaxis='y', stackdir='center', dotsize=0.6) # add dots
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha",
+                      paste(plot.metrics,collapse = "-"),
+                      host,comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-dots",
+                      paste(plot.metrics,collapse = "-"),
+                      host,comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.with.dots,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
 # Per-sample plot ####
 # We need to invert the custom.levels for the rotated plot
 # Create a vector of sample factors (also inverted within their group)
@@ -371,23 +386,19 @@ per.sample.div.plot<-ggplot(all.div[all.div$metric %in%
         legend.position = "right")+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha-per-sample",
-                    paste(plot.metrics,collapse = "-"),
-                    host,comparison,agglom.rank,truncationlvl,
-                    sep="-"),".png"),
-       plot=per.sample.div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "png")
 
-ggsave(paste0("./images/diversity/alpha/",
-              paste(Sys.Date(),"alpha-per-sample",
-                    paste(plot.metrics,collapse = "-"),
-                    host,comparison,agglom.rank,truncationlvl,
-                    sep="-"),".tiff"),
-       plot=per.sample.div.plot,
-       width = 6000,height = 3000,
-       units = "px",dpi=300,device = "tiff")
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-sample",
+                      paste(plot.metrics,collapse = "-"),
+                      host,comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=per.sample.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
 
 # Add significance stars if we have significant results ####
 if(length(which(as.vector(w.results)<0.05))>0){
@@ -487,27 +498,18 @@ if(length(which(as.vector(w.results)<0.05))>0){
     geom_text(data = stars,aes(x=x, y=y, label=label),
               inherit.aes = FALSE,size=10) # add stars 
   
-  
-  
-  
-  ggsave(paste0("./images/diversity/alpha/",
-                paste(Sys.Date(),
-                      "alpha-shannon-sobs",
-                      host,comparison,agglom.rank,"signif"
-                      ,truncationlvl,sep = "-"),
-                ".png"),
-         plot=newplot,
-         width = 6000,height = 5000,
-         units = "px",dpi=300,device = "png")
-  ggsave(paste0("./images/diversity/",
-                paste(Sys.Date(),
-                      "alpha-shannon-sobs",
-                      host,comparison,agglom.rank,"signif"
-                      ,truncationlvl,sep = "-"),
-                ".tiff"),
-         plot=newplot,
-         width = 6000,height = 5000,
-         units = "px",dpi=300,device = "png")
+  for(image.format in image.formats){
+    ggsave(paste0("./images/diversity/alpha/",
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        "alpha",
+                        paste(plot.metrics,collapse = "-"),
+                        host,comparison,agglom.rank,truncationlvl,"signif",
+                        sep = "-"),".",image.format),
+           plot=newplot,
+           width = 6000,height = 3000,
+           units = "px",dpi=300,device = image.format)
+  }
 }
 
 
