@@ -137,3 +137,53 @@ write.table(common.decreased,
                                  paste(custom.levels,collapse = '-'),truncationlvl,
                                  ref.level,"signif.tsv",sep="-")),
             row.names = F,sep = "\t",col.names = F)
+
+
+maaslin.signif.features<-c("Desulfovibrio","Campylobacter")
+for (i in seq(maaslin.signif.features)){
+  taxon.plot<-ps.q.agg%>%
+    filter(class=="NMR")%>%
+    left_join(custom.md,by="Sample")%>%
+    filter(Genus==maaslin.signif.features[i])%>%
+    group_by(Sample,old_agegroup,Genus)%>%
+    summarise(RelativeAbundance=sum(RelativeAbundance))%>%
+    ggplot(aes(x=Sample,y=RelativeAbundance))+
+    geom_bar(stat="identity")+
+    ylab("Relative Abundance (%)")+
+    
+    facet_grid(~old_agegroup,scales = "free_x")+
+    ggtitle(paste(maaslin.signif.features[i],"relative abundance"))+
+    theme_bw()+
+    theme(axis.line = element_blank(),
+          strip.text.x = ggtext::element_markdown(size = 20),# the name of
+          # each facet will be recognised as a markdown object, so we can
+          # add line breaks (cause host names are too long)
+          axis.text.x = element_text(size=20),# rotate
+          # the x-axis labels by 45 degrees and shift to the right
+          axis.text.y = element_text(size=20), # size of y axis ticks
+          axis.title = element_text(size = 20), # size of axis names
+          plot.title = ggtext::element_markdown(size = 25), # the plot
+          # title will be recognised as a markdown object, so we can
+          # add line breaks (cause host names are too long)
+          plot.caption = element_text(size=23),# size of plot caption
+          legend.text = element_text(size = 20),# size of legend text
+          legend.title = element_text(size = 25), # size of legend title
+          legend.position = "right")
+  ggsave(paste0("./images/barplots/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "barplot","NMR",maaslin.signif.features[i],
+                      agglom.rank,sep = "-"),".png"),
+         plot=taxon.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = "png")
+  ggsave(paste0("./images/barplots/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "barplot","NMR",maaslin.signif.features[i],
+                      agglom.rank,sep = "-"),".tiff"),
+         plot=taxon.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = "tiff")
+}
+
