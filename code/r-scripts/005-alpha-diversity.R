@@ -3,7 +3,7 @@
 # }
 # BiocManager::install("phyloseq")
 # install.packages(c("tidyverse","vegan","Polychrome"))
-library(phyloseq)
+# library(phyloseq)
 library(tidyverse)
 library(vegan)
 library(Polychrome)
@@ -24,7 +24,7 @@ load(file.path("./output/rdafiles",paste(
   truncationlvl,agglom.rank,
   "phyloseq-workspace.RData",sep = "-")))
 
-pretty.axis.labels<-
+pretty.level.names<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
     "MSMmouse" = "MSM/Ms mouse",
@@ -41,7 +41,7 @@ excluded.samples<-
   c(#"MSMmouse",
     #"FVBNmouse",
     "NMRwt")
-custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 # facet labels
 metric.labs=c('sobs'="Richness \n(Observed species)",
@@ -68,14 +68,14 @@ swatch(custom.fill)
 # filter your data
 if(exists("excluded.samples")){
   custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
-  pretty.axis.labels<-
-    pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
-  pretty.axis.labels<-pretty.axis.labels[!names(pretty.axis.labels)%in%excluded.samples]
+  pretty.level.names<-
+    pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
+  pretty.level.names<-pretty.level.names[!names(pretty.level.names)%in%excluded.samples]
   ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)
 }else{
-  pretty.axis.labels<-
-    pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
+  pretty.level.names<-
+    pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
   ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
 }
@@ -90,9 +90,6 @@ ps.q.df.preprocessed<-read.table(
     ".tsv")),
   header = T)
 
-# colors
-scale.color.labels<-unname(pretty.axis.labels)
-scale.color.breaks<-unname(pretty.axis.labels)
 
 # Exclude samples if you need ####
 if(exists("excluded.samples")){
@@ -204,9 +201,9 @@ div.plot<-ggplot(all.div[all.div$metric %in%
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
   theme_bw()+
-  scale_color_manual(breaks = scale.color.breaks,
-                     labels=scale.color.labels)+
-  scale_x_discrete(labels=pretty.axis.labels,
+  scale_color_manual(breaks = unname(pretty.level.names),
+                     labels=unname(pretty.level.names))+
+  scale_x_discrete(labels=pretty.level.names,
                    limits=custom.levels)+ # rename boxplot labels (x axis)
   scale_fill_manual(values = custom.fill)+
   theme(plot.margin=unit(c(1,1,1,2), 'cm'),

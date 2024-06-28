@@ -26,7 +26,7 @@ load(file.path("./output/rdafiles",paste(
   truncationlvl,agglom.rank,
   "phyloseq-workspace.RData",sep = "-")))
 
-pretty.facet.labels<-
+pretty.level.names<-
   c("NMR" = "*Heterocephalus glaber*", # better labels for facets
     "B6mouse" = "B6 mouse",
     "MSMmouse" = "MSM/Ms mouse",
@@ -42,7 +42,7 @@ pretty.facet.labels<-
 excluded.samples<-
   c("NMRwt")
 
-custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 # Create custom palette with Polychrome package
 set.seed(1)
@@ -57,18 +57,16 @@ swatch(custom.colors)
 # filter your data
 if(exists("excluded.samples")){
   custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
-  pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
-  pretty.facet.labels<-pretty.facet.labels[!names(pretty.facet.labels)%in%excluded.samples]
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
+  pretty.level.names<-pretty.level.names[!names(pretty.level.names)%in%excluded.samples]
   ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)
 }else {
-  pretty.facet.labels<-pretty.facet.labels[which(names(pretty.facet.labels)%in%custom.levels)]
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
   ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
 }
 
-# custom labels for scale_color_manual
-custom.color.labels<-unname(pretty.facet.labels)
 if(exists("excluded.samples")){
   custom.colors<-custom.colors[!names(custom.colors)%in%excluded.samples]
 }
@@ -237,7 +235,7 @@ nmds.plot<-ggplot(nmds.scores,
   theme_bw()+
   guides(fill="none")+
   scale_color_manual(breaks = custom.levels,
-                     labels=custom.color.labels,
+                     labels=unname(pretty.level.names),
                      values = custom.colors)+
   scale_fill_manual(name=NULL, breaks = custom.levels,
                     labels=custom.levels,
@@ -332,7 +330,7 @@ pcoa.plot<-ggplot(pcoa.positions,
   theme_bw()+
   guides(fill="none")+
   scale_color_manual(breaks = custom.levels,
-                     labels=custom.color.labels,
+                     labels=unname(pretty.level.names),
                      values = custom.colors)+
   scale_fill_manual(name=NULL, breaks = custom.levels,
                     labels=custom.levels,
@@ -484,7 +482,7 @@ pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%
   theme_bw()+
   ggtitle(paste0("PCA between different rodents (",agglom.rank, " level)"))+
   scale_color_manual(breaks = custom.levels,
-                     labels=custom.color.labels,
+                     labels=unname(pretty.level.names),
                      values = custom.colors)+
   scale_fill_manual(name=NULL, breaks = custom.levels,
                     labels=custom.levels,
