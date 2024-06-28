@@ -253,4 +253,17 @@ save.image(file.path("./output/rdafiles",paste(
   truncationlvl,agglom.rank,
   "phyloseq-workspace.RData",sep = "-")))
 
+write.table(ps.q.agg,
+        file=file.path("./output/rtables",authorname,paste(
+          paste(format(Sys.time(),format="%Y%m%d"),
+                format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+          "phyloseq-qiime",authorname,agglom.rank,read.end.type,truncationlvl,
+          "table.rds",sep="-")),
+        row.names = F,sep = "\t")
+saveRDS(ps.q.agg,
+            file=file.path("./output/rdafiles",paste(
+              paste(format(Sys.time(),format="%Y%m%d"),
+                    format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+              "phyloseq-qiime",authorname,agglom.rank,read.end.type,truncationlvl,
+              "table.rds",sep="-")))
 sessionInfo()
