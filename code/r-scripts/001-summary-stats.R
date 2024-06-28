@@ -273,7 +273,7 @@ unclassified.genus.summary.table<-ps.q.agg.genus%>%
 #                                  "unclassified-genus-summary-table.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-pretty.facet.labels<-c("NMR" = "Naked mole-rat", # better labels for facets
+pretty.level.names<-c("NMR" = "Naked mole-rat", # better labels for facets
                        "B6mouse" = "B6 mouse",
                        "MSMmouse" = "MSM/Ms mouse",
                        "FVBNmouse" = "FVB/N mouse",
@@ -284,7 +284,7 @@ pretty.facet.labels<-c("NMR" = "Naked mole-rat", # better labels for facets
                        "pvo" = "Siberian flying squirrel")
 # Use only the taxa that are present in the workspace
 # (custom.md is metadata from the rdafile)
-custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 barplot.directory<-"./images/barplots/" # set the path where barplots will
 boxplot.directory<-"./images/boxplots/"
 image.formats<-c("png","tiff")
@@ -295,7 +295,7 @@ summary.table%>%
   theme_bw()+
   labs(x="",
        y="Genera per host")+
-  scale_x_discrete(labels =pretty.facet.labels) +
+  scale_x_discrete(labels =pretty.level.names) +
   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
         axis.line = element_blank(), #TODO: what does it do?
         panel.spacing = unit(0.8, "cm"), # increase distance between facets
@@ -329,7 +329,7 @@ summary.table%>%
 #   theme_bw()+
 #   labs(x="",
 #        y="Unclassified genera per sample (%)")+
-#   scale_x_discrete(labels =pretty.facet.labels) +
+#   scale_x_discrete(labels =pretty.level.names) +
 #   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
 #         axis.line = element_blank(), #TODO: what does it do?
 #         panel.spacing = unit(0.8, "cm"), # increase distance between facets
@@ -381,7 +381,7 @@ ps.q.agg.genus%>%
   theme_bw()+
   labs(x="",
        y="Unclassified genera per sample (%)")+
-  scale_x_discrete(labels =pretty.facet.labels) +
+  scale_x_discrete(labels =pretty.level.names) +
   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
         axis.line = element_blank(), #TODO: what does it do?
         panel.spacing = unit(0.8, "cm"), # increase distance between facets
@@ -456,12 +456,12 @@ ps.q.agg.dominant.phyla<-ps.q.agg.phylum%>%
   select(Phylum,MeanRelativeAbundance)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
-write.table(ps.q.agg.dominant.phyla,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "dominant-phyla-table.tsv",sep="-")),
-            row.names = F,sep = "\t")
+# write.table(ps.q.agg.dominant.phyla,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "dominant-phyla-table.tsv",sep="-")),
+#             row.names = F,sep = "\t")
 
 # Most abundant families in NMR  ####
 ps.q.agg.dominant.families<-ps.q.agg.family%>%
@@ -473,12 +473,12 @@ ps.q.agg.dominant.families<-ps.q.agg.family%>%
   select(Phylum,Family,MeanRelativeAbundance)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
-write.table(ps.q.agg.dominant.families,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "dominant-families-table.tsv",sep="-")),
-            row.names = F,sep = "\t")
+# write.table(ps.q.agg.dominant.families,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "dominant-families-table.tsv",sep="-")),
+#             row.names = F,sep = "\t")
 
 # Most abundant genera in NMR  ####
 ps.q.agg.dominant.genera<-ps.q.agg.genus%>%
@@ -491,15 +491,221 @@ ps.q.agg.dominant.genera<-ps.q.agg.genus%>%
   select(Phylum,Family,Genus,MeanRelativeAbundance)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
-write.table(ps.q.agg.dominant.genera,
+# write.table(ps.q.agg.dominant.genera,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "dominant-genera-table.tsv",sep="-")),
+#             row.names = F,sep = "\t")
+
+
+
+# Compare with Debebe et al. ####
+ps.q.agg.family.relab<-ps.q.agg.family%>%
+  group_by(class,Sample)%>%
+  mutate(TotalSample=sum(Abundance))%>%
+  group_by_at(c("class","Sample","Family"))%>%
+  mutate(RelativeAbundance=Abundance/TotalSample*100)%>%
+  group_by(class)%>% # group by class (animal host),
+  mutate(TotalClass=sum(Abundance))%>%
+  group_by_at(c("class","Family"))%>%
+  mutate(TotalAgglomRank=sum(Abundance))%>%
+  mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
+
+ps.q.agg.genus.relab<-ps.q.agg.genus%>%
+  group_by(class,Sample)%>%
+  mutate(TotalSample=sum(Abundance))%>%
+  group_by_at(c("class","Sample","Genus"))%>%
+  mutate(RelativeAbundance=Abundance/TotalSample*100)%>%
+  group_by(class)%>% # group by class (animal host),
+  mutate(TotalClass=sum(Abundance))%>%
+  group_by_at(c("class","Genus"))%>%
+  mutate(TotalAgglomRank=sum(Abundance))%>%
+  mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
+  
+# How much Bacteroidaceae are in NMR  ####
+bacteroidaceae.nmr<-ps.q.agg.family.relab%>%
+  filter(Family=="Bacteroidaceae",class=="NMR")%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Family,min,max,mean,sd,n)%>%
+  distinct()
+write.table(bacteroidaceae.nmr,
             file=file.path("./output/rtables",authorname,
                            paste(paste(format(Sys.time(),format="%Y%m%d"),
                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "dominant-genera-table.tsv",sep="-")),
+                                 "bacteroidaceae-nmr-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+# What are the most dominant Bacteroidota families in NMR ####
+bacteroidota.nmr<-ps.q.agg.family.relab%>%
+  filter(Phylum=="Bacteroidota",class=="NMR")%>%
+  group_by(Family)%>%
+  distinct(Family,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundance)%>%
+  select(Family,MeanRelativeAbundance)
+write.table(bacteroidota.nmr,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "bacteroidota-nmr-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+# Spirochaetaceae and Treponema ####
+spirochaetaceae.nmr<-ps.q.agg.family.relab%>%
+  filter(Family=="Spirochaetaceae",class=="NMR")%>%
+  mutate(min=min(RelativeAbundance),
+            max=max(RelativeAbundance),
+            mean=TotalAgglomRank/TotalClass*100,
+            sd=sd(RelativeAbundance),
+            n=n())%>%
+  select(Family,min,max,mean,sd,n)%>%
+  distinct()
+write.table(spirochaetaceae.nmr,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "spirochaetaceae-nmr-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+treponema.nmr<-ps.q.agg.genus.relab%>%
+  filter(Genus=="Treponema",class=="NMR")%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Genus,min,max,mean,sd,n)%>%
+  distinct()
+write.table(treponema.nmr,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "treponema-nmr-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+# How many ASVs in Treponema ####
+ps.q.agg%>%
+  filter(Genus=="Treponema",class=="NMR")%>%
+  distinct(OTU)%>%
+  tally
+
+# Mogibacteriaceae is renamed to Anaerovoracaceae ####
+mogibacteriaceae_anaerovoracaceae.all<-ps.q.agg.family.relab%>%
+  filter(Family=="Anaerovoracaceae")%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Family,min,max,mean,sd,n)%>%
+  distinct()%>%
+  arrange(-mean)
+write.table(mogibacteriaceae_anaerovoracaceae.all,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "mogibacteriaceae_anaerovoracaceae-all-table.tsv",sep="-")),
+            row.names = F,sep = "\t")
+
+# sulfur metabolising bacteria ####
+desulfobacterota.nmr<-ps.q.agg.genus.relab%>%
+  filter(Phylum=="Desulfobacterota",class=="NMR")%>%
+  group_by(Genus)%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Genus,MeanRelativeAbundance,sd)%>%
+  distinct()%>%
+  arrange(-MeanRelativeAbundance)
+write.table(desulfobacterota.nmr,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "desulfobacterota-nmr-table.tsv",sep="-")),
             row.names = F,sep = "\t")
 
 
+# Plot Desulfobacterota
+library(Polychrome)
+library(ggtext)
+pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+                       "B6mouse" = "B6 mouse",
+                       "MSMmouse" = "MSM/Ms mouse",
+                       "FVBNmouse" = "FVB/N mouse",
+                       "DMR" = "*Fukomys Damarensis*",
+                       "hare" = "*Lepus europaeus*",
+                       "rabbit" = "*Oryctolagus cuniculus*",
+                       "spalax" = "*Nannospalax leucodon*",
+                       "pvo" = "*Pteromys volans orii*",
+                       "NMRwt"="Wild *Heterocephalus glaber*"
+)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
+if(exists("excluded.samples")){
+  custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
+  pretty.level.names<-
+    pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
+  pretty.level.names<-pretty.level.names[!names(pretty.level.names)%in%excluded.samples]
+}else{
+  pretty.level.names<-
+    pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
+}
+set.seed(1)
+custom.fill<-createPalette(length(custom.levels),
+                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
+                                          "#FF8C00","#BF3EFF", "#00FFFF",
+                                          "#FF6EB4","#00EE00","#EEC900",
+                                          "#FFA07A"))
+names(custom.fill)<-custom.levels
+swatch(custom.fill)
+
+# It's a flipped plot
+ps.q.agg.genus.relab%>%
+  filter(Phylum=="Desulfobacterota")%>%
+  group_by(class,Genus)%>%
+  ggplot(aes(x=factor(class,level=rev(custom.levels)),
+             y=RelativeAbundance,
+             fill=factor(class)))+
+  geom_boxplot(show.legend = FALSE)+
+  facet_wrap(~Genus,scales = "free_x",
+             ncol = 2)+
+  theme_bw()+
+  coord_flip()+
+  labs(x="",
+       y="Relative abundance (%)")+
+  scale_color_manual(breaks = rev(unname(pretty.level.names)),
+                     labels=rev(unname(pretty.level.names)))+
+  scale_x_discrete(labels=rev(pretty.level.names),
+                   limits=rev(custom.levels))+ # rename boxplot labels (x axis)
+  scale_fill_manual(values = rev(custom.fill))+
+  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+        axis.title.y = element_blank(),
+        axis.title = element_text(size = 20),
+        axis.text.y = ggtext::element_markdown(size=18),
+        axis.text.x = element_text(size=20),
+        strip.text.x = element_text(size=20),
+        plot.title = element_text(size = 27),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25),
+        legend.position = "none")+
+  ggtitle(paste0("Relative abundance of Desulfobacterota phylum members"))
+
+for (image_format in c("png","tiff")){
+  ggsave(paste0("./images/taxaboxplots/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "Desulfobacterota phylum members-all-hosts",
+                      sep = "-"),".",image_format),
+         plot=last_plot(),
+         width = 4000,height = 6000,
+         units = "px",dpi=300,device = image_format)
+}
 # Biagi ####
 truncationlvl<-"0" # truncation level that we chose in QIIME2
 authorname<-"biagi" # name of the folder with QIIME2 output
