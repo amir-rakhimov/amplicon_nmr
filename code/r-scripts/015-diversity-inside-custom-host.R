@@ -5,6 +5,9 @@ library(phyloseq)
 library(Polychrome)
 # Import data ####
 date_time<-"20240524_13_54_21"
+ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
+# 20240426_22_00_04 preprocessed df for genera all hosts
+# "20240524_13_58_11" preprocessed df for NMR
 authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"OTU"
@@ -23,13 +26,13 @@ image.formats<-c("png","tiff")
 filter.status<-"nonfiltered"
 
 host<-"NMR"
-host<-"mice"
+# host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
               "mice"="mouse")
 
-comparison<-"age"
+# comparison<-"age"
 comparison<-"sex"
-comparison<-"strain"
+# comparison<-"strain"
 
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
@@ -49,7 +52,7 @@ if(host=="NMR"){
 ps.q.df.preprocessed<-read.table(
   file.path("./output/rtables",authorname,paste0(
     paste(
-      "20240524_13_58_11",
+      ps.q.df.preprocessed.date_time,
       paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
       paste(names(host.labels),collapse = '-'),sep = "-"),
     ".tsv")),
@@ -66,9 +69,13 @@ if(host=="NMR"){
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
   
+  # ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  #   mutate(age_group=cut(age, breaks = seq(min_boundary, max_boundary, by = 10), 
+  #                         right = FALSE))
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    mutate(age_group=cut(age, breaks = seq(min_boundary, max_boundary, by = 5), 
-                          include.lowest = TRUE))
+    mutate(age_group=cut(age, breaks =c(0,10,16),
+                         right = FALSE))
+  
 }else if(host=="mice"){
   # select mice and add age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
@@ -88,28 +95,28 @@ if(host=="NMR"){
 
 
 if (comparison=="age"){
-    pretty.axis.labels<-names(table(ps.q.df.preprocessed$age_group))
-    names(pretty.axis.labels)<-names(table(ps.q.df.preprocessed$age_group))
-    custom.levels<-names(pretty.axis.labels)
+    pretty.level.names<-names(table(ps.q.df.preprocessed$age_group))
+    names(pretty.level.names)<-names(table(ps.q.df.preprocessed$age_group))
+    custom.levels<-names(pretty.level.names)
     gg.labs.name<-"Age group"
     gg.title.groups<-"age groups"
     
 }else if (comparison=="sex"){
-    pretty.axis.labels<-
+    pretty.level.names<-
       c("F" = "Females",
         "M" = "Males")
-    custom.levels<-names(pretty.axis.labels)
-    pretty.axis.labels<-pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
+    custom.levels<-names(pretty.level.names)
+    pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
     gg.labs.name<-"Host sex"
     gg.title.groups<-"groups"
 }else if(comparison=="strain"){
-  pretty.axis.labels<-
+  pretty.level.names<-
     c("B6mouse" = "B6 mouse",
       "MSMmouse" = "MSM/Ms mouse",
       "FVBNmouse" = "FVB/N mouse"
     )
-  custom.levels<-intersect(names(pretty.axis.labels),custom.md$class)
-  pretty.axis.labels<-pretty.axis.labels[which(names(pretty.axis.labels)%in%custom.levels)]
+  custom.levels<-intersect(names(pretty.level.names),custom.md$class)
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
   gg.labs.name<-"Strain"
   gg.title.groups<-"strains"
 }
@@ -123,8 +130,6 @@ plot.metrics<-c("sobs","shannon", # "simpson",
                 "invsimpson") # metrics to plot
 div.indices<-c("sobs","shannon",# "simpson",
                "invsimpson")
-scale.color.labels<-unname(pretty.axis.labels)
-scale.color.breaks<-unname(pretty.axis.labels)
 
 set.seed(1)
 custom.fill<-createPalette(length(custom.levels),
@@ -298,9 +303,9 @@ div.plot<-div.plot+
              labeller = as_labeller(metric.labs))+ # rename facets
   theme_bw()+ 
   labs(color=gg.labs.name)+
-  scale_color_manual(breaks = scale.color.breaks,
-                     labels=scale.color.labels)+
-  scale_x_discrete(labels=pretty.axis.labels,
+  scale_color_manual(breaks = unname(pretty.level.names),
+                     labels=unname(pretty.level.names))+
+  scale_x_discrete(labels=pretty.level.names,
                    limits=custom.levels)+ # rename boxplot labels (x axis)
   scale_fill_manual(values = custom.fill)+
   theme(plot.margin=unit(c(1,1,1,2), 'cm'),
@@ -513,3 +518,485 @@ if(length(which(as.vector(w.results)<0.05))>0){
 }
 
 
+#############
+# Beta diversity ####
+set.seed(1)
+custom.colors<- 
+  createPalette(length(custom.levels),
+                seedcolors = c("#B22222", "#0000FF","#006400", 
+                               "#FF8C00","#5D478B", "#00FFFF"))
+custom.colors<-unname(custom.colors)
+swatch(custom.colors)
+# custom colors for scale_fill_manual (maybe not needed)
+# custom.fill<-c("dodgerblue", "seagreen","indianred")
+
+# Choose distance metric
+dist.metric<-"robust.aitchison"
+dist.metric<-"jaccard"
+dist.metric<-"canberra"
+dist.metric<-"bray"
+if(dist.metric=="bray"){
+  beta.label<-"Bray-Curtis dissimilarities"
+}else { # in case of robust.aitchison, we need to substitute the dot
+  beta.label<-paste(str_to_title(gsub("\\.", " ", dist.metric)),"distances")
+}
+
+permut.num<-1000 # number of permutations for PERMANOVA
+
+ps.sampledata<-ps.q.df.preprocessed%>%
+  select(c("Sample","class", "sex","birthday","age_group"))%>%
+  distinct() # metadata
+
+ps.q.df <-ps.q.df.preprocessed%>%
+  select(all_of(c("Sample","OTU","Abundance","class",agglom.rank)))
+
+
+# find the smallest sample size
+min.n_seqs.all<-ps.q.df%>%
+  select(Sample,OTU,Abundance)%>%
+  group_by(Sample)%>%
+  summarize(n_seqs=sum(Abundance))%>%
+  summarize(min=min(n_seqs))%>%
+  pull(min)
+
+# convert the data frame into wide format
+if (agglom.rank=="OTU"){
+  # convert the data frame into wide format
+  ps.q.df.wide<-ps.q.df%>%
+    pivot_wider(names_from = "OTU", # or OTU
+                values_from = "Abundance",
+                values_fill = 0)%>%
+    as.data.frame()
+}else{
+  ps.q.df.wide<-ps.q.df%>%
+    select(-OTU)%>%
+    pivot_wider(names_from = agglom.rank, # or OTU
+                values_from = "Abundance",
+                values_fill = 0)%>%
+    as.data.frame()
+}
+
+
+# colnames are OTUs and rownames are sample IDs
+rownames(ps.q.df.wide)<-ps.q.df.wide$Sample
+ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]  
+ps.q.df.wide<-as.matrix(ps.q.df.wide)
+
+
+# Calculate distances ####
+# Bray is meaningful only for integers (counts)
+set.seed(1)
+# Rarefaction is done by avgdist
+# computes the dissimilarity matrix of a dataset MULTIPLE times using vegdist
+# while randomly subsampling the dataset each time.
+# All of the subsampled iterations are then averaged (mean) to provide a 
+# distance matrix that represents the average of multiple subsampling iterations.
+
+if(dist.metric=="jaccard"){
+  dist<-avgdist(ps.q.df.wide,
+                dmethod="jaccard",
+                binary=TRUE,
+                sample=min.n_seqs.all,
+                iterations = 1000)
+}else if(dist.metric=="bray"|dist.metric=="canberra"){
+  dist<-avgdist(ps.q.df.wide,
+                dmethod=dist.metric,
+                sample=min.n_seqs.all,
+                iterations = 1000)
+}else if(dist.metric=="robust.aitchison"){
+  # dist.tfm<-decostand(x = ps.q.df.wide,"clr",pseudocount=1)
+  dist<-avgdist(ps.q.df.wide,
+                dmethod="robust.aitchison",
+                sample=min.n_seqs.all,
+                iterations = 1000
+  )
+}
+
+dist.df<-dist%>% # convert distances into tibble
+  as.matrix()%>%
+  as_tibble()
+dist.df<-cbind(labels(dist),dist.df) # create a column of sample ids
+colnames(dist.df)[1]<-"Sample"
+
+meta.dist<-dist.df%>%
+  inner_join(ps.sampledata,.,by="Sample")%>% # distances with metadata
+  ungroup()
+
+## PERMANOVA ####
+if (comparison=="age"){
+  all.test<-adonis2(dist~age_group, # distances explained by class
+                    data=meta.dist, 
+                    permutations = permut.num) # permutation number
+  
+}else if (comparison=="sex"){
+  all.test<-adonis2(dist~sex, # distances explained by class
+                    data=meta.dist, 
+                    permutations = permut.num) # permutation number
+}else if(comparison=="strain"){
+  all.test<-adonis2(dist~class, # distances explained by class
+                    data=meta.dist, 
+                    permutations = permut.num) # permutation number
+}
+
+all.test$F[1]
+all.test.p<-all.test$`Pr(>F)`[1]
+all.test.p
+
+## Making pairwise comparisons ####
+# we found a significant p value, but which groups are different?
+pairwise_p<-numeric()
+pairwise_F<-numeric()
+
+# pairwise tests
+combinations<-combn(custom.levels,2)
+for (i in 1:ncol(combinations)) {
+  if (comparison=="age"){
+    test.data<-meta.dist%>%
+      filter(age_group==combinations[1,i] | age_group==combinations[2,i]) # extract data for two groups
+    
+  }else if (comparison=="sex"){
+    test.data<-meta.dist%>%
+      filter(sex==combinations[1,i] | sex==combinations[2,i]) # extract data for two groups
+  }else if(comparison=="strain"){
+    test.data<-meta.dist%>%
+      filter(class==combinations[1,i] | class==combinations[2,i]) # extract data for two groups
+  }
+  
+  test.distances<-test.data%>%# extract only distances
+    select(all_of(.$Sample))%>% # extract distances (corresponding to Sample vector)
+    as.dist()
+  
+  if (comparison=="age"){
+    adonis.test<-adonis2(test.distances~age_group,
+                         data=test.data,
+                         permutations=permut.num)
+    
+  }else if (comparison=="sex"){
+    adonis.test<-adonis2(test.distances~sex,
+                         data=test.data,
+                         permutations=permut.num)
+  }else if(comparison=="strain"){
+    adonis.test<-adonis2(test.distances~class,
+                         data=test.data,
+                         permutations=permut.num)
+  }
+  
+  pairwise_p[paste(combinations[1,i],combinations[2,i],sep = "_")]<-
+    adonis.test$`Pr(>F)`[1]
+  pairwise_F[paste(combinations[1,i],combinations[2,i],sep = "_")]<-
+    adonis.test$F[1]
+}
+
+### Results ####
+pairwise_p
+pairwise_F
+
+### adjusting p values ####
+p.adjust(pairwise_p, method = "BH")
+which(pairwise_p>0.05)
+stopifnot(all(p.adjust(pairwise_p, method = "BH")<0.05))
+
+## NMDS ####
+# performs Nonmetric Multidimensional Scaling (NMDS), and tries to find 
+# a stable solution using several random starts. 
+# In addition, it standardizes the scaling in the result, 
+# so that the configurations are easier to interpret, and adds species scores 
+# to the site ordination. The metaMDS function does not provide actual NMDS, 
+# but it calls another function for the purpose. 
+# Currently monoMDS is the default choice, and it is also possible to call
+# the isoMDS (MASS package).
+set.seed(1)
+nmds<-metaMDS(dist, autotransform = FALSE) 
+# autotransform = FALSE means NO Square root transformation
+# and NO Wisconsin double standardization
+
+nmds.scores<-scores(nmds)%>%
+  as_tibble(rownames="Sample")%>% # convert rownames into "Sample" column
+  inner_join(.,ps.sampledata, by="Sample") 
+
+if(comparison=="age"){
+  nmds.plot<-ggplot(nmds.scores,
+                    aes(x=NMDS1,y=NMDS2,color=age_group, fill=age_group))
+}else if (comparison=="sex"){
+  nmds.plot<-ggplot(nmds.scores,
+                    aes(x=NMDS1,y=NMDS2,color=sex, fill=sex))
+}else if(comparison=="strain"){
+  nmds.plot<-ggplot(nmds.scores,
+                    aes(x=NMDS1,y=NMDS2,color=class, fill=class))
+}
+
+nmds.plot<-nmds.plot+
+  stat_ellipse(geom = "polygon",
+               level = 0.8,
+               alpha=0.2,
+               show.legend = FALSE)+
+  geom_point()+
+  theme_bw()+
+  guides(fill="none")+
+  # ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE)+ # add labels to samples+
+  scale_color_manual(breaks = custom.levels,
+                     labels=unname(pretty.level.names),
+                     values = custom.colors)+
+  scale_fill_manual(name=NULL, breaks = custom.levels,
+                    labels=custom.levels,
+                    values = custom.colors)+
+  labs(color=gg.labs.name)+
+  ggtitle(paste("nMDS on", beta.label, "between different",as.character(host.class[host]),gg.title.groups,"\n",
+                gg.title.taxon))+
+  theme(
+    axis.text.x = element_text(angle=0,size=20,hjust=1),
+    axis.text.y = element_text(size=20),
+    axis.title = element_text(size = 20),
+    plot.title = element_text(size = 27),
+    legend.text = ggtext::element_markdown(size = 20),
+    legend.title = element_text(size = 25),
+    legend.position = "right",
+    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+    plot.caption.position = "plot")
+
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/nmds/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "ndms",
+                      dist.metric,host,
+                      comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=nmds.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+
+## PCoA ####
+## Bray or Jaccard
+pcoa<-cmdscale(dist,
+               k=2,
+               eig = TRUE,
+               add = TRUE) # PCoA
+# k is the num of principal coordinates
+# eig allows to see % of variation explained
+# add rescales eigenvalues to make them all positive
+positions<-pcoa$points # pcoa values to plot
+colnames(positions)<-c("pcoa1", "pcoa2")
+
+percent_explained<-round(100* pcoa$eig / 
+                           sum(pcoa$eig),1)
+# previous won't have 0 after decimal
+
+# format() command will show exact number of digits you need 
+percent_exp<-format(round(100* pcoa$eig / 
+                            sum(pcoa$eig),1),1)
+
+# % explained by each axis is the value in eig divided 
+# by the sum of eig and multiplied by 100
+# we create a vector of % (each axis is divided by sum(eig))
+# so, we actually have % for all axes
+# first two axes are percent_explained[1:2]
+pcoa.positions<-positions %>% 
+  as_tibble(rownames="Sample") %>%
+  inner_join(.,ps.sampledata, by="Sample")  
+
+if(comparison=="age"){
+  pcoa.plot<-ggplot(pcoa.positions,
+                    aes(x=pcoa1,y=pcoa2,color=age_group,
+                        fill=age_group))
+}else if (comparison=="sex"){
+  pcoa.plot<-ggplot(pcoa.positions,
+                    aes(x=pcoa1,y=pcoa2,color=sex,
+                        fill=sex))
+}else if(comparison=="strain"){
+  pcoa.plot<-ggplot(pcoa.positions,
+                    aes(x=pcoa1,y=pcoa2,color=class,fill=class))
+}
+
+pcoa.plot<-pcoa.plot+
+  stat_ellipse(geom = "polygon",
+               level = 0.8,
+               alpha=0.2,
+               show.legend = FALSE)+
+  geom_point()+
+  theme_bw()+
+  guides(fill="none")+
+  labs(x=paste0("PCo 1 (", percent_exp[1],"%)"),
+       y=paste0("PCo 2 (", percent_exp[2],"%)"),
+       color=gg.labs.name
+       # ,
+       # caption = "All pairwise comparisons were significant using<br>ADONIS at p=0.05 using Benjamini-Hochberg correction for multiple comparisons"
+  )+
+  ggtitle(paste("PCoA on", beta.label, "between different",as.character(host.class[host]),gg.title.groups, "\n",
+                gg.title.taxon))+
+  # ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE)+ # add labels to samples+
+  scale_color_manual(breaks = custom.levels,
+                     labels=unname(pretty.level.names),
+                     values = custom.colors)+
+  scale_fill_manual(name=NULL, breaks = custom.levels,
+                    labels=custom.levels,
+                    values = custom.colors)+
+  theme(
+    axis.text.x = element_text(angle=0,size=20,hjust=1),
+    axis.text.y = element_text(size=20),
+    axis.title = element_text(size = 20),
+    plot.title = element_text(size = 27),
+    legend.text = ggtext::element_markdown(size = 20),
+    legend.title = element_text(size = 25),
+    legend.position = "right",
+    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+    plot.caption.position = "plot")
+
+
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/pcoa/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "pcoa",
+                      dist.metric,host,
+                      comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=pcoa.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+
+
+# PCA ####
+ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
+
+#### >if you want to exclude specific samples
+ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%c("mf_1","MSM343")),]
+ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%c("M40")),]
+ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
+ps.q.df.wide.centered<-scale(ps.q.pruned,scale=F,center=T)
+####<
+
+ps.q.df.wide.centered.scaled<-scale(ps.q.df.wide.centered,scale=T,center=F)
+# calculate principal components
+pca.q<-prcomp(ps.q.df.wide.centered.scaled)
+str(pca.q)
+dim(pca.q$x)
+
+# reverse the signs
+pca.q$rotation<- -1*pca.q$rotation
+
+# display principal components (loadings)
+head(pca.q$rotation)
+
+# reverse th signs of the scores
+pca.q$x<- -1*pca.q$x
+
+# display the first six scores
+head(pca.q$x)
+
+## PCA Biplot ####
+# biplot(pca.q,scale = 0)
+
+#calculate total variance explained by each principal component
+pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#calculate total variance explained by each principal component
+var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
+
+#create scree plot
+qplot(seq_along(1:nrow(ps.q.df.wide)), var_explained) + 
+  geom_line() + 
+  xlab("Principal Component") + 
+  ylab("Variance Explained") +
+  ggtitle("Scree Plot") +
+  ylim(0, 1)
+
+
+## PCA Plot ####
+PC1<-pca.q$x[,1]
+PC2<-pca.q$x[,2]
+perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
+
+if(comparison=="age"){
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+                   aes(x=PC1,y=PC2,color=age_group,
+                       fill=age_group))
+}else if (comparison=="sex"){
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+                   aes(x=PC1,y=PC2,color=sex,
+                       fill=sex))
+}else if(comparison=="strain"){
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+                   aes(x=PC1,y=PC2,color=class,fill=class))
+}
+
+pca.plot<-pca.plot +
+  geom_point(size=2)+ 
+  stat_ellipse(geom = "polygon",
+               level = 0.8,
+               alpha=0.2,
+               show.legend = FALSE)+
+  labs(x=paste0("PC1 (", perc.var[1], "%)"),
+       y=paste0("PC2 (", perc.var[2], "%)"),
+       color=gg.labs.name)+
+  theme_bw()+
+  ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
+                gg.title.taxon))+
+  scale_color_manual(breaks = custom.levels,
+                     labels=unname(pretty.level.names),
+                     values = custom.colors)+
+  scale_fill_manual(name=NULL, breaks = custom.levels,
+                    labels=custom.levels,
+                    values = custom.colors)+
+  guides(fill="none")+
+  theme(
+    axis.text.x = element_text(angle=0,size=20,hjust=1),
+    axis.text.y = element_text(size=20),
+    axis.title = element_text(size = 20),
+    plot.title = element_text(size = 27),
+    legend.text = ggtext::element_markdown(size = 20),
+    legend.title = element_text(size = 25),
+    legend.position = "right",
+    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+    plot.caption.position = "plot")
+
+pca.labeled<-pca.plot+
+  ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # add labels to samples
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/pca/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "pca",
+                      host,
+                      comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = image.format)
+  ggsave(paste0("./images/diversity/pca/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "pca-labeled",
+                      host,
+                      comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=pca.labeled,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+# find ASVs that contribute to PCs
+aload<-abs(pca.q$rotation)
+head(sweep(aload,2,colSums(aload),"/"))
+colSums(sweep(aload, 2, colSums(aload), "/"))
+colSums(aload)
+aload[1,1]/colSums(aload)[1]
+
+pc.df<-as.data.frame(sweep(aload,2,colSums(aload),"/")[,1:2])
+lapply(pc.df,max)
+max.ind<-lapply(pc.df,which.max)
+pc.df[max.ind$PC1,]
+pc.df[max.ind$PC2,]
+
+pc.df%>%rownames_to_column(var="OTU")%>%
+  arrange(-PC2)%>%
+  left_join(ps.q.agg[,c("OTU","Taxon")])%>%
+  distinct()%>%
+  View
