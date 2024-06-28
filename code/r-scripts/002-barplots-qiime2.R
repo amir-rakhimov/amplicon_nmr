@@ -9,19 +9,21 @@
 #   install.packages("BiocManager")
 # }
 # BiocManager::install("phyloseq")
-library(phyloseq)
+# library(phyloseq)
 library(tidyverse)
 library(Polychrome)
 library(ggtext)
 ## Specifying parameters and directory/file names #### 
 authorname<-"pooled" # name of the folder with QIIME2 output
-agglom.rank<-"Genus" # this is the taxonomic rank that was used for agglomeration
+agglom.rank<-"OTU" # this is the taxonomic rank that was used for agglomeration
 truncationlvl<-"234" #  truncation level that we chose in QIIME2
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
 barplot.directory<-"./images/barplots/" # set the path where barplots will
 # be saved
 image.formats<-c("png","tiff")
-date_time="20240426_21_44_30"
+date_time="20240524_13_54_21" 
+# 20240426_21_44_30 for Genus
+# 20240524_13_54_21 for OTU 
 # Load the Workspace from phyloseq (output of 001-phyloseq-qiime2.R)
 load(file.path("./output/rdafiles",paste(
   date_time,
@@ -33,7 +35,7 @@ load(file.path("./output/rdafiles",paste(
 # the left side of the vector (values) is taken from the metadata, while
 # the right side (names) are the pretty labels that will be shown on the final
 # barplot
-pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
                        "B6mouse" = "B6 mouse",
                        "MSMmouse" = "MSM/Ms mouse",
                        "FVBNmouse" = "FVB/N <br>mouse",
@@ -48,7 +50,7 @@ pretty.facet.labels<-c("NMR" = "*Heterocephalus glaber*", # better labels for fa
 # in barplots.
 # Use only the taxa that are present in the workspace
 # (custom.md is metadata from the rdafile)
-custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 # Filter the phyloseq object to retain animal hosts from custom.levels
 ps.q.agg<-ps.q.agg%>%
   filter(class%in%custom.levels,Abundance!=0)
@@ -310,7 +312,7 @@ mainplot<-ps.q.agg.for_bp%>%
              scales="free",  # each species will have its own bars inside
              # facet (instead of all bars)
              space = "free", # bars will have same widths
-             labeller = labeller(class=pretty.facet.labels))+ # labeller will
+             labeller = labeller(class=pretty.level.names))+ # labeller will
   # change facet labels to custom
   # guides(fill=guide_legend(ncol=1))+ # legend as one column
   coord_cartesian(expand=FALSE) +
@@ -381,8 +383,8 @@ for(i in seq_along(custom.levels)){
     # column where sample names are together with sample sizes
     filter(class==custom.levels[i],Abundance!=0) # keep only rows that
   # correspond to a chosen host
-  lvl.name<-unname(pretty.facet.labels[i]) # We find the pretty name for the 
-  # facet using the `pretty.facet.labels` vector. `unname` will remove
+  lvl.name<-unname(pretty.level.names[i]) # We find the pretty name for the 
+  # facet using the `pretty.level.names` vector. `unname` will remove
   # the name from the vector element (name was taken from custom.levels, 
   # not pretty)
   lvl.name<-gsub("<br>"," ", lvl.name) # also remove all line breaks
@@ -442,7 +444,7 @@ lvl.df<-ps.q.agg.for_bp%>%
   # our class column, so the NMR will be first
   mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
   filter(class%in%c("NMR","B6mouse"),Abundance!=0)
-lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","B6mouse")])
+lvl.name<-unname(pretty.level.names[names(pretty.level.names)%in%c("NMR","B6mouse")])
 lvl.name<-gsub("<br>"," ", lvl.name)
 # the total legend is big, we need to narrow down to our host
 host.legend<-ps.q.legend$Taxon.bp[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Taxon.bp))]
@@ -485,7 +487,7 @@ lvl.plot<-lvl.df%>%
   facet_grid(~class, # separate species
              scales="free",  # each species will have its own bars inside facet (instead of all bars)
              space = "free", # bars will have same widths
-             labeller = labeller(class=pretty.facet.labels) # labeller will change facet labels to custom
+             labeller = labeller(class=pretty.level.names) # labeller will change facet labels to custom
   )+
   guides(fill=guide_legend(ncol=1))+ # legend as one column
   coord_cartesian(expand=FALSE) +
@@ -533,7 +535,7 @@ if("NMRwt"%in%custom.levels){
     mutate(class=factor(class,levels=custom.levels))%>% # change the order of our class column, so the NMR will be first
     mutate(NewSample=paste0(Sample," (n = ",TotalAbundance, ")"))%>%
     filter(class%in%c("NMR","NMRwt"),Abundance!=0)
-  lvl.name<-unname(pretty.facet.labels[names(pretty.facet.labels)%in%c("NMR","NMRwt")])
+  lvl.name<-unname(pretty.level.names[names(pretty.level.names)%in%c("NMR","NMRwt")])
   lvl.name<-gsub("<br>"," ", lvl.name)
   # the total legend is big, we need to narrow down to our host
   host.legend<-ps.q.legend$Taxon[ps.q.legend$Taxon.bp%in%names(table(lvl.df$Taxon.bp))]
@@ -568,7 +570,7 @@ if("NMRwt"%in%custom.levels){
     facet_grid(~class, # separate species
                scales="free",  # each species will have its own bars inside facet (instead of all bars)
                space = "free", # bars will have same widths
-               labeller = labeller(class=pretty.facet.labels) # labeller will change facet labels to custom
+               labeller = labeller(class=pretty.level.names) # labeller will change facet labels to custom
     )+
     guides(fill=guide_legend(ncol=1))+ # legend as one column
     coord_cartesian(expand=FALSE) +
