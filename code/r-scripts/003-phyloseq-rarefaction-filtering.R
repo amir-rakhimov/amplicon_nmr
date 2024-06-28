@@ -72,7 +72,7 @@ min.n_seqs.all<-ps.q.agg%>%
   summarize(min=min(n_seqs))%>%
   pull(min)
 
-# If you want to plot a rarefaction curve
+# If you want to plot a rarefaction curve ####
 # library(ggrepel)
 # ps.q.mat<-as(t(otu_table(ps.q)),"matrix") # from phyloseq
 # ps.q.mat<-as.matrix(ps.q.df.wide) # from the ps.q.df matrix
