@@ -5,23 +5,42 @@
 # in R. First, we need to import the QZA files using `qiime2R` package.
 # We convert the QZA files directly into phyloseq objects.
 
-# The final output of this script is an ASV table with X columns:  
-# `Sample`: 
-#TODO: add the rest
-# `Sample`                
-# `Abundance`             
-# `class`                 
-# `animal`                
-# `sex`                   
-# `birthday`              
-# `Kingdom`               
-# `Phylum`                
-# `Class`                 
+# The final output of this script is an ASV table with X columns 
+# (16 if agglomerating at ASV level):  
+# `Sample`: samples that were sequenced
+# `Abundance`: Absolute abundance of taxa
+# `class`: short names of animal hosts. The variable is factor with 9 levels 
+# at most (B6mouse, DMR, FVBNmouse, hare, MSMmouse, NMR, pvo, rabbit, spalax)
+# `animal`: full names of animal hosts.  The variable is factor with 9 levels 
+# at most ("Fukomys Damarensis", "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
+# "naked mole rat", "Nannospalax leucodon", "Oryctolagus cuniculus", 
+# "Pteromys volans orii", "SPF mouse, B6").
+# "Fukomys Damarensis" is DMR, "FVB/N mouse" is FVBNmouse, "Lepus europaeus" is hare, 
+# "MSM/Ms mouse" is MSMmouse, "naked mole rat" is NMR, 
+# "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is rabbit, 
+# "Pteromys volans orii" is pvo, "SPF mouse, B6" is B6mouse.
+# `sex`: sex of tested samples. Not all samples have it. It is a factor with
+# 4 levels (F, M, NR, -)
+# `birthday`: date of birth of samples. Not all samples have it. It is a 
+# Date format variable.
+# The next seven columns may not all be in the table. If you agglomerate by 
+# Genus, you don't see the Species column. And if you agglomerate by Family, you 
+# don't see Genus and Species. But these are taxonomic ranks for ASVs that 
+# we got from QIIME2.
+# `Kingdom`
+# `Phylum`
+# `Class`
 # `Order`
-# ...
-# Genus (if agglomerated by Genus)
-# `RelativeAbundance`
-# `MeanRelativeAbundance`
+# `Family`
+# `Genus`
+# `Species`
+# `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is.
+# `RelativeAbundance`: Relative abundance of taxa in each sample. 
+# We calculate it by summing the Abundance of a taxon in each sample
+# and dividing that sum by the sum of reads in that sample.
+# `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
+# calculate it by summing the absolute abundance of a taxon from all samples
+# in a host and dividing by the sum of reads in that host.
 
 
 ## Import libraries ####
@@ -51,10 +70,10 @@ if(agglom.rank=="OTU"){
 }
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 authorname<-"pooled" # name of the folder with QIIME2 output
-date_time<-"20240425_02_57_13"
+qza_file_date_time<-"20240425_02_57_13"
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
 qiimedir<-file.path("./output/qiime",paste0(authorname,"-qiime"),
-                    paste(date_time,read.end.type,truncationlvl,sep="-")) # directory with QZA files
+                    paste(qza_file_date_time,read.end.type,truncationlvl,sep="-")) # directory with QZA files
 
 metadatadir<-file.path("./data/metadata",
                        paste(authorname,"metadata",sep = "-")) # directory with metadata
@@ -89,8 +108,8 @@ colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 # convert the Sample column into row names because phyloseq needs samples
 # as rownames
 # Remove absolute.filepath column
+rownames(custom.md)<-custom.md$Sample
 custom.md<-custom.md%>%
-  column_to_rownames(var = "Sample")%>%
   select(-absolute.filepath)
 custom.md$class<-as.factor(custom.md$class)
 custom.md$animal<-as.factor(custom.md$animal)
@@ -99,7 +118,38 @@ custom.md$birthday<-as.Date(custom.md$birthday)
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
-# you can exclude some samples based on class. Specify the excluded classes
+# For NMR
+custom.md.ages<-custom.md%>% 
+  filter(class=="NMR")%>%
+  group_by(Sample)%>%
+  mutate(birthday=as.Date(birthday))%>%
+  mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
+custom.md.ages<-custom.md.ages%>%
+  mutate(agegroup=cut(age, breaks =c(0,10,16),
+                      right = FALSE))
+# we create these new levels because maaslin is itsy bitsy
+unique_levels <-custom.md.ages %>%
+  ungroup()%>%
+  distinct(agegroup)%>%
+  arrange(agegroup) %>%
+  mutate(new_agegroup = paste0("agegroup", agegroup))%>%
+  mutate(new_agegroup = gsub("\\(|\\)|\\[|\\]","",new_agegroup))%>%
+  mutate(new_agegroup = gsub("\\,","_",new_agegroup))
+custom.md.ages <- custom.md.ages %>%
+  left_join(unique_levels, by = "agegroup")
+colnames(custom.md.ages)[which(colnames(custom.md.ages)=="agegroup")]<-"old_agegroup"
+colnames(custom.md.ages)[which(colnames(custom.md.ages)=="new_agegroup")]<-"agegroup"
+
+
+custom.md.ages<-custom.md.ages%>%
+  as.data.frame()
+rownames(custom.md.ages)<-custom.md.ages$Sample
+
+# saveRDS(custom.md.ages,file="./output/rdafiles/custom.md.ages.rds")
+# write.table(custom.md.ages,file="./output/rtables/pooled/custom.md.ages.tsv",
+#             row.names = F,sep = "\t")
+
+# You can exclude some samples based on class. Specify the excluded classes
 # in a vector, then use the `%in%` operator. It will remove entries 
 # of the `class` column (animal hosts) from the `custom.md` object (metadata)
 # custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','pvo','tx',
@@ -110,7 +160,9 @@ custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','tx'),]
 custom.md<-custom.md[!rownames(custom.md) %in%
                        intersect(names(which(colSums(ps.q@otu_table)<20000)),
                                  rownames(custom.md)),]
-
+# saveRDS(custom.md,file="./output/rdafiles/custom.md.rds")
+# write.table(custom.md,file="./output/rtables/pooled/custom.md.tsv",
+#             row.names = F,sep = "\t")
 ### Construct the phyloseq object directly from dada2 output ####
 # We combine the phyloseq object with new metadata (if we excluded samples)
 ps.foo <- phyloseq(otu_table(ps.q),
@@ -158,7 +210,8 @@ if (asvlevel==TRUE){
 
 # Remove entries with zero Abundance
 ps.q.agg<-ps.q.agg%>%
-  filter(Abundance!=0)
+  filter(Abundance!=0)%>%
+  select(-sample_Sample)
 
 # Number of samples in the filtered dataset ####
 ps.q.agg%>%
