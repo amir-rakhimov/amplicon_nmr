@@ -5,8 +5,8 @@
 # in R. First, we need to import the QZA files using `qiime2R` package.
 # We convert the QZA files directly into phyloseq objects.
 
-# The final output of this script is an ASV table with X columns 
-# (16 if agglomerating at ASV level):  
+# The final output of this script is an ASV table with 10-16 columns 
+# (10 if agglomerating at Phylum, 16 if agglomerating at ASV level):  
 # `Sample`: samples that were sequenced
 # `Abundance`: Absolute abundance of taxa
 # `class`: short names of animal hosts. The variable is factor with 9 levels 
@@ -34,7 +34,8 @@
 # `Family`
 # `Genus`
 # `Species`
-# `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is.
+# `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
+# included if you are not aggomerating by ASVs
 # `RelativeAbundance`: Relative abundance of taxa in each sample. 
 # We calculate it by summing the Abundance of a taxon in each sample
 # and dividing that sum by the sum of reads in that sample.
