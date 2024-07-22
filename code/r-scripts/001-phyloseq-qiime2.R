@@ -118,7 +118,7 @@ custom.md$birthday<-as.Date(custom.md$birthday)
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
-# For NMR
+# For NMR, we create a separate metadata object with age groups.
 custom.md.ages<-custom.md%>% 
   filter(class=="NMR")%>%
   group_by(Sample)%>%
@@ -127,7 +127,7 @@ custom.md.ages<-custom.md%>%
 custom.md.ages<-custom.md.ages%>%
   mutate(agegroup=cut(age, breaks =c(0,10,16),
                       right = FALSE))
-# we create these new levels because maaslin is itsy bitsy
+# We create these new levels for differential microbial abundance
 unique_levels <-custom.md.ages %>%
   ungroup()%>%
   distinct(agegroup)%>%
@@ -137,9 +137,9 @@ unique_levels <-custom.md.ages %>%
   mutate(new_agegroup = gsub("\\,","_",new_agegroup))
 custom.md.ages <- custom.md.ages %>%
   left_join(unique_levels, by = "agegroup")
+# We preserve the old group names for visualisation
 colnames(custom.md.ages)[which(colnames(custom.md.ages)=="agegroup")]<-"old_agegroup"
 colnames(custom.md.ages)[which(colnames(custom.md.ages)=="new_agegroup")]<-"agegroup"
-
 
 custom.md.ages<-custom.md.ages%>%
   as.data.frame()
@@ -211,7 +211,7 @@ if (asvlevel==TRUE){
 # Remove entries with zero Abundance
 ps.q.agg<-ps.q.agg%>%
   filter(Abundance!=0)%>%
-  select(-sample_Sample)
+  select(-sample_Sample) # remove the duplicate column
 
 # Number of samples in the filtered dataset ####
 ps.q.agg%>%
@@ -298,7 +298,7 @@ objects.to.keep<-c("agglom.rank","ps.q.agg","asvlevel","custom.md",
                    "authorname","truncationlvl","read.end.type")
 objects.to.keep<-which(ls()%in%objects.to.keep)
 rm(list = ls()[-objects.to.keep])
-# Save the workspace
+# Save the workspace ####
 save.image(file.path("./output/rdafiles",paste(
   paste(format(Sys.time(),format="%Y%m%d"),
         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
