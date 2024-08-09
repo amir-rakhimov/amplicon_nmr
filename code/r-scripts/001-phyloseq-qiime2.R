@@ -103,7 +103,7 @@ ps.q.taxtab$Kingdom<-
 tax_table(ps.q)<-as.matrix(ps.q.taxtab)
 rm(ps.q.taxtab)
 
-# Add custom metadata cause previous command loses metadata for some reason
+### Add custom metadata ####
 custom.md<-read.table(metadata.filename, header = T)
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 # convert the Sample column into row names because phyloseq needs samples
@@ -119,7 +119,7 @@ custom.md$birthday<-as.Date(custom.md$birthday)
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
-# For NMR, we create a separate metadata object with age groups.
+### For NMR, we create a separate metadata object with age groups. ####
 custom.md.ages<-custom.md%>% 
   filter(class=="NMR")%>%
   group_by(Sample)%>%
