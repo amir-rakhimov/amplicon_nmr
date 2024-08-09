@@ -2,6 +2,7 @@ library(vegan)
 library(tidyverse)
 library(phyloseq)
 library(Polychrome)
+phyloseq.date_time<-"20240524_13_54_21"
 
 authorname<-"pooled"
 truncationlvl<-"234"
@@ -15,17 +16,19 @@ rare.status<-"rare"
 filter.status<-"nonfiltered"
 
 host<-"NMR"
-host<-"mice"
+# host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
               "mice"="mouse")
 
 comparison<-"age"
-comparison<-"sex"
-comparison<-"strain"
+# comparison<-"sex"
+# comparison<-"strain"
 
-load(paste0("./rdafiles/",paste(authorname,read.end.type,"qiime2",
-                                truncationlvl,agglom.rank,
-                                "phyloseq-workspace.RData",sep = "-")))
+load(file.path("./output/rdafiles",paste(
+  phyloseq.date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
 
 gg.title.taxon<-ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
@@ -45,11 +48,10 @@ ps.q.df.preprocessed<-ps.q.agg
 if(host=="NMR"){
   # select nmr and add age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    filter(Abundance!=0)%>%
+    filter(class=="NMR",Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=age_calc(birthday,units = "years"))%>%
-    mutate(age=round(age))
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
   
   min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
   max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
@@ -107,13 +109,60 @@ names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
 # load the list of significant features
-load(file=paste0("./rdafiles/",
-                 paste("significant-features-all-groups",
-                       rare.status,filter.status,host,agglom.rank,
-                       comparison,truncationlvl,
-                       sep="-"),".RData"))
+# load(file=paste0("./rdafiles/",
+#                  paste("significant-features-all-groups",
+#                        rare.status,filter.status,host,agglom.rank,
+#                        comparison,truncationlvl,
+#                        sep="-"),".RData"))
+custom.levels<-c("agegroup0_10",
+                 "agegroup10_16")
+maaslin.signif.date<-"20240613_19_47_56"
+maaslin.signif.decreased<-read.table(file.path("./output/rtables/pooled",
+          paste(
+            maaslin.signif.date,
+            "significant-decreased-all-lvls",host,rare.status,
+            filter.status,agglom.rank,
+            comparison,truncationlvl,
+            paste(sort(custom.levels),collapse = '-'),
+            ".tsv",sep="-")),
+          header = T,sep = "\t")
+
+
+tax.table<-ps.q.agg%>%
+  filter(class=="NMR")%>%
+  group_by(OTU)%>%
+  select(OTU,Kingdom:Genus)%>%
+  distinct(.keep_all = T)
+
+# Count how many genera are present in diff abund features
+maaslin.tax.table<-maaslin.signif.decreased%>%
+  left_join(tax.table,by=c("feature"="OTU"))%>%
+  group_by_at(c(comparison,"feature"))%>%
+  distinct(feature,.keep_all = T)%>%
+  group_by(age,Genus)%>%
+  tally%>%
+  arrange(-n)
+  
+
+
+
+
+
+
+
+
+
+
+####
 ggplots<-list()
-for(ref.level in custom.levels){
+if(length(custom.levels)==2){
+  forloop.length<-length(custom.levels)-1
+}else{
+  forloop.length<-length(custom.levels)
+}
+
+for(i in seq(1, forloop.length)){
+  ref.level<- custom.levels[i]
   ref.level.plots<-list()
   for (feature_index in seq_along(signif.all.groups[[ref.level]])){
     # take each taxon one by one from the list of significant features
