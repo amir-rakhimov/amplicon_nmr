@@ -659,7 +659,7 @@ ps.q.agg%>%
   dplyr::arrange(-MeanRelativeAbundance)%>%
   dplyr::mutate(csumNMR=cumsum(MeanRelativeAbundance))
 
-
+# barplot of agglom.rank taxa (e.g. genera) with average abundance >=1% in NMR
 ps.q.agg%>%
   filter(class=="NMR",MeanRelativeAbundance>=1)%>%
   distinct(get(agglom.rank),.keep_all = TRUE)%>%
@@ -668,48 +668,35 @@ ps.q.agg%>%
   coord_flip()
 
 
-
-sessionInfo()
 ####
+# Create a barplot of relative abundances for a certain taxon across hosts
+# (quick and dirty)
+ggplot.taxon<-function(tax.df,taxon.to.plot,tax.rank){
+  ggplot.obj<-tax.df%>%
+    filter(get(tax.rank)==taxon.to.plot,
+           Abundance!=0)%>%
+    ggplot(aes(x=Sample,y=RelativeAbundance),fill=tax.rank)+
+    geom_bar(stat="identity")+
+    facet_grid(.~class,scales = "free",
+               space = "free")+
+    theme_bw()+
+    labs(y="Relative abundance (%)",
+         title = paste(taxon.to.plot, "relative abundance across rodents"))+
+    theme(axis.text.x = element_text(angle=45,hjust=1))
+  return(ggplot.obj)
+}
 
+ggplot.taxon(ps.q.agg,"Lactobacillus","Genus")
 
-plot1<-ps.q.agg%>%
-  filter(Genus=="Lactobacillus",
-         Abundance!=0)%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
-  geom_bar(stat="identity")+
-  facet_grid(.~class,scales = "free",
-             space = "free")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45,hjust=1))+
-  ggtitle("Lactobacillus")
-ggsave(filename = paste0("./images/barplots/Lactobacillus.png"),
-       plot1,
-       height = 800,width = 1500,units = "px",dpi = 120)
+# ggsave(filename = paste0("./images/barplots/Lactobacillus.png"),
+#        last_plot(),
+#        height = 800,width = 1500,units = "px",dpi = 120)
+ggplot.taxon(ps.q.agg,"Bifidobacterium","Genus")
 
-plot2<-ps.q.agg%>%
-  filter(Genus=="Bifidobacterium",
-         Abundance!=0)%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
-  geom_bar(stat="identity")+
-  facet_grid(~class,scales = "free",
-             space = "free")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45,hjust=1))+
-  ggtitle("Bifidobacterium")
-ggsave(filename = paste0("./images/barplots/Bifidobacterium.png"),
-       plot2,
-       height = 800,width = 1500,units = "px",dpi = 120)
-plot3<-ps.q.agg%>%
-  filter(Genus=="Desulfovibrio",
-         Abundance!=0)%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance),fill=Genus)+
-  geom_bar(stat="identity")+
-  facet_grid(~class,scales = "free",
-             space = "free")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45,hjust=1))+
-  ggtitle("Desulfovibrio")
-ggsave(filename = paste0("./images/barplots/Desulfovibrio.png"),
-       plot3,
-       height = 800,width = 1500,units = "px",dpi = 120)
+# ggsave(filename = paste0("./images/barplots/Bifidobacterium.png"),
+#        last_plot(),
+#        height = 800,width = 1500,units = "px",dpi = 120)
+ggplot.taxon(ps.q.agg,"Desulfovibrio","Genus")
+# ggsave(filename = paste0("./images/barplots/Desulfovibrio.png"),
+#        last_plot(),
+#        height = 800,width = 1500,units = "px",dpi = 120)
