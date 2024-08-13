@@ -1,7 +1,5 @@
 library(tidyverse)
-library(phyloseq)
 library(ALDEx2)
-library(vegan)
 authorname<-"pooled"
 # choose what to compare
 comparison<-"age"
