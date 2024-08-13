@@ -42,6 +42,7 @@ custom.levels<-intersect(names(pretty.facet.labels),custom.md$class)
 
 # Import data ####
 ps.q.df <-ps.q.agg%>%
+    # filter(class=="NMR")%>%
   select(Sample,Abundance,class,all_of(agglom.rank))%>%
   filter(Abundance!=0)
 
@@ -64,7 +65,8 @@ ps.q.df.wide<-ps.q.df.wide[,-c(1,2)]
 
 # Rarefaction ####
 # find the smallest sample size
-min.n_seqs.all<-ps.q.agg%>%
+min.n_seqs.all<-ps.q.df%>%
+  # filter(class=="NMR")%>%
   filter(class %in% custom.levels)%>%
   select(Sample,all_of(agglom.rank),Abundance)%>%
   group_by(Sample)%>%
