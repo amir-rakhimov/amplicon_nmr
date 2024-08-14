@@ -5,13 +5,16 @@
 # in R. First, we need to import the QZA files using `qiime2R` package.
 # We convert the QZA files directly into phyloseq objects.
 
-# The final output of this script is an ASV table with 10-16 columns 
+# The final workspace contains several objects: ps.q.agg dataframe, 
+# custom.md metadata, agglom.rank, asvlevel, authorname, read.end.type, truncationlvl.
+
+# 1) ps.q.agg is an ASV table with 10-16 columns 
 # (10 if agglomerating at Phylum, 16 if agglomerating at ASV level):  
-# `Sample`: samples that were sequenced
-# `Abundance`: Absolute abundance of taxa
-# `class`: short names of animal hosts. The variable is factor with 9 levels 
+# 1. `Sample`: samples that were sequenced
+# 2. `Abundance`: Absolute abundance of taxa
+# 3. `class`: short names of animal hosts. The variable is factor with 9 levels 
 # at most (B6mouse, DMR, FVBNmouse, hare, MSMmouse, NMR, pvo, rabbit, spalax)
-# `animal`: full names of animal hosts.  The variable is factor with 9 levels 
+# 4. `animal`: full names of animal hosts.  The variable is factor with 9 levels 
 # at most ("Fukomys Damarensis", "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
 # "naked mole rat", "Nannospalax leucodon", "Oryctolagus cuniculus", 
 # "Pteromys volans orii", "SPF mouse, B6").
@@ -19,30 +22,43 @@
 # "MSM/Ms mouse" is MSMmouse, "naked mole rat" is NMR, 
 # "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is rabbit, 
 # "Pteromys volans orii" is pvo, "SPF mouse, B6" is B6mouse.
-# `sex`: sex of tested samples. Not all samples have it. It is a factor with
+# 5. `sex`: sex of tested samples. Not all samples have it. It is a factor with
 # 4 levels (F, M, NR, -)
-# `birthday`: date of birth of samples. Not all samples have it. It is a 
+# 6. `birthday`: date of birth of samples. Not all samples have it. It is a 
 # Date format variable.
 # The next seven columns may not all be in the table. If you agglomerate by 
 # Genus, you don't see the Species column. And if you agglomerate by Family, you 
 # don't see Genus and Species. But these are taxonomic ranks for ASVs that 
 # we got from QIIME2.
-# `Kingdom`
-# `Phylum`
-# `Class`
-# `Order`
-# `Family`
-# `Genus`
-# `Species`
-# `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
+# 7. `Kingdom`
+# 8. `Phylum`
+# 9. `Class`
+# 10. `Order`
+# 11. `Family`
+# 12. `Genus`
+# 13. `Species`
+# 14. `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
 # included if you are not aggomerating by ASVs
-# `RelativeAbundance`: Relative abundance of taxa in each sample. 
+# 15. `RelativeAbundance`: Relative abundance of taxa in each sample. 
 # We calculate it by summing the Abundance of a taxon in each sample
 # and dividing that sum by the sum of reads in that sample.
-# `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
+# 16. `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
 # calculate it by summing the absolute abundance of a taxon from all samples
 # in a host and dividing by the sum of reads in that host.
 
+# 2) custom.md is a dataframe with metadata. It has 5 variables:
+# 1. `class`: same as in ps.q.agg
+# 2. `animal`: same as in ps.q.agg
+# 3. `sex`: same as in ps.q.agg
+# 4. `birhday`: same as in ps.q.agg
+# 5. `Sample`: same as in ps.q.agg
+
+# Other objects characterize the experiment. Almost all variables are characters
+# 3) `agglom.rank` is the taxonomic rank by which we summarize the phyloseq table
+# 4) `asvlevel` tells if output is summarized or not. If TRUE, the phyloseq table
+# was not agglomerated. If FALSE, it was summarized by agglom.rank
+# 5) `read.end.type`: tells if we use single-end or paired-end data
+# 6) `truncationlvl`: tells the truncation length used in QIIME2
 
 ## Import libraries ####
 # if (!requireNamespace("devtools", quietly = TRUE)){install.packages("devtools")}
