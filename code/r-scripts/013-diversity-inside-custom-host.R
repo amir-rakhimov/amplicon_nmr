@@ -1,13 +1,14 @@
 # Alpha diversity inside custom host #### 
 library(vegan)
 library(tidyverse)
-library(phyloseq)
+# library(phyloseq)
 library(Polychrome)
 # Import data ####
-date_time<-"20240524_13_54_21"
+phyloseq.workspace.date_time<-"20240524_13_54_21"
 ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
-# 20240426_22_00_04 preprocessed df for genera all hosts
-# "20240524_13_58_11" preprocessed df for NMR
+# 20240426_22_00_04 preprocessed df for all hosts, genus level
+# "20240524_13_58_11" preprocessed df for NMR, OTU level
+# 20240809_13_18_49 preprocessed df for NMR, Genus level
 authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"OTU"
@@ -15,16 +16,14 @@ read.end.type<-"single"
 rare.status<-"rare"
 
 load(file.path("./output/rdafiles",paste(
-  date_time,
+  phyloseq.workspace.date_time,
   authorname,read.end.type,"qiime2",
   truncationlvl,agglom.rank,
   "phyloseq-workspace.RData",sep = "-")))
 image.formats<-c("png","tiff")
-
-# rare.status<-"nonrare"
-# filter.status<-"filtered"
 filter.status<-"nonfiltered"
 
+# If you compare NMRs or mice (inside host)
 host<-"NMR"
 # host<-"mice"
 host.class<-c("NMR"="naked mole-rat",
@@ -60,29 +59,23 @@ ps.q.df.preprocessed<-read.table(
 
 if(host=="NMR"){
   # select nmr and add age groups
+  custom.md<-readRDS("./output/rdafiles/custom.md.ages.rds")
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     filter(Abundance!=0)%>%
     group_by(Sample)%>%
     mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
-  
-  min_boundary <- floor(min(ps.q.df.preprocessed$age)/5) * 5
-  max_boundary <- ceiling(max(ps.q.df.preprocessed$age)/5) * 5
-  
-  # ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-  #   mutate(age_group=cut(age, breaks = seq(min_boundary, max_boundary, by = 10), 
-  #                         right = FALSE))
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))%>%
+    mutate(class=as.factor(class),
+           sex=as.factor(sex))
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    mutate(age_group=cut(age, breaks =c(0,10,16),
-                         right = FALSE))
-  
+    left_join(custom.md)
 }else if(host=="mice"){
   # select mice and add age groups
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     filter(Abundance!=0)
-  # this is an if/else statement to create the age_group column
+  # this is an if/else statement to create the agegroup column
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    mutate(age_group=case_when(
+    mutate(agegroup=case_when(
       class == "B6mouse" ~ "B6",
       class == "MSMmouse" & grepl("2020", birthday) ~ "MSM/Ms old",
       class == "MSMmouse" & as.Date(birthday) > as.Date("2021-01-01") ~ "MSM/Ms young",
@@ -95,8 +88,8 @@ if(host=="NMR"){
 
 
 if (comparison=="age"){
-    pretty.level.names<-names(table(ps.q.df.preprocessed$age_group))
-    names(pretty.level.names)<-names(table(ps.q.df.preprocessed$age_group))
+    pretty.level.names<-names(table(ps.q.df.preprocessed$old_agegroup))
+    names(pretty.level.names)<-names(table(ps.q.df.preprocessed$agegroup))
     custom.levels<-names(pretty.level.names)
     gg.labs.name<-"Age group"
     gg.title.groups<-"age groups"
@@ -120,6 +113,9 @@ if (comparison=="age"){
   gg.labs.name<-"Strain"
   gg.title.groups<-"strains"
 }else if(comparison =="colony"){
+  relations<-relations<-read.table("./data/metadata/pooled-metadata/nmr-relations.tsv",
+                                   header = T,
+                                   sep = "\t")
   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
     left_join(relations,by="Sample")
   pretty.level.names<-names(table(ps.q.df.preprocessed$colony))
@@ -147,9 +143,13 @@ custom.fill<-createPalette(length(custom.levels),
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
-ps.q.df <-ps.q.df.preprocessed%>%
-  select(Sample,Abundance,class,OTU,age_group,sex,colony)# select(Sample,OTU,Abundance,class,Taxon)
-
+if(comparison=="colony"){
+  ps.q.df <-ps.q.df.preprocessed%>%
+    select(Sample,Abundance,class,OTU,agegroup,sex,colony)# select(Sample,OTU,Abundance,class,Taxon)
+}else{
+  ps.q.df <-ps.q.df.preprocessed%>%
+    select(all_of(c(agglom.rank,"Sample","Abundance","class","agegroup","sex")))
+}
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
@@ -161,7 +161,7 @@ if(comparison=="age"||comparison=="sex"){
             # simpson=diversity(Abundance, index="simpson"),
             invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
             tot=sum(Abundance),
-            age_group=age_group,
+            agegroup=agegroup,
             sex=sex)%>%
     group_by(Sample)%>%
     pivot_longer(cols=c(sobs,shannon,invsimpson),
@@ -188,7 +188,7 @@ if(comparison=="age"||comparison=="sex"){
             # simpson=diversity(Abundance, index="simpson"),
             invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
             tot=sum(Abundance),
-            age_group=age_group,
+            agegroup=agegroup,
             sex=sex,
             colony=colony)%>%
     group_by(Sample)%>%
@@ -220,7 +220,7 @@ for (div.metric in div.indices) {
     distinct()
   # perform kruskal-wallis test
   if(comparison=="age"){
-    kt<-kruskal.test(value~age_group,data=metric.ds)
+    kt<-kruskal.test(value~agegroup,data=metric.ds)
     
   }else if (comparison=="sex"){
     kt<-kruskal.test(value~sex,data=metric.ds)
@@ -241,7 +241,7 @@ for (div.metric in div.indices) {
   if(kt$p.value<0.05){
     if(comparison=="age"){
       w.test<-pairwise.wilcox.test(metric.ds$value,
-                                   metric.ds$age_group,
+                                   metric.ds$agegroup,
                                    p.adjust.method = "BH",
                                    exact=FALSE)
     }else if (comparison=="sex"){
@@ -286,12 +286,12 @@ max.values<-all.div%>%
 
 # Prepare data for plotting
 if(comparison=="age"){
-  all.div$age_group<-factor(all.div$age_group,levels=custom.levels)
+  all.div$agegroup<-factor(all.div$agegroup,levels=custom.levels)
 }else if (comparison=="sex"){
   all.div$sex<-factor(all.div$sex,levels=custom.levels)
   
 }else if(comparison=="strain"){
-  all.div$age_group<-factor(all.div$class,levels=custom.levels)
+  all.div$agegroup<-factor(all.div$class,levels=custom.levels)
 }else if(comparison=="colony"){
   all.div$colony<-factor(all.div$colony,levels=custom.levels)
 }
@@ -301,8 +301,8 @@ if(comparison=="age"){
   div.plot<-ggplot(all.div[all.div$metric %in%
                              plot.metrics,],
                    # aes(x=reorder(class,-value),y=value,fill=class))+
-                   aes(x=factor(all.div$age_group,
-                                level=custom.levels),y=value,fill=factor(age_group)))
+                   aes(x=factor(all.div$agegroup,
+                                level=custom.levels),y=value,fill=factor(agegroup)))
 }else if (comparison=="sex"){
   div.plot<-ggplot(all.div[all.div$metric %in%
                              plot.metrics,],
@@ -387,7 +387,7 @@ sample.factors<-all.div%>%
   ungroup()%>%
   pivot_wider(names_from = "metric",
               values_from ="value")%>%
-  arrange(fct_rev(age_group),sobs,shannon,invsimpson)%>%
+  arrange(fct_rev(agegroup),sobs,shannon,invsimpson)%>%
   select(Sample)%>%
   distinct()%>%
   pull
@@ -395,11 +395,11 @@ sample.factors<-all.div%>%
 
 # Assign factors to the Sample column
 all.div$Sample<-factor(all.div$Sample,levels=sample.factors)
-# Revert the age_group order, otherwise the legend will be wrong
-all.div$age_group<-factor(all.div$age_group,levels=custom.levels)
+# Revert the agegroup order, otherwise the legend will be wrong
+all.div$agegroup<-factor(all.div$agegroup,levels=custom.levels)
 per.sample.div.plot<-ggplot(all.div[all.div$metric %in%
                  plot.metrics,],
-       aes(x=value,y=Sample,colour=age_group))+
+       aes(x=value,y=Sample,colour=agegroup))+
   geom_point(size=2,stat = "identity")+
   facet_wrap(~factor(metric, # reorder facets
                      levels=plot.metrics),
@@ -575,7 +575,7 @@ if(dist.metric=="bray"){
 permut.num<-1000 # number of permutations for PERMANOVA
 
 ps.sampledata<-ps.q.df.preprocessed%>%
-  select(c("Sample","class", "sex","birthday","age_group"))%>%
+  select(c("Sample","class", "sex","birthday","agegroup"))%>%
   distinct() # metadata
 
 ps.q.df <-ps.q.df.preprocessed%>%
@@ -655,7 +655,7 @@ meta.dist<-dist.df%>%
 
 ## PERMANOVA ####
 if (comparison=="age"){
-  all.test<-adonis2(dist~age_group, # distances explained by class
+  all.test<-adonis2(dist~agegroup, # distances explained by class
                     data=meta.dist, 
                     permutations = permut.num) # permutation number
   
@@ -683,7 +683,7 @@ combinations<-combn(custom.levels,2)
 for (i in 1:ncol(combinations)) {
   if (comparison=="age"){
     test.data<-meta.dist%>%
-      filter(age_group==combinations[1,i] | age_group==combinations[2,i]) # extract data for two groups
+      filter(agegroup==combinations[1,i] | agegroup==combinations[2,i]) # extract data for two groups
     
   }else if (comparison=="sex"){
     test.data<-meta.dist%>%
@@ -698,7 +698,7 @@ for (i in 1:ncol(combinations)) {
     as.dist()
   
   if (comparison=="age"){
-    adonis.test<-adonis2(test.distances~age_group,
+    adonis.test<-adonis2(test.distances~agegroup,
                          data=test.data,
                          permutations=permut.num)
     
@@ -747,7 +747,7 @@ nmds.scores<-scores(nmds)%>%
 
 if(comparison=="age"){
   nmds.plot<-ggplot(nmds.scores,
-                    aes(x=NMDS1,y=NMDS2,color=age_group, fill=age_group))
+                    aes(x=NMDS1,y=NMDS2,color=agegroup, fill=agegroup))
 }else if (comparison=="sex"){
   nmds.plot<-ggplot(nmds.scores,
                     aes(x=NMDS1,y=NMDS2,color=sex, fill=sex))
@@ -831,8 +831,8 @@ pcoa.positions<-positions %>%
 
 if(comparison=="age"){
   pcoa.plot<-ggplot(pcoa.positions,
-                    aes(x=pcoa1,y=pcoa2,color=age_group,
-                        fill=age_group))
+                    aes(x=pcoa1,y=pcoa2,color=agegroup,
+                        fill=agegroup))
 }else if (comparison=="sex"){
   pcoa.plot<-ggplot(pcoa.positions,
                     aes(x=pcoa1,y=pcoa2,color=sex,
@@ -946,8 +946,8 @@ perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
 
 if(comparison=="age"){
   pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
-                   aes(x=PC1,y=PC2,color=age_group,
-                       fill=age_group))
+                   aes(x=PC1,y=PC2,color=agegroup,
+                       fill=agegroup))
 }else if (comparison=="sex"){
   pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
                    aes(x=PC1,y=PC2,color=sex,
@@ -1039,7 +1039,7 @@ foo<-all.div%>%
   left_join(ps.q.agg)
 
 div.otus<-foo%>%
-  filter(age_group=="[0,10)")%>%
+  filter(agegroup=="[0,10)")%>%
   select(Sample,sobs,OTU,Abundance)%>%
   pivot_wider(names_from = OTU,
               values_from = Abundance,
