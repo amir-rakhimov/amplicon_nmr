@@ -354,6 +354,7 @@ add_relab_to_tax_df<-function(tax.df,tax.rank){
 ps.q.agg.phylum.relab<-add_relab_to_tax_df(ps.q.agg.phylum,"Phylum")
 ps.q.agg.family.relab<-add_relab_to_tax_df(ps.q.agg.family,"Family")
 ps.q.agg.genus.relab<-add_relab_to_tax_df(ps.q.agg.genus,"Genus")
+ps.q.agg.relab<-add_relab_to_tax_df(ps.q.agg,"OTU")
 
 # 9. Add agegroup (Must run for plotting) ####
 custom.md.ages<-readRDS("./output/rdafiles/custom.md.ages.rds")
@@ -383,6 +384,9 @@ ps.q.agg.genus.relab<-add_agegroup_to_tax_df(ps.q.agg.genus.relab,"Genus",
                                              custom.md.ages)
 ps.q.agg.family.relab<-add_agegroup_to_tax_df(ps.q.agg.family.relab,"Family",
                                               custom.md.ages)
+
+ps.q.agg.relab<-add_agegroup_to_tax_df(ps.q.agg.relab,"OTU",
+                                      custom.md.ages)
 
 # 10. Check the percentage of unclassified taxa in each animal ####
 # Here, we are interested in unclassified genera, but you can also try Families,
@@ -1271,6 +1275,9 @@ for (image_format in c("png","tiff")){
 # Do rare genera become more abundant? ####
 ps.q.agg.genus.relab.nmr<-ps.q.agg.genus.relab%>%
   filter(class=="NMR")
+ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
+  filter(class=="NMR")
+# Outliers
 ps.q.agg.genus.relab.nmr%>%
   filter(Genus%in%c("Bacteroides","Roseburia","Faecalibacterium"))%>%
   # distinct(Genus,.keep_all = T)%>%
@@ -1286,12 +1293,27 @@ dominant.genera.agegroup0_10<-ps.q.agg.genus.relab.nmr%>%
   mutate(row.index=as.numeric(rownames(.)))%>%
   select(Genus,agegroup,row.index)
 
+
+dominant.otu.agegroup0_10<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup0_10")%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(OTU,agegroup,row.index)
+
 dominant.genera.agegroup10_16<-ps.q.agg.genus.relab.nmr%>%
   filter(agegroup=="agegroup10_16")%>%
   distinct(Genus,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
   mutate(row.index=as.numeric(rownames(.)))%>%
   select(Genus,agegroup,row.index)
+
+dominant.otu.agegroup10_16<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup10_16")%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(OTU,agegroup,row.index)
 
   
 ps.q.agg.genus.nmr.meanrelab<-ps.q.agg.genus.relab.nmr%>%
@@ -1304,6 +1326,19 @@ ps.q.agg.genus.nmr.meanrelab<-ps.q.agg.genus.relab.nmr%>%
          row.index.y=ifelse(is.na(row.index.y)&!is.na(row.index.x),row.index.x,row.index.y))%>%
   select(-row.index.y)%>%
   rename(row.index=row.index.x)
+
+ps.q.agg.nmr.meanrelab<-ps.q.agg.relab.nmr%>%
+  distinct(OTU,agegroup,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup,agegroup)%>%
+  left_join(dominant.otu.agegroup0_10,by=join_by(OTU,agegroup))%>%
+  left_join(dominant.otu.agegroup10_16,by=join_by(OTU,agegroup))%>%
+  mutate(row.index.x=ifelse(is.na(row.index.x)&!is.na(row.index.y),row.index.y,row.index.x),
+         row.index.y=ifelse(is.na(row.index.y)&!is.na(row.index.x),row.index.x,row.index.y))%>%
+  select(-row.index.y)%>%
+  rename(row.index=row.index.x)
+
+
 
 ps.q.agg.genus.nmr.meanrelab.full<-ps.q.agg.genus.nmr.meanrelab%>%
   group_by(Genus)%>%
@@ -1324,7 +1359,24 @@ ps.q.agg.genus.nmr.meanrelab.full<-ps.q.agg.genus.nmr.meanrelab%>%
   # mutate(row.index = unique(row.index[!is.na(row.index)]))%>%
   ungroup()
 
-
+ps.q.agg.nmr.meanrelab.full<-ps.q.agg.nmr.meanrelab%>%
+  group_by(OTU)%>%
+  mutate(num.obs=n())%>%
+  arrange(num.obs)%>%
+  filter(num.obs==1)%>%
+  mutate(agegroup=ifelse(agegroup=="agegroup0_10","agegroup10_16","agegroup0_10"),
+         MeanRelativeAbundanceAgegroup=0,
+         row.index=NA)%>%
+  full_join(ps.q.agg.nmr.meanrelab,by=
+              join_by(OTU,
+                      agegroup,
+                      MeanRelativeAbundance,
+                      MeanRelativeAbundanceAgegroup,
+                      row.index))%>%
+  select(-num.obs)%>%
+  mutate(row.index=ifelse(is.na(row.index),0,row.index))%>%
+  # mutate(row.index = unique(row.index[!is.na(row.index)]))%>%
+  ungroup()
 
 ps.q.agg.genus.nmr.meanrelab.wide<-ps.q.agg.genus.nmr.meanrelab.full%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
@@ -1425,7 +1477,7 @@ outliers<-ps.q.agg.genus.relab.nmr%>%
   ungroup()
 
 
-# Fitler and recalculate everything ####
+# Filter from outliers and recalculate everything ####
 filtered.df<-ps.q.agg.genus.relab.nmr%>%
   anti_join(.,outliers)%>%
   group_by(class,Sample)%>%
