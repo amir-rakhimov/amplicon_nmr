@@ -4,6 +4,8 @@
 # it's time to explore the taxonomic composition of our data.
 # We will use the Polychrome package to create a custom palette for the 
 # barplots.
+# We build a combined barplot for all hosts, then for each host separately,
+# then for NMR and mice, and if needed, for wild NMR and captive NMR.
 # install.packages(c("tidyverse","ggtext","Polychrome"))
 # if(!requireNamespace("BiocManager")){
 #   install.packages("BiocManager")
@@ -447,7 +449,7 @@ for(i in seq_along(custom.levels)){
          units = "px",dpi=300,device = "png")
 }
 
-## Barplot for NMR and mice ####
+# Barplot for NMR and mice ####
 lvl.df<-ps.q.agg.for_bp%>%
   group_by(Sample)%>%
   mutate(TotalAbundance=sum(Abundance))%>% # add total counts per sample, 
@@ -547,7 +549,7 @@ for(image.format in image.formats){
          width = 9000,height = 6000,
          units = "px",dpi=300,device = image.format)
 }
-## Barplot for NMR and NMR wt ####
+# Barplot for NMR and NMR wt ####
 if("NMRwt"%in%custom.levels){
   lvl.df<-ps.q.agg.for_bp%>%
     group_by(Sample)%>%
