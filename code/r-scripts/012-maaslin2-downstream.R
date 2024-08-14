@@ -52,6 +52,7 @@ ps.q.agg<-read.table(file.path("./output/rtables",authorname,paste(
 #                  # "NMRwt"
 #                  )
 
+# If you are comparing NMRs or mice
 # custom.levels<-c("agegroup0_5",
 #                  "agegroup5_10",
 #                  "agegroup10_15")
