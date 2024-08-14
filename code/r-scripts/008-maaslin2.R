@@ -28,6 +28,7 @@ if(inside.host=="TRUE"){
   # custom.levels<-c("F",
   #                  "M")
 }else{
+  comparison<-"host"
   ref.level<-"NMR"
   custom.levels<-c("NMR",
                    "B6mouse",
@@ -114,7 +115,8 @@ if(inside.host==TRUE){
                                 rare.status,paste(
                                   paste(format(Sys.time(),format="%Y%m%d"),
                                         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                  paste(custom.levels,collapse = '-'),agglom.rank,
+                                  paste(custom.levels,collapse = '-'),
+                                  agglom.rank,comparison,
                                   "ref",ref.level,sep = "-")), 
              fixed_effects = c("class"),
              reference = paste0("class,",ref.level),
@@ -122,22 +124,13 @@ if(inside.host==TRUE){
   
 }
 
-if(inside.host==TRUE){
-  save.image(file.path("./output/rdafiles",paste(
-    paste(format(Sys.time(),format="%Y%m%d"),
-          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-    "maaslin2",paste(custom.levels,collapse = '-'),
-    agglom.rank,
-    comparison,truncationlvl,"ref",
-    ref.level,"workspace.RData",sep="-")))
-}else{
-  save.image(file.path("./output/rdafiles",paste(
-    paste(format(Sys.time(),format="%Y%m%d"),
-          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-    "maaslin2",paste(custom.levels,collapse = '-'),
-    agglom.rank,
-    truncationlvl,"ref",
-    ref.level,"workspace.RData",sep="-")))
-}
+save.image(file.path("./output/rdafiles",paste(
+  paste(format(Sys.time(),format="%Y%m%d"),
+        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  "maaslin2",paste(custom.levels,collapse = '-'),
+  agglom.rank,comparison,
+  truncationlvl,"ref",
+  ref.level,"workspace.RData",sep="-")))
+
 
 q()
