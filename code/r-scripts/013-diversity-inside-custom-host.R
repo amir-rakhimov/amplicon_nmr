@@ -575,7 +575,7 @@ if(dist.metric=="bray"){
 permut.num<-1000 # number of permutations for PERMANOVA
 
 ps.sampledata<-ps.q.df.preprocessed%>%
-  select(c("Sample","class", "sex","birthday","agegroup"))%>%
+  select(c("Sample","class", "sex","birthday","agegroup","age"))%>%
   distinct() # metadata
 
 ps.q.df <-ps.q.df.preprocessed%>%
@@ -894,18 +894,33 @@ for(image.format in image.formats){
 
 
 # PCA ####
-ps.q.df.wide.centered<-scale(ps.q.df.wide,scale=F,center=T)
+# Convert df into wide format
+ps.q.df.wide.pca<-ps.q.df.preprocessed%>%
+  dplyr::select(all_of(c(agglom.rank,"Sample","Abundance")))%>%
+  pivot_wider(names_from = all_of(agglom.rank), 
+              values_from = "Abundance",
+              values_fill = 0)%>%
+  as.data.frame()
+
+
+# colnames are OTUs and rownames are sample IDs
+rownames(ps.q.df.wide.pca)<-ps.q.df.wide.pca$Sample
+ps.q.df.wide.pca<-ps.q.df.wide.pca[,-1] # prune after this command 
+ps.q.df.wide.pca<-as.matrix(ps.q.df.wide.pca)
+# RCLR: natural log
+ps.q.df.wide.pca<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
+ps.q.df.wide.pca.centered<-scale(ps.q.df.wide.pca,scale=F,center=T)
 
 #### >if you want to exclude specific samples
-ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%c("mf_1","MSM343")),]
-ps.q.pruned<-ps.q.df.wide[-which(rownames(ps.q.df.wide)%in%c("M40")),]
+# ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("mf_1","MSM343")),]
+ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
 ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
-ps.q.df.wide.centered<-scale(ps.q.pruned,scale=F,center=T)
+ps.q.df.wide.pca.centered<-scale(ps.q.pruned,scale=F,center=T)
 ####<
 
-ps.q.df.wide.centered.scaled<-scale(ps.q.df.wide.centered,scale=T,center=F)
+ps.q.df.wide.pca.centered.scaled<-scale(ps.q.df.wide.pca.centered,scale=T,center=F)
 # calculate principal components
-pca.q<-prcomp(ps.q.df.wide.centered.scaled)
+pca.q<-prcomp(ps.q.df.wide.pca.centered.scaled)
 str(pca.q)
 dim(pca.q$x)
 
@@ -931,7 +946,7 @@ pca.q$sdev^2 / sum(pca.q$sdev^2)
 var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
 
 #create scree plot
-qplot(seq_along(1:nrow(ps.q.df.wide)), var_explained) + 
+qplot(seq_along(1:nrow(ps.q.df.wide.pca.centered.scaled)), var_explained) + 
   geom_line() + 
   xlab("Principal Component") + 
   ylab("Variance Explained") +
@@ -945,15 +960,16 @@ PC2<-pca.q$x[,2]
 perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
 
 if(comparison=="age"){
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+  ps.sampledata<-ps.sampledata%>%mutate(new_age=paste(age,"years"))
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
                    aes(x=PC1,y=PC2,color=agegroup,
                        fill=agegroup))
 }else if (comparison=="sex"){
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
                    aes(x=PC1,y=PC2,color=sex,
                        fill=sex))
 }else if(comparison=="strain"){
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.centered.scaled),],
+  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
                    aes(x=PC1,y=PC2,color=class,fill=class))
 }
 
@@ -986,25 +1002,30 @@ pca.plot<-pca.plot +
     legend.position = "right",
     plot.caption = ggtext::element_markdown(hjust = 0, size=20),
     plot.caption.position = "plot")
+library(ggrepel)
+pca.labeled<-pca.plot+
+  ggrepel::geom_text_repel(aes(label=Sample),
+                           show.legend = FALSE) # add labels to samples
 
 pca.labeled<-pca.plot+
-  ggrepel::geom_text_repel(aes(label=Sample),show.legend = FALSE) # add labels to samples
+    geom_text_repel(aes(label=new_age),max.overlaps = Inf,
+                             show.legend = FALSE,size=7) # add labels to samples
 
 for(image.format in image.formats){
+  # ggsave(paste0("./images/diversity/pca/",
+  #               paste(paste(format(Sys.time(),format="%Y%m%d"),
+  #                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  #                     "pca",
+  #                     host,
+  #                     comparison,agglom.rank,truncationlvl,
+  #                     sep = "-"),".",image.format),
+  #        plot=pca.plot,
+  #        width = 4500,height = 3000,
+  #        units = "px",dpi=300,device = image.format)
   ggsave(paste0("./images/diversity/pca/",
                 paste(paste(format(Sys.time(),format="%Y%m%d"),
                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "pca",
-                      host,
-                      comparison,agglom.rank,truncationlvl,
-                      sep = "-"),".",image.format),
-         plot=pca.plot,
-         width = 4500,height = 3000,
-         units = "px",dpi=300,device = image.format)
-  ggsave(paste0("./images/diversity/pca/",
-                paste(paste(format(Sys.time(),format="%Y%m%d"),
-                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "pca-labeled",
+                      "pca-labeled-age",
                       host,
                       comparison,agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
