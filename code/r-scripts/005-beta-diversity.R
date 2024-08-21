@@ -3,7 +3,6 @@
 # }
 # BiocManager::install("phyloseq")
 # install.packages(c("tidyverse","vegan","Polychrome"))
-library(phyloseq)
 library(tidyverse)
 library(vegan)
 library(Polychrome)
@@ -16,6 +15,7 @@ read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
 phyloseq.workspace.date_time<-"20240426_21_44_30"
+ps.q.df.pca.input.date_time<-"20240426_22_00_04"
 image.formats<-c("png","tiff")
 plot.types<-c("plot"="",
               "plot.with.labels"="-with-labels")
@@ -398,7 +398,7 @@ save.image(file.path("./output/rdafiles",paste(
 ps.q.df.pca.input<-read.table(
   file.path("./output/rtables",authorname,paste0(
     paste(
-      "20240426_22_00_04",
+      ps.q.df.pca.input.date_time,
       "ps.q.df.rare-nonfiltered",agglom.rank,
       paste(custom.levels,collapse = '-'),sep = "-"),
     ".tsv")),
@@ -421,10 +421,10 @@ ps.q.df.wide.pca<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
 ps.q.df.wide.pca.centered<-scale(ps.q.df.wide.pca,scale=F,center=T)
 
 #### >if you want to exclude specific samples
-pruned.samples<-c("PVO_15","PVO_19")
-ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%pruned.samples),]
-ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
-ps.q.df.wide.pca.centered<-scale(ps.q.pruned,scale=F,center=T)
+# pruned.samples<-c("PVO_15","PVO_19")
+# ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%pruned.samples),]
+# ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
+# ps.q.df.wide.pca.centered<-scale(ps.q.pruned,scale=F,center=T)
 ####<
 
 ps.q.df.wide.pca.centered.scaled<-scale(ps.q.df.wide.pca.centered,scale=T,center=F)
@@ -439,7 +439,7 @@ pca.q$rotation<- -1*pca.q$rotation
 # display principal components (loadings)
 head(pca.q$rotation)
 
-# reverse th signs of the scores
+# reverse the signs of the scores
 pca.q$x<- -1*pca.q$x
 
 # display the first six scores
@@ -548,4 +548,5 @@ pc.df%>%rownames_to_column(var=agglom.rank)%>%
   distinct()%>%
   View
 
-
+pc.df%>%arrange(-PC1)%>%head
+pc.df%>%arrange(-PC2)%>%head
