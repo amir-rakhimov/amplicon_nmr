@@ -1,4 +1,5 @@
-# In this script, we are exploring the imported dataset from QIIME2.
+# In this script, we are exploring the imported dataset from QIIME2 (using qiime2R
+# and phyloseq).
 # We do not use the data from 001-phyloseq-qiime2.R script because we will 
 # create multiple agglomerated tables at phylum, family, genus, and OTU level.
 
@@ -388,6 +389,13 @@ ps.q.agg.family.relab<-add_agegroup_to_tax_df(ps.q.agg.family.relab,"Family",
 ps.q.agg.relab<-add_agegroup_to_tax_df(ps.q.agg.relab,"OTU",
                                       custom.md.ages)
 
+ps.q.agg.family.relab.nmr<-ps.q.agg.family.relab%>%
+  filter(class=="NMR")
+ps.q.agg.genus.relab.nmr<-ps.q.agg.genus.relab%>%
+  filter(class=="NMR")
+ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
+  filter(class=="NMR")
+
 # 10. Check the percentage of unclassified taxa in each animal ####
 # Here, we are interested in unclassified genera, but you can also try Families,
 # Orders, Classes, etc.
@@ -419,6 +427,27 @@ unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
   select(-Sample,-TotalUnclassifiedPercent)%>%
   distinct(class,.keep_all = T)%>%
   arrange(-MeanTotalUnclassifiedPercent)
+# Get the number of unclassified genera
+unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
+  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
+                     collapse='|'),get(agglom.rank)))%>%
+  group_by(class)%>%
+  distinct(Genus,.keep_all = T)%>%
+  tally()%>%
+  arrange(-n)%>%
+  rename(NumUnclassifiedGenera=n)%>%
+  left_join(unclassified.genus.summary.stats.table)
+# Sanity check: get the number of classified genera
+unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
+  # filter(class=="NMR")%>%
+  filter(!grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
+                     collapse='|'),get(agglom.rank)))%>%
+  group_by(class)%>%
+  distinct(Genus,.keep_all = T)%>%
+  tally()%>%
+  arrange(-n)%>%
+  rename(NumCclassifiedGenera=n)%>%
+  left_join(unclassified.genus.summary.stats.table)
 
 # write.table(unclassified.genus.summary.stats.table,
 #             file=file.path("./output/rtables",authorname,
@@ -612,8 +641,8 @@ ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
 #                                  "dominant-genera-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-
-# 13. Load data from Debebe ####
+# 13. Analyse data from Debebe ####
+### 13.1 Load data from Debebe ####
 truncationlvl<-"0" # truncation level that we chose in QIIME2
 authorname<-"biagi" # name of the folder with QIIME2 output
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
@@ -625,13 +654,13 @@ load(file.path("./output/rdafiles",paste(
   truncationlvl,
   "workspace.RData",sep = "-")))
 
-# 14. Total number of unique ASV/phyla/families/genera per class in Debebe ####
+### 13.1 Total number of unique ASV/phyla/families/genera per class in Debebe ####
 n.asv.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.biagi,"OTU")
 n.phylum.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.phylum.biagi,"Phylum")
 n.family.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.family.biagi,"Family")
 n.genus.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.genus.biagi,"Genus")
 
-# 15. Summary statistics table from Debebe ####
+### 13.2 Summary statistics table from Debebe ####
 summary.stats.table.biagi<-create_summary_stats_table(ps.q.agg.genus.biagi,
                                                       n.asv.per.host.biagi,
                                                       n.phylum.per.host.biagi,
@@ -645,7 +674,7 @@ summary.stats.table.biagi<-create_summary_stats_table(ps.q.agg.genus.biagi,
 #                                  "summary-table.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 17. Most abundant phyla, families, and genera in Debebe ####
+### 13.3 Most abundant phyla, families, and genera in Debebe ####
 ps.q.agg.dominant.phyla.biagi<-get_dominant_taxa_in_host(ps.q.agg.phylum.biagi,
                                                        "Phylum","NMRwt")
 ps.q.agg.dominant.families.biagi<-get_dominant_taxa_in_host(ps.q.agg.family.biagi,
@@ -660,7 +689,7 @@ ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
 
 
 
-# 18. Plot dominant families in lab vs wild NMR from our data (wild data reanalysed) ####
+### 13.4 Plot dominant families in lab vs wild NMR from our data (wild data reanalysed) ####
 ps.q.agg.dominant.families.nmr%>%
   ungroup()%>%
   select(Family,MeanRelativeAbundance)%>%
@@ -703,7 +732,7 @@ ps.q.agg.dominant.families.nmr%>%
 
 
 
-## 18.1 Plot dominant families reported in the paper ####
+#### 13.4.1 Plot dominant families reported in the paper ####
 wild.nmr.families<-data.frame(
   Family=c("Lachnospiraceae",
            "Prevotellaceae",
@@ -776,7 +805,7 @@ ps.q.agg.dominant.families.nmr.with_domin%>%
 #        units = "px",dpi=300,device = "png")  
 
 
-# 19. Compare dominant phyla, and genera in NMR vs mice ####
+# 14. Compare dominant phyla, and genera in NMR vs mice ####
 ps.q.agg.dominant.phyla.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.phylum,
                                                                "Phylum",c("NMR","B6mouse"))
 ps.q.agg.dominant.families.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.family,
@@ -784,7 +813,7 @@ ps.q.agg.dominant.families.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.famil
 
 
 
-# 21. Check how much Bacteroidaceae are in NMR  ####
+# 15. Check how much Bacteroidaceae are in NMR  ####
 bacteroidaceae.nmr<-ps.q.agg.family.relab%>%
   filter(Family=="Bacteroidaceae",class=="NMR")%>%
   mutate(min=min(RelativeAbundance),
@@ -801,7 +830,7 @@ bacteroidaceae.nmr<-ps.q.agg.family.relab%>%
 #                                  "bacteroidaceae-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-## 21.1 Check the most dominant Bacteroidota families in NMR ####
+## 15.1 Check the most dominant Bacteroidota families in NMR ####
 bacteroidota.nmr<-ps.q.agg.family.relab%>%
   filter(Phylum=="Bacteroidota",class=="NMR")%>%
   group_by(Family)%>%
@@ -815,7 +844,7 @@ bacteroidota.nmr<-ps.q.agg.family.relab%>%
 #                                  "bacteroidota-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 22. Check Spirochaetaceae, Spirochaetota, and Treponema in NMR ####
+# 16. Check Spirochaetaceae, Spirochaetota, and Treponema in NMR ####
 spirochaetaceae.nmr<-ps.q.agg.family.relab%>%
   filter(Family=="Spirochaetaceae",class=="NMR")%>%
   mutate(min=min(RelativeAbundance),
@@ -857,7 +886,7 @@ treponema.nmr<-ps.q.agg.genus.relab%>%
 #                                  "treponema-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-## 22.1 Check the number of ASVs in Treponema from NMR ####
+## 16.1 Check the number of ASVs in Treponema from NMR ####
 ps.q.agg%>%
   filter(Genus=="Treponema",class=="NMR")%>%
   distinct(OTU)%>%
@@ -881,7 +910,7 @@ mogibacteriaceae_anaerovoracaceae.all<-ps.q.agg.family.relab%>%
 #                                  "mogibacteriaceae_anaerovoracaceae-all-table.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 24. Analyse sulfur-metabolising bacteria in NMR ####
+# 17. Analyse sulfur-metabolising bacteria in NMR ####
 desulfobacterota.nmr<-ps.q.agg.genus.relab%>%
   filter(Phylum=="Desulfobacterota",class=="NMR")%>%
   group_by(Genus)%>%
@@ -893,7 +922,39 @@ desulfobacterota.nmr<-ps.q.agg.genus.relab%>%
   select(Genus,MeanRelativeAbundance,sd)%>%
   distinct()%>%
   arrange(-MeanRelativeAbundance)
-# 24.1 Total Desulfobacterota in NMR
+# Desulfobacterota in other hosts
+desulfobacterota.all.mean<-ps.q.agg.genus.relab%>%
+  filter(Phylum=="Desulfobacterota")%>%
+  group_by(Genus,class)%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Genus,MeanRelativeAbundance,class)%>%
+  distinct()%>%
+  pivot_wider(names_from = Genus,
+              values_from = MeanRelativeAbundance,
+              values_fill = 0)
+colnames(desulfobacterota.all.mean)[which(colnames(desulfobacterota.all.mean)!="class")]<-
+  paste0("Mean",colnames(desulfobacterota.all.mean)[which(colnames(desulfobacterota.all.mean)!="class")])
+desulfobacterota.all.sd<-ps.q.agg.genus.relab%>%
+  filter(Phylum=="Desulfobacterota")%>%
+  group_by(Genus,class)%>%
+  mutate(min=min(RelativeAbundance),
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
+  select(Genus,sd,class)%>%
+  distinct()%>%
+  pivot_wider(names_from = Genus,
+              values_from = sd,
+              values_fill = 0)
+colnames(desulfobacterota.all.sd)[which(colnames(desulfobacterota.all.sd)!="class")]<-
+  paste0("SD",colnames(desulfobacterota.all.sd)[which(colnames(desulfobacterota.all.sd)!="class")])
+desulfobacterota.all.mean%>%left_join(desulfobacterota.all.sd)%>%View
+### 17.1 Total Desulfobacterota in NMR ####
 ps.q.agg.phylum.relab%>%
   filter(Phylum=="Desulfobacterota",class=="NMR")%>%
   pull(MeanRelativeAbundance)%>%
@@ -904,9 +965,20 @@ ps.q.agg.phylum.relab%>%
 #                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
 #                                  "desulfobacterota-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
+write.table(desulfobacterota.all.mean,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "desulfobacterota-table-all-mean.tsv",sep="-")),
+            row.names = F,sep = "\t")
+write.table(desulfobacterota.all.mean,
+            file=file.path("./output/rtables",authorname,
+                           paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                 "desulfobacterota-table-all-sd.tsv",sep="-")),
+            row.names = F,sep = "\t")
 
-
-## Plot Desulfobacterota ####
+### 17.2 Plot Desulfobacterota ####
 # It's a flipped plot
 ps.q.agg.genus.relab%>%
   filter(Phylum=="Desulfobacterota")%>%
@@ -952,24 +1024,7 @@ ps.q.agg.genus.relab%>%
 
 
 
-## Setup plots of age groups ####
-pretty.agegroup.names<-names(table(custom.md.ages$old_agegroup))
-names(pretty.agegroup.names)<-names(table(custom.md.ages$agegroup))
-pretty.agegroup.names<-c("agegroup0_10"="Young group",
-                         "agegroup10_16"="Old group")
-agegroup.levels<-names(pretty.agegroup.names)
-gg.labs.name<-"Age group"
-gg.title.groups<-"age groups"
-
-set.seed(1)
-agegroup.fill<-createPalette(length(agegroup.levels),
-                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
-                                          "#FF8C00","#BF3EFF", "#00FFFF",
-                                          "#FF6EB4","#00EE00","#EEC900",
-                                          "#FFA07A"))
-names(agegroup.fill)<-agegroup.levels
-swatch(agegroup.fill)
-
+## 18. Setup sample levels ####
 sample.levels<-custom.md.ages%>%
   ungroup()%>%
   select(Sample,agegroup)%>%
@@ -978,7 +1033,7 @@ sample.levels<-custom.md.ages%>%
 sample.levels$Sample<-factor(sample.levels$Sample,
                              levels=unique(sample.levels$Sample))
 
-### Groups 1, 2, and 3 ####
+## 19. Groups 1, 2, and 3 ####
 group1.genera<-c("Faecalibacterium",
                  "Roseburia",
                  "Coprococcus",
@@ -1009,50 +1064,73 @@ group3.genera<-c("Akkermansia",
                  "Oscillospira")
 group3.families<-c("Christensenellaceae")
 
-group1.genera%in%ps.q.agg.genus.relab$Genus
-group2.increased.genera%in%ps.q.agg.genus.relab$Genus
-group2.unhealthy.genera%in%ps.q.agg.genus.relab$Genus
-group2.unhealthy.families%in%ps.q.agg.family.relab$Family
-group3.genera%in%ps.q.agg.genus.relab$Genus
-group3.families%in%ps.q.agg.family.relab$Family
+group1.genera%in%ps.q.agg.genus.relab.nmr$Genus
+group2.increased.genera%in%ps.q.agg.genus.relab.nmr$Genus
+group2.unhealthy.genera%in%ps.q.agg.genus.relab.nmr$Genus
+group2.unhealthy.families%in%ps.q.agg.family.relab.nmr$Family
+group3.genera%in%ps.q.agg.genus.relab.nmr$Genus
+group3.families%in%ps.q.agg.family.relab.nmr$Family
 
-# Finished up to this line ################################################ 
 # The function ggplot.species creates a faceted barplot of abundance for each
-# taxon per sample. It uses 
-# If we are plotting species from a vector of names, use filter(Species%in%species.to.plot)
-# If we are plotting all species from a bigger group like entire genus, use
-# filter(get(agglom.rank)==species.to.plot)
+# taxon per sample (only NMR). It uses a vector with names of taxa, a dataframe with
+# abundances, and a taxonomic rank (e.g. Genus). It creates age groups for the 
+# barplot and creates levels for the color palette.
+# The function keeps only taxa that are found in the taxa.to.plot. vector using
+# filter(get(tax.rank)%in%taxa.to.plot). It doesn't matter if we plot only
+# one taxon or multiple. Taxonomic rank also doesn't matter.
+# The barplot is faceted by taxon and bars are colored by age group. The
+# palette is created with Polychrome library. The function returns a ggplot object.
 ggplot.species<-function(taxa.to.plot,
                          tax.df,
-                         tax.rank,
-                         pretty.agegroup.names,
-                         agegroup.fill,
-                         sample.levels){ #TODO: fix in other functions
-  # if(tax.rank=="Species"){
-  #   ggplot.object<-tax.df%>%
-  #     filter(Species%in%taxa.to.plot)
-  # }else{
-  #   ggplot.object<-tax.df%>%
-  #     filter(get(tax.rank)==taxa.to.plot)
-  # }
+                         tax.rank){ 
+  gg.labs.name<-"Age group"
+  pretty.agegroup.names<-c("Young","Old")
+  # add names to age groups to match the dataframe
+  names(pretty.agegroup.names)<-tax.df%>%
+    ungroup()%>%
+    select(agegroup)%>%
+    distinct(agegroup)%>%
+    arrange(agegroup)%>%
+    pull
+  agegroup.levels<-names(pretty.agegroup.names)
+  set.seed(1)
+  agegroup.fill<-createPalette(length(agegroup.levels),
+                               seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
+                                              "#FF8C00","#BF3EFF", "#00FFFF",
+                                              "#FF6EB4","#00EE00","#EEC900",
+                                              "#FFA07A"))
+  names(agegroup.fill)<-agegroup.levels
+  
   ggplot.object<-tax.df%>%
     filter(get(tax.rank)%in%taxa.to.plot)
   
   # order the plot by species vector
   taxa.to.plot<-gsub("_"," ",taxa.to.plot)
   taxa.to.plot<-paste0("<i>",taxa.to.plot,"</i>")
-  
+  # create a dataframe of samples in each age group
+  sample.levels<-tax.df%>%
+    ungroup()%>%
+    filter(class=="NMR")%>%
+    select(Sample,agegroup)%>%
+    arrange(agegroup,Sample)%>%
+    distinct()
+  # convert samples to factors
+  sample.levels$Sample<-factor(sample.levels$Sample,
+                               levels=unique(sample.levels$Sample))
+  # !!tax.rank:= taxa (bang bang) evaluates the tax.rank before the rest is evaluated
+  # to substitute an environment-variable (created with <-) with a data-variable (inside a data frame).
+  # https://rlang.r-lib.org/reference/topic-inject.html
   ggplot.object<-ggplot.object%>%
-    mutate(!!tax.rank:=gsub("_"," ",get(tax.rank)),
-           !!tax.rank:=paste0("<i>",get(tax.rank),"</i>"),
-           !!tax.rank:=factor(get(tax.rank),levels=taxa.to.plot))%>%
-    mutate(Sample=factor(Sample,levels=sample.levels$Sample))%>%
+    mutate(!!tax.rank:=gsub("_"," ",get(tax.rank)),# remove underscores
+           !!tax.rank:=paste0("<i>",get(tax.rank),"</i>"), # convert into italic
+           !!tax.rank:=factor(get(tax.rank),levels=taxa.to.plot))%>% # taxa as factors
+    mutate(Sample=factor(Sample,levels=sample.levels$Sample))%>% # samples as factors
     group_by_at(c("class",tax.rank))%>%
     ggplot(aes(x=Sample,
                y=RelativeAbundance,
                fill=factor(agegroup)))+
     geom_bar(stat="identity")+
-    facet_wrap(~get(tax.rank),
+    facet_wrap(~get(tax.rank), # faceted barplot
                scales = "free",
                ncol = 2)+
     theme_bw()+
@@ -1077,9 +1155,42 @@ ggplot.species<-function(taxa.to.plot,
   return(ggplot.object)
 }
 
-
+# The function add_zero_rows adds rows with Abundance = 0 to a dataframe tax.df
+# based on a vector taxa.vector in the taxonomic rank tax.rank. When we create
+# a barplot using the ggplot.species function, we want to show all bars, even 
+# those with 0 value. So, we use the function add_zero_rows for adding empty bars.
+# 1. The function loops through each sample in the dataframe: for (sample.name in unique(tax.df$Sample)).
+# 2. The function creates a missing_taxa vector: setdiff(taxa.vector, tax.df[[tax.rank]][tax.df$Sample == sample.name]).
+# The rationale is this: find which rows belong to a sample sample.name: tax.df$Sample == sample.name.
+# The result is a vector of TRUE/FALSE values.
+# Then, extract all rows with taxa at the tax.rank column as a vector: tax.df[[tax.rank]].
+# Then, keep only those taxa that are found in the sample.name sample (if
+# tax.df$Sample == sample.name is TRUE, then we keep tax.df[[tax.rank]] ).
+# Finally, the function checks if the taxa in the taxa.vector are found in the filtered vector.
+# If some taxon isn't found, the function will add a row with 0 Abundance. This
+# taxon will be in the missing_taxa vector
+# 3. Once the function creates the missing_taxa vector, it checks its length.
+# If the length >0, the function will proceed to creation of zero rows: if (length(missing_taxa) > 0) 
+# 4. While looping through each taxon in the missing_taxa vector, the function
+# creates a new row as a tibble with 5 columns: Sample is the sample.name that 
+# it's looping through in step 1. 
+# The Abundance and RelativeAbundance columns will have a 0 value.
+# If the tax.rank is Species, the next column is "Species", and the value is 
+# the missing taxon. Otherwise, the function creates a column according to tax.rank.
+# If the tax.rank is Species, the Genus column will have a value from the tax.df
+# (tax.df is filtered by Species column and Genus is kep, then pooled): 
+# unique(pull(tax.df[which(tax.df$Species==taxa),"Genus"])))
+# 5. The new_row is added to the tax.df using the add_row function at the end 
+# of the dataframe. !!! is a splicing operator that injects a list of 
+# arguments: tax.df %>% add_row(.before = nrow(df), !!!new_row)
+# https://rlang.r-lib.org/reference/splice-operator.html
+# https://rlang.r-lib.org/reference/topic-inject.html
+# !!! is not the same as !!
+# 6. The columns that have NA value after injection will be filled by the 
+# corresponding value from the same sample. So, if "age" column is empty in the
+# 2D10 sample, dplyr will take the value from the other row that is not empty.
 add_zero_rows<-function(taxa.vector,tax.df,tax.rank){
-  tax.df<-tax.df%>%ungroup()
+  tax.df<-tax.df%>%ungroup() # just in case
   for (sample.name in unique(tax.df$Sample)) {
     missing_taxa <- setdiff(taxa.vector, tax.df[[tax.rank]][tax.df$Sample == sample.name])
     if (length(missing_taxa) > 0) {
@@ -1089,14 +1200,14 @@ add_zero_rows<-function(taxa.vector,tax.df,tax.rank){
                             Species= taxa, 
                             Abundance = 0,
                             RelativeAbundance=0,
-                            Genus=unique(pull(ps.q.agg.relab[which(ps.q.agg.relab$Species==taxa),"Genus"])))
+                            Genus=unique(pull(tax.df[which(tax.df$Species==taxa),"Genus"])))
         }else{
           new_row <- tibble(Sample = sample.name, 
                             !!tax.rank:= taxa, 
                             Abundance = 0,
                             RelativeAbundance=0)
         }
-        
+        # !!! injects a list of arguments
         tax.df <- tax.df %>% add_row(.before = nrow(df), !!!new_row)
       }
     }
@@ -1109,13 +1220,17 @@ add_zero_rows<-function(taxa.vector,tax.df,tax.rank){
     fill(old_agegroup, .direction = "down")
   
 }
-
-# Mean relative abundance of group 1 genera by age group
-# The function show.mean.abundances.and.plot filters the dataframe with 
+# 1. The function show.mean.abundances.and.plot filters the dataframe with 
 # absolute abundances (tax.df) to retain ones specified in the taxa.to.plot vector.
 # It groups the dataframe by taxonomic rank column (e.g. genera) and age groups,
 # keeps columns with taxa, their average relative abundances in the dataframe
-# and average relative abundances in each age group.
+# and average relative abundances in each age group. The output is printed into
+# the console (agegroup, Genus, MeanRelativeAbundance, MeanRelativeAbundanceAgegroup). 
+# 2. The function sorts the vector of taxa to be plotted according to their 
+# average relative abundance: arrange(-MeanRelativeAbundance).
+# 3. The function calls add_zero_rows function to add empty rows to the 
+# tax.df before plotting.
+# 4. The function calls ggplot.species function and returns the ggplot object
 show.mean.abundances.and.plot<-function(taxa.to.plot,
                                         tax.df,
                                         tax.rank){
@@ -1126,56 +1241,35 @@ show.mean.abundances.and.plot<-function(taxa.to.plot,
     ungroup()%>%
     distinct()%>%
     print()
-  taxa.to.plot<-tax.df%>%
+  sorted.taxa.to.plot<-tax.df%>%
     filter(get(tax.rank)%in%taxa.to.plot&!is.na(MeanRelativeAbundance))%>%
     ungroup()%>%
     select(all_of(c(tax.rank,"MeanRelativeAbundance")))%>%
     distinct()%>%
     arrange(-MeanRelativeAbundance)%>%
     pull(tax.rank)
-  tax.df<-add_zero_rows(taxa.to.plot,tax.df,tax.rank)
+  tax.df<-add_zero_rows(sorted.taxa.to.plot,tax.df,tax.rank)
   
-  return(ggplot.species(taxa.to.plot,tax.df,tax.rank))
+  return(ggplot.species(sorted.taxa.to.plot,tax.df,tax.rank))
 }
 
-
-
-
-
-# ps.q.agg.genus.relab%>%
-#   filter(Genus%in%group1.genera&!is.na(MeanRelativeAbundance))%>%
-#   group_by(Genus,agegroup)%>%
-#   select(Genus,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
-#   ungroup()%>%
-#   distinct()
-# ps.q.agg.genus.relab%>%
-#   filter(Genus%in%group1.genera&!is.na(MeanRelativeAbundance))%>%
-#   ungroup()%>%
-#   select(Genus,MeanRelativeAbundance)%>%
-#   distinct()%>%
-#   arrange(-MeanRelativeAbundance)%>%
-#   pull(Genus) -> group1.genera
-# 
-# ps.q.agg.genus.relab<-add_zero_rows(group1.genera,ps.q.agg.genus.relab,"Genus")
-# 
-# ggplot.species(group1.genera,ps.q.agg.genus.relab,"Genus")+
+# Mean relative abundance of group 1 genera by age group 
+# ggplot.species(group1.genera,ps.q.agg.genus.relab.nmr,"Genus")+
 #   ggtitle(paste0("Relative abundance of Group 1 members"))
 
 
 group1.genera
 group1.genera.plot<-show.mean.abundances.and.plot(group1.genera,
-                                                  ps.q.agg.genus.relab,
+                                                  ps.q.agg.genus.relab.nmr,
                                                   "Genus")
 group1.genera.plot<-group1.genera.plot+
   ggtitle(paste0("Relative abundance of Group 1 members"))
 group1.genera.plot # 4 plots
 
-
-
 # Group 2 increased genera
 group2.increased.genera
 group2.increased.genera.plot<-show.mean.abundances.and.plot(group2.increased.genera,
-                                                            ps.q.agg.genus.relab,
+                                                            ps.q.agg.genus.relab.nmr,
                                                             "Genus")
 group2.increased.genera.plot<-group2.increased.genera.plot+
   ggtitle(paste0("Relative abundance of Group 2 members increased with age"))
@@ -1184,7 +1278,7 @@ group2.increased.genera.plot # 4 plots
 # Group 2 unhealthy genera
 group2.unhealthy.genera
 group2.unhealthy.genera.plot<-show.mean.abundances.and.plot(group2.unhealthy.genera,
-                                                            ps.q.agg.genus.relab,
+                                                            ps.q.agg.genus.relab.nmr,
                                                             "Genus")
 group2.unhealthy.genera.plot<-group2.unhealthy.genera.plot+
   ggtitle(paste0("Relative abundance of Group 2 members associated with unhealthy aging"))
@@ -1193,18 +1287,16 @@ group2.unhealthy.genera.plot # 7 plots
 # Group 2 unhealthy families
 group2.unhealthy.families
 group2.unhealthy.families.plot<-show.mean.abundances.and.plot(group2.unhealthy.families,
-                                                              ps.q.agg.family.relab,
+                                                              ps.q.agg.family.relab.nmr,
                                                               "Family")
 group2.unhealthy.families.plot<-group2.unhealthy.families.plot+
   ggtitle(paste0("Relative abundance of Group 2 members associated with unhealthy aging"))
 group2.unhealthy.families.plot # 2 plots
 
-
-
 # Group 3 genera
 group3.genera
 group3.genera.plot<-show.mean.abundances.and.plot(group3.genera,
-                                                  ps.q.agg.genus.relab,
+                                                  ps.q.agg.genus.relab.nmr,
                                                   "Genus")
 group3.genera.plot<-group3.genera.plot+
   ggtitle(paste0("Relative abundance of Group 3 members"))
@@ -1213,7 +1305,7 @@ group3.genera.plot # 5 plots
 
 # Group 3 genera
 group3.families.plot<-show.mean.abundances.and.plot(group3.families,
-                                                    ps.q.agg.family.relab,
+                                                    ps.q.agg.family.relab.nmr,
                                                     "Family")
 group3.families.plot<-group3.families.plot+
   ggtitle(paste0("Relative abundance of Group 3 members"))
@@ -1271,12 +1363,232 @@ for (image_format in c("png","tiff")){
   
 }
 
+# Analyse ASVs shared between age group ####
+### How many ASVs are shared between two age group ####
+otu.young<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup0_10",Abundance!=0)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(OTU,agegroup,MeanRelativeAbundanceAgegroup)
+otu.old<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup10_16",Abundance!=0)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(OTU,agegroup,MeanRelativeAbundanceAgegroup)
 
+shared.otu<-intersect(otu.young$OTU,otu.old$OTU)
+length(shared.otu)
+
+### How much % do shared ASVs take on average? ####
+ps.q.agg.relab.nmr%>%
+  # no separation by age
+  filter(OTU%in%shared.otu)%>%
+  group_by(Sample)%>%
+  summarise(SumRelAbSharedASV=sum(RelativeAbundance))%>%
+  summarise(MeanRelAbSharedASVTotal=mean(SumRelAbSharedASV))
+
+### How much % do shared ASVs take in each age group? ####
+ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu)%>%
+  # separation by age
+  group_by(Sample,agegroup)%>%
+  summarise(SumRelAbSharedASV=sum(RelativeAbundance))%>%
+  arrange(agegroup)%>%
+  group_by(agegroup)%>%
+  summarise(MeanRelAbSharedASVTotalAge=mean(SumRelAbSharedASV))
+
+### Extract ASVs and the corresponding genera ####
+shared.otu.genera<-ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu)%>%
+  # keep unique rows
+  distinct(OTU,.keep_all = T)%>%
+  select(Genus,OTU)%>%
+  group_by(Genus)%>%
+  # count rows (ASVs) for each genus; add as a column for sorting
+  mutate(num_otus=n())%>%
+  # genera with the highest number of ASVs will be on top
+  arrange(-num_otus)%>%
+  # remove the column
+  select(-num_otus)%>%
+  ungroup()
+
+#### Are the shared ASVs enriched in certain genera? ####
+shared.otu.genera%>%
+  group_by(Genus)%>%
+  # count rows (ASVs) for each genus
+  tally%>%
+  arrange(-n)%>%
+  # cumulative sum shows how many ASVs the top genera take
+  mutate(cum_sum=cumsum(n))
+
+# Are the asvs of the five most common genera all present in the dataframe of shared ASVs? ####
+muribaculaceae.asv<-ps.q.agg.relab.nmr%>%
+  filter(Genus=="Muribaculaceae")%>%
+  distinct(OTU)%>%
+  pull
+# Subset the dataframe of shared ASVs to keep only Muribaculaceae ASVs, then
+# extract ASVs as vector
+table(muribaculaceae.asv%in%subset(shared.otu.genera,Genus=="Muribaculaceae")$OTU)
+
+treponema.asv<-ps.q.agg.relab.nmr%>%
+  filter(Genus=="Treponema")%>%
+  distinct(OTU)%>%
+  pull
+table(treponema.asv%in%subset(shared.otu.genera,Genus=="Treponema")$OTU)
+
+lachnospiraceae_family.asv<-ps.q.agg.relab.nmr%>%
+  filter(Genus=="Lachnospiraceae Family")%>%
+  distinct(OTU)%>%
+  pull
+table(lachnospiraceae_family.asv%in%subset(shared.otu.genera,Genus=="Lachnospiraceae Family")$OTU)
+
+oscillospiraceae_family.asv<-ps.q.agg.relab.nmr%>%
+  filter(Genus=="Oscillospiraceae Family")%>%
+  distinct(OTU)%>%
+  pull
+table(oscillospiraceae_family.asv%in%subset(shared.otu.genera,Genus=="Oscillospiraceae Family")$OTU)
+
+bacteria_kingdom.asv<-ps.q.agg.relab.nmr%>%
+  filter(Genus=="Bacteria Kingdom")%>%
+  distinct(OTU)%>%
+  pull
+table(bacteria_kingdom.asv%in%subset(shared.otu.genera,Genus=="Bacteria Kingdom")$OTU)
+
+### What is the average relative abundance of each genus in the top 5 of shared.otu.genera? ####
+ps.q.agg.relab.nmr%>%
+  # the subset command relies on the fact that we sorted the shared.otu.genera
+  # by the number of ASVs. So, the unique(shared.otu.genera$Genus)[1:5] has 
+  # genera with the highest number of ASVs
+  filter(OTU%in%subset(shared.otu.genera,Genus%in%unique(shared.otu.genera$Genus)[1:5])$OTU)%>%
+  group_by(Genus)%>%
+  # sum Abundance for each genus
+  mutate(TotalGenus=sum(Abundance))%>%
+  # Average relative abundance of each genus (we're in the dataframe of ASVs, not
+  # genera!)
+  mutate(MeanRelAbGenus=TotalGenus/TotalClass*100)%>%
+  distinct(Genus,.keep_all = T)%>%
+  arrange(-MeanRelAbGenus)%>%
+  select(Genus,MeanRelAbGenus)
+
+# Barplot of abundances: high variability
+ps.q.agg.relab.nmr%>%
+  filter(OTU%in%subset(shared.otu.genera,Genus%in%unique(shared.otu.genera$Genus)[1:5])$OTU)%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance,fill=Genus))+
+  geom_bar(stat="identity")+
+  facet_grid(~agegroup,
+             scales="free")
+
+# Finished up to this line ^^^^ ################################################ 
+# Which shared ASVs are the most abundant? ####
+### Most abundant ASVs on average ####
+top10.asv.average<-ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu)%>%
+  group_by(OTU)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundance)%>%
+  select(Genus,OTU,MeanRelativeAbundance)%>%
+  head(n=10)
+
+### 30-40% of samples are represented by 10 ASVs ####
+ps.q.agg.relab.nmr%>%
+  filter(OTU%in%top10.asv.average$OTU)%>%
+  mutate(new_OTU=paste(Genus,OTU,sep = "_"))%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance,fill=new_OTU))+
+  geom_bar(stat="identity")+
+  facet_grid(~agegroup,
+             scales="free")
+
+### Most abundant ASVs on average in each age group ####
+ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu)%>%
+  group_by(OTU,agegroup)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundance)%>%
+  select(Genus,OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+top10.asv.young<-ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu,agegroup=="agegroup0_10")%>%
+  group_by(OTU,agegroup)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(Genus,OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+top10.asv.old<-ps.q.agg.relab.nmr%>%
+  filter(OTU%in%shared.otu,agegroup=="agegroup10_16")%>%
+  group_by(OTU,agegroup)%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(Genus,OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+# Are top 10 most abundant ASVs same in two age groups?
+setequal(top10.asv.young$OTU[1:10],top10.asv.old$OTU[1:10])
+
+# Shared top 10 ASVs between two age groups
+ps.q.agg.relab.nmr%>%
+  filter(OTU%in%intersect(top10.asv.young$OTU[1:10],top10.asv.old$OTU[1:10]))%>%
+  mutate(new_OTU=paste(Genus,OTU,sep = "_"))%>%
+  ggplot(aes(x=Sample,y=RelativeAbundance,fill=new_OTU))+
+  geom_bar(stat="identity")+
+  facet_grid(~agegroup,
+             scales="free")
+
+# How many genera are shared between two age groups ####
+genera.young<-ps.q.agg.genus.relab.nmr%>%
+  filter(agegroup=="agegroup0_10",Abundance!=0)%>%
+  distinct(Genus,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(Genus,agegroup,MeanRelativeAbundanceAgegroup)
+genera.old<-ps.q.agg.genus.relab.nmr%>%
+  filter(agegroup=="agegroup10_16",Abundance!=0)%>%
+  distinct(Genus,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  select(Genus,agegroup,MeanRelativeAbundanceAgegroup)
+
+shared.genera<-intersect(genera.young$Genus,genera.old$Genus)
+length(shared.genera)
+
+# How much % do common genera take in each age group on average?
+ps.q.agg.relab.nmr%>%
+  filter(Genus%in%shared.genera)%>%
+  group_by(Sample,agegroup)%>%
+  summarise(SumRelAbCommonASV=sum(RelativeAbundance))%>%
+  arrange(agegroup)%>%
+  group_by(agegroup)%>%
+  summarise(MeanRelAbCommonASVTotalAge=mean(SumRelAbCommonASV))
+
+#### TODO ####
 # Do rare genera become more abundant? ####
-ps.q.agg.genus.relab.nmr<-ps.q.agg.genus.relab%>%
-  filter(class=="NMR")
-ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
-  filter(class=="NMR")
+# Add rank to ASVs/genera
+genera.young.ranked<-ps.q.agg.genus.relab.nmr%>%
+  filter(agegroup=="agegroup0_10")%>%
+  distinct(Genus,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(Genus,agegroup,row.index,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+genera.old.ranked<-ps.q.agg.genus.relab.nmr%>%
+  filter(agegroup=="agegroup10_16")%>%
+  distinct(Genus,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(Genus,agegroup,row.index,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+otu.young.ranked<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup0_10")%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(Genus,OTU,agegroup,row.index,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+
+otu.old.ranked<-ps.q.agg.relab.nmr%>%
+  filter(agegroup=="agegroup10_16")%>%
+  distinct(OTU,.keep_all = T)%>%
+  arrange(-MeanRelativeAbundanceAgegroup)%>%
+  mutate(row.index=as.numeric(rownames(.)))%>%
+  select(Genus,OTU,agegroup,row.index,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+
+
 # Outliers
 ps.q.agg.genus.relab.nmr%>%
   filter(Genus%in%c("Bacteroides","Roseburia","Faecalibacterium"))%>%
@@ -1286,42 +1598,12 @@ ps.q.agg.genus.relab.nmr%>%
   geom_bar(stat="identity")+
   facet_wrap(~Genus,scales="free_y")
 
-dominant.genera.agegroup0_10<-ps.q.agg.genus.relab.nmr%>%
-  filter(agegroup=="agegroup0_10")%>%
-  distinct(Genus,.keep_all = T)%>%
-  arrange(-MeanRelativeAbundanceAgegroup)%>%
-  mutate(row.index=as.numeric(rownames(.)))%>%
-  select(Genus,agegroup,row.index)
-
-
-dominant.otu.agegroup0_10<-ps.q.agg.relab.nmr%>%
-  filter(agegroup=="agegroup0_10")%>%
-  distinct(OTU,.keep_all = T)%>%
-  arrange(-MeanRelativeAbundanceAgegroup)%>%
-  mutate(row.index=as.numeric(rownames(.)))%>%
-  select(OTU,agegroup,row.index)
-
-dominant.genera.agegroup10_16<-ps.q.agg.genus.relab.nmr%>%
-  filter(agegroup=="agegroup10_16")%>%
-  distinct(Genus,.keep_all = T)%>%
-  arrange(-MeanRelativeAbundanceAgegroup)%>%
-  mutate(row.index=as.numeric(rownames(.)))%>%
-  select(Genus,agegroup,row.index)
-
-dominant.otu.agegroup10_16<-ps.q.agg.relab.nmr%>%
-  filter(agegroup=="agegroup10_16")%>%
-  distinct(OTU,.keep_all = T)%>%
-  arrange(-MeanRelativeAbundanceAgegroup)%>%
-  mutate(row.index=as.numeric(rownames(.)))%>%
-  select(OTU,agegroup,row.index)
-
-  
 ps.q.agg.genus.nmr.meanrelab<-ps.q.agg.genus.relab.nmr%>%
   distinct(Genus,agegroup,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
   select(Genus,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup,agegroup)%>%
-  left_join(dominant.genera.agegroup0_10,by=join_by(Genus,agegroup))%>%
-  left_join(dominant.genera.agegroup10_16,by=join_by(Genus,agegroup))%>%
+  left_join(genera.young.ranked[,c("Genus","agegroup","row.index")],by=join_by(Genus,agegroup))%>%
+  left_join(genera.old.ranked[,c("Genus","agegroup","row.index")],by=join_by(Genus,agegroup))%>%
   mutate(row.index.x=ifelse(is.na(row.index.x)&!is.na(row.index.y),row.index.y,row.index.x),
          row.index.y=ifelse(is.na(row.index.y)&!is.na(row.index.x),row.index.x,row.index.y))%>%
   select(-row.index.y)%>%
@@ -1330,9 +1612,9 @@ ps.q.agg.genus.nmr.meanrelab<-ps.q.agg.genus.relab.nmr%>%
 ps.q.agg.nmr.meanrelab<-ps.q.agg.relab.nmr%>%
   distinct(OTU,agegroup,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
-  select(OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup,agegroup)%>%
-  left_join(dominant.otu.agegroup0_10,by=join_by(OTU,agegroup))%>%
-  left_join(dominant.otu.agegroup10_16,by=join_by(OTU,agegroup))%>%
+  select(Genus,OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup,agegroup)%>%
+  left_join(otu.young.ranked[,c("OTU","agegroup","row.index")],by=join_by(OTU,agegroup))%>%
+  left_join(otu.old.ranked[,c("OTU","agegroup","row.index")],by=join_by(OTU,agegroup))%>%
   mutate(row.index.x=ifelse(is.na(row.index.x)&!is.na(row.index.y),row.index.y,row.index.x),
          row.index.y=ifelse(is.na(row.index.y)&!is.na(row.index.x),row.index.x,row.index.y))%>%
   select(-row.index.y)%>%
@@ -1390,13 +1672,13 @@ ps.q.agg.genus.nmr.meanrelab.wide<-ps.q.agg.genus.nmr.meanrelab.full%>%
   pivot_wider(names_from = agegroup,
               values_from = MeanRelativeAbundanceAgegroup,
               values_fill = 0)%>%
-  mutate(young_vs_old=agegroup10_16-agegroup0_10)%>%
-  mutate(young_vs_old_fold=(agegroup10_16-agegroup0_10)/agegroup0_10)%>%
+  mutate(young_vs_old=old-young)%>%
+  mutate(young_vs_old_fold=(old-young)/young)%>%
   # filter(agegroup0_10!=0,agegroup10_16!=0)%>%
   arrange(-young_vs_old_fold)%>%
   
-  mutate(ind.dif=row.ind_agegroup0_10-row.ind_agegroup10_16)%>%
-  filter(row.ind_agegroup10_16<=100,row.ind_agegroup10_16!=0)%>%
+  mutate(ind.dif=row.ind_young-row.ind_old)%>%
+  filter(row.ind_old<=100,row.ind_old!=0)%>%
   mutate(agegroup0_10=round(agegroup0_10,digits=4),
          agegroup10_16=round(agegroup10_16,digits = 4),
          MeanRelativeAbundance=round(MeanRelativeAbundance,digits=4),
