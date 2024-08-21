@@ -4,8 +4,6 @@ library(ALDEx2)
 # input_data_date_time is Rdata workspace from diffabund-input.R
 # with a rarefied table in wide format and metadata
 input_data_date_time<-"20240809_15_38_22"
-# input_data_date_time<-"20240613_21_16_08" for nmr ages, OTU level #NOT USE
-# 20240615_17_33_25 for nmr sexes, OTU level #NOT USE
 # 20240809_14_40_39 for NMR, OTU level
 # 20240809_14_52_10 for all hosts, genus level
 # 20240809_15_38_22 for NMR, genus level
