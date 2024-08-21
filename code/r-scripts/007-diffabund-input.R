@@ -5,8 +5,7 @@ library(tidyverse)
 # truncationlvl,read.end.type.
 # ps.q.df.preprocessed.date_time is a rarefied table from 
 # 004-phyloseq-rarefaction-filtering.R
-# ps.q.df.preprocessed.date_time<-"20240426_22_00_04" # for all hosts, genus level
-ps.q.df.preprocessed.date_time<-"20240809_13_18_49" # for NMR, OTU level
+ps.q.df.preprocessed.date_time<-"20240809_13_18_49" 
 # "20240426_22_00_04" rarefied table for all hosts, genus level
 # "20240524_13_58_11" rarefied table file for NMR, OTU level
 # 20240809_13_18_49 rarefied table file for NMR, genus level
