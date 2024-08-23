@@ -1,5 +1,12 @@
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install("ANCOMBC")
+# BiocManager::install("phyloseq")
+# install.packages(c("tidyverse"))
 library(tidyverse)
 library(ANCOMBC)
+library(phyloseq)
 # Import custom.md, ps.q.df.wide, custom.levels
 # input_data_date_time is Rdata workspace from diffabund-input.R
 # with a rarefied table in wide format and metadata
@@ -19,10 +26,13 @@ if(inside.host=="TRUE"){
   # comparison<-"strain"
   ref.level<-"agegroup0_10" # choose the reference level
   custom.levels<-"NMR"
-  # custom.levels<-c("agegroup0_10",
-  #                                 "agegroup10_16")
-  # custom.levels<-c("F",
-  #                  "M")
+  if(comparison=="age"){
+    sample.groups<-c("agegroup0_10",
+                     "agegroup10_16")
+  }else if(comparison=="sex"){
+    sample.groups<-c("F",
+                     "M")
+  }
 }else{
   comparison<-"host"
   ref.level<-"NMR"
@@ -34,10 +44,7 @@ if(inside.host=="TRUE"){
                    "hare",
                    "rabbit",
                    "spalax",
-                   "pvo"
-                   # ,
-                   # "NMRwt"
-  )
+                   "pvo")
   
 }
 
@@ -61,6 +68,7 @@ ps.q.agg<-readRDS(file=file.path("./output/rdafiles",paste(
 
 
 # ANCOMBC ####
+### Extract a taxonomic table ####
 if(agglom.rank=="OTU"){
   taxmat<-ps.q.agg%>%
     dplyr::select(OTU,Kingdom,Phylum,Class,Order,Family,Genus)%>%
@@ -79,6 +87,7 @@ if(agglom.rank=="OTU"){
     column_to_rownames(var = all_of(agglom.rank))%>%
     as.matrix()
 }
+# Create a phyloseq object for ANCOMBC
 ps.q.OTU<-t(ps.q.df.wide)
 ps.q.OTU<-otu_table(ps.q.OTU,taxa_are_rows = T)
 ps.q.TAX<-tax_table(taxmat)
@@ -88,7 +97,7 @@ ps.q.phyloseq.new<-phyloseq(otu_table(ps.q.OTU),
 
 # relevel our comparison vector. The first level will be the reference
 # for custom leveling
-ancombc.levels<-c(ref.level,custom.levels[custom.levels!=ref.level])
+ancombc.levels<-c(ref.level,sample.groups[sample.groups!=ref.level])
 if(comparison=="host"){
   sample_data(ps.q.phyloseq.new)$class<-factor(sample_data(ps.q.phyloseq.new)$class,
                                                levels = ancombc.levels)
