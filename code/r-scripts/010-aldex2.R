@@ -1,6 +1,11 @@
+# if(!requireNamespace("BiocManager")){
+#   install.packages("BiocManager")
+# }
+# BiocManager::install("ALDEx2")
+# install.packages(c("tidyverse"))
 library(tidyverse)
 library(ALDEx2)
-# Import custom.md, ps.q.df.wide, custom.levels
+# Import custom.md, ps.q.df.wide, custom.levels ####
 # input_data_date_time is Rdata workspace from diffabund-input.R
 # with a rarefied table in wide format and metadata
 input_data_date_time<-"20240809_15_38_22"
@@ -16,10 +21,6 @@ if(inside.host=="TRUE"){
   # comparison<-"strain"
   ref.level<-"agegroup0_10" # choose the reference level
   custom.levels<-"NMR"
-  # custom.levels<-c("agegroup0_10",
-  #                                 "agegroup10_16")
-  # custom.levels<-c("F",
-  #                  "M")
 }else{
   comparison<-"host"
   ref.level<-"NMR"
@@ -31,11 +32,7 @@ if(inside.host=="TRUE"){
                    "hare",
                    "rabbit",
                    "spalax",
-                   "pvo"
-                   # ,
-                   # "NMRwt"
-  )
-  
+                   "pvo")
 }
 
 truncationlvl<-"234"
@@ -51,11 +48,14 @@ load(file.path("./output/rdafiles",paste(
   paste(custom.levels,collapse = '-'),"workspace.RData",sep="-")))
 
 
-# create covariates: age groups
-if(host=="NMR" & comparison=="age"){
-  covariates<-custom.md$agegroup[match(colnames(ps.q.df.wide),rownames(custom.md))]
-}else{
-  covariates<-custom.md$class[match(colnames(ps.q.df.wide),rownames(custom.md))]
+# Create covariates: take the samples in the ps.q.df.wide, and find 
+# the positions of these samples in the custom.md.
+# Ref: match returns a vector of the positions of (first) matches of its first argument in its second.
+# We're searching the elements of the first vector in the second vector
+if(setequal(custom.levels,"NMR")& comparison=="age"){
+  covariates<-custom.md$agegroup[match(rownames(ps.q.df.wide),rownames(custom.md))]
+}else if (inside.host==FALSE){
+  covariates<-custom.md$class[match(rownames(ps.q.df.wide),rownames(custom.md))]
 }
 # model matrix is covariates and the reference group is the first covariate
 mm <- model.matrix(~ covariates-1)
@@ -69,9 +69,13 @@ if(inside.host==TRUE){
   }else if(comparison=="strain"){
     aldex.reference<-paste0("covariates",ref.level)
   }
+  # Reorder columns of mm so that the first column is aldex.reference column and
+  # all the other columns are after. 
   mm<-mm[, colnames(mm)[c(which(colnames(mm) == aldex.reference), which(colnames(mm) !=aldex.reference))]]
   
 }else{
+  # Same reordering except this is the case when we have animal hosts. We 
+  # directly put ref.level into the string
   mm<-mm[, colnames(mm)[c(which(colnames(mm) == paste0("covariates",ref.level)), 
                           which(colnames(mm) != paste0("covariates",ref.level)))]]
 }
@@ -86,7 +90,7 @@ save.image(paste0("./rdafiles/",
                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
                         "aldex2",paste(custom.levels,collapse = '-'),
                         agglom.rank,comparison,
-                        "ref",ref.level,
+                        truncationlvl,"ref",ref.level,
                         "workspace-test.RData",sep="-")))
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
 save.image(paste0("./rdafiles/",
@@ -94,9 +98,8 @@ save.image(paste0("./rdafiles/",
                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
                         "aldex2",paste(custom.levels,collapse = '-'),
                         agglom.rank,comparison,
-                        "ref",ref.level,
+                        truncationlvl,"ref",ref.level,
                         "workspace-effect.RData",sep = "-")))
-
 
 
 # Extract significant features ####
