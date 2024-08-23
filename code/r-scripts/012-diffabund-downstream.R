@@ -1,8 +1,5 @@
+# install.packages(c("tidyverse"))
 library(tidyverse)
-# library(phyloseq)
-# library(Maaslin2)
-# library(vegan)
-# library(ALDEx2)
 authorname<-"pooled"
 inside.host<-TRUE
 if(inside.host=="TRUE"){
