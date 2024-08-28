@@ -12,7 +12,7 @@ library(Maaslin2)
 library(ALDEx2)
 library(ANCOMBC)
 library(phyloseq)
-# Import custom.md, ps.q.df.wide, custom.levels ####
+# Import data, such as custom.md, ps.q.df.wide, custom.levels ####
 # input_data_date_time is Rdata workspace from diffabund-input.R
 # with a rarefied table in wide format and metadata
 input_data_date_time<-"20240809_14_40_39"
@@ -31,10 +31,6 @@ if(inside.host=="TRUE"){
   # comparison<-"strain"
   ref.level<-"agegroup0_10" # choose the reference level
   custom.levels<-"NMR"
-  # custom.levels<-c("agegroup0_10",
-  #                                 "agegroup10_16")
-  # custom.levels<-c("F",
-  #                  "M")
 }else{
   comparison<-"host"
   ref.level<-"NMR"
@@ -453,3 +449,334 @@ write.table(ancombc.signif.decreased,
                                  output.filename,
                                  "signif.tsv",sep="-")),
             row.names = F,sep = "\t")
+
+
+# Downstream processing of the test output ####
+library(Polychrome)
+authorname<-"pooled"
+inside.host<-TRUE
+if(inside.host=="TRUE"){
+  # choose what to compare
+  comparison<-"age"
+  # comparison<-"sex"
+  # comparison<-"strain"
+  custom.levels<-"NMR"
+  if(comparison=="age"){
+    sample.groups<-c("agegroup0_10",
+                     "agegroup10_16")
+  }else if(comparison=="sex"){
+    sample.groups<-c("F",
+                     "M")
+  }
+  # NOT workspace dates but signif table dates
+  maaslin2.signif_all.date_time<-c("agegroup0_10"="20240621_17_53_06")
+  # maaslin2.signif_all.date_time<-c("F"="20240621_17_54_53")
+  ref.level<-"agegroup0_10" # choose the reference level
+  # ref.level<-"F"
+  if(comparison=="age"){
+    sample.groups<-c("agegroup0_10",
+                     "agegroup10_16")
+  }else if(comparison=="sex"){
+    sample.groups<-c("F",
+                     "M")
+  }
+  
+}else{
+  comparison<-"host"
+  ref.level<-"NMR"
+  custom.levels<-c("NMR",
+                   "B6mouse",
+                   "MSMmouse",
+                   "FVBNmouse",
+                   "DMR",
+                   "hare",
+                   "rabbit",
+                   "spalax",
+                   "pvo")
+  # Tables of differentially abundant taxa
+  maaslin2.signif_all.date_time<-"20240427_16_22_09"
+  maaslin2.signif_decreased.date_time<-"20240429_17_15_32"
+  aldex.signif_all.date_time<-"20240427_17_39_41"
+  aldex.neg.effect.date_time<-"20240429_17_15_56"
+  ancombc.signif_all.date_time<-"20240427_17_12_27"
+  ancombc.signif.decreased.date_time<-"20240429_17_16_00"
+}
+
+phyloseq.workspace.date_time<-"20240524_13_54_21"
+# 20240524_13_54_21 for all hosts, OTU level
+# 20240426_21_44_30 for all hosts, genus level
+truncationlvl<-"234"
+agglom.rank<-"OTU"
+authorname<-"pooled"
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+read.end.type<-"single"
+rtables.directory<-file.path("./output/rtables",authorname)
+image.formats<-c("png","tiff")
+# This is in all files
+output.filename<-paste(paste(custom.levels,collapse = '-'),
+                       agglom.rank,comparison,
+                       truncationlvl,"ref",ref.level,
+                       sep="-")
+
+### Load the Workspace from phyloseq (output of 001-phyloseq-qiime2.R) ####
+load(file.path("./output/rdafiles",paste(
+  phyloseq.workspace.date_time,
+  authorname,read.end.type,"qiime2",
+  truncationlvl,agglom.rank,
+  "phyloseq-workspace.RData",sep = "-")))
+ps.q.agg<-ps.q.agg%>%
+  filter(class%in%custom.levels,Abundance!=0)
+custom.md<-custom.md%>%
+  filter(class%in%custom.levels)
+
+### Load tables ####
+if(inside.host==TRUE){
+  maaslin.signif.features<-
+    read.table(file.path(rtables.directory,
+                         paste(maaslin2.signif_all.date_time,"maaslin2",
+                               output.filename,
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  maaslin.signif.decreased<-
+    read.table(file.path(rtables.directory,
+                         paste(maaslin2.signif_decreased.date_time,"maaslin.signif.decreased",
+                               output.filename, 
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  
+  # aldex.signif.features<-
+  #   read.table(file.path(rtables.directory,
+  #                        paste(aldex.signif_all.date_time,"aldex2",
+  #                              signif.tsv.filename,sep="-")),
+  #              header = T,sep = "\t")
+  # ancombc.signif.features<-
+  #   read.table(file.path(rtables.directory,
+  #                        paste(ancombc.signif_all.date_time,"ancombc",
+  #                              signif.tsv.filename,sep="-")),
+  #              header = T,sep = "\t")
+  # ancombc.signif.features<-lvl.ancombc.signif.features%>%
+  #   dplyr::select(-X.Intercept.)%>%
+  #   pivot_longer(!taxon_id,names_to = "class",values_to = "coef")
+}else{
+  maaslin.signif.features<-
+    read.table(file.path(rtables.directory,
+                         paste(maaslin2.signif_all.date_time,"maaslin2",
+                               output.filename,
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  maaslin.signif.decreased<-
+    read.table(file.path(rtables.directory,
+                         paste(maaslin2.signif_decreased.date_time,"maaslin.signif.decreased",
+                               output.filename, 
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  
+  aldex.signif.features<-
+    read.table(file.path(rtables.directory,
+                         paste(aldex.signif_all.date_time,"aldex2",
+                               output.filename, 
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  aldex.neg.effect<-
+    read.table(file.path(rtables.directory,
+                         paste(aldex.neg.effect.date_time,"aldex.neg.effect",
+                               output.filename,
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  ancombc.signif.features<-
+    read.table(file.path(rtables.directory,
+                         paste(ancombc.signif_all.date_time,"ancombc",
+                               output.filename,
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+  ancombc.signif.decreased<-
+    read.table(file.path(rtables.directory,
+                         paste(ancombc.signif.decreased.date_time,"ancombc.signif.decreased",
+                               output.filename,
+                               "signif.tsv",sep="-")),
+               header = T,sep = "\t")
+}
+
+
+if(inside.host!=TRUE){
+  ### Find common significant features between three tools ####
+  print(Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$Taxon,
+                        ancombc.signif.features$taxon_id)))
+  
+  ### Find common significantly decreased features between three tools ####
+  print(Reduce(intersect,list(maaslin.signif.decreased$feature,aldex.neg.effect$Taxon,
+                        ancombc.signif.decreased$taxon_id)))
+  
+  # Common significant and decreased features between tools
+  common.signif<-Reduce(intersect,list(maaslin.signif.features$feature,aldex.signif.features$Taxon,
+                                       ancombc.signif.features$taxon_id))
+  ### Only Maaslin2 and ANCOM-BC: they're decreased in other hosts, not in ref ####
+  common.decreased<-Reduce(intersect,list(maaslin.signif.decreased$feature,
+                                          ancombc.signif.decreased$taxon_id))
+  
+  write.table(common.decreased,
+              file=file.path(rtables.directory,
+                             paste(paste(format(Sys.time(),format="%Y%m%d"),
+                                         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                                   "significant-features",
+                                   output.filename,
+                                   "signif.tsv",sep="-")),
+              row.names = F,sep = "\t",col.names = F)
+}
+
+
+# Plot differentially abundant species ####
+if(setequal(custom.levels,"NMR")){
+  # select nmr and add age groups
+  custom.md<-custom.md%>%
+    filter(class=="NMR")%>%
+    group_by(Sample)%>%
+    mutate(birthday=as.Date(birthday))%>%
+    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))%>%
+    mutate(agegroup=cut(age, breaks =c(0,10,16),
+                        right = FALSE))
+}else if(host=="mice"){
+  # select mice and add age groups
+  custom.md<-custom.md%>%
+    filter(Abundance!=0)
+  custom.md$agegroup<-ifelse(custom.md$class=="B6mouse","B6",
+                                        ifelse(grepl("2020",custom.md$birthday),"old","young"))
+}
+
+if (comparison=="age"){
+  pretty.level.names<-names(table(custom.md$agegroup))
+  custom.md<-custom.md%>%
+    ungroup()%>%
+    mutate(old_agegroup=agegroup)%>%
+    mutate(agegroup = paste0("agegroup", agegroup))%>%
+    mutate(agegroup = gsub("\\(|\\)|\\[|\\]","",agegroup))%>%
+    mutate(agegroup = gsub("\\,","_",agegroup))
+  names(pretty.level.names)<-custom.md%>%
+    ungroup%>%
+    dplyr::select(agegroup)%>%
+    distinct(agegroup)%>%
+    arrange(agegroup)%>%
+    pull
+
+  ggplot.levels<-names(pretty.level.names)
+  gg.labs.name<-"Age group"
+  gg.title.groups<-"age groups"
+  
+}else if (comparison=="sex"){
+  pretty.level.names<-
+    c("F" = "Females",
+      "M" = "Males")
+  ggplot.levels<-names(pretty.level.names)
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%ggplot.levels)]
+  gg.labs.name<-"Host sex"
+  gg.title.groups<-"groups"
+}else if(comparison=="strain"){
+  pretty.level.names<-
+    c("B6mouse" = "B6 mouse",
+      "MSMmouse" = "MSM/Ms mouse",
+      "FVBNmouse" = "FVB/N mouse"
+    )
+  ggplot.levels<-intersect(names(pretty.level.names),custom.md$class)
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%ggplot.levels)]
+  gg.labs.name<-"Strain"
+  gg.title.groups<-"strains"
+}
+
+set.seed(1)
+custom.fill<-createPalette(length(ggplot.levels),
+                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
+                                          "#FF8C00","#BF3EFF", "#00FFFF",
+                                          "#FF6EB4","#00EE00","#EEC900"))
+names(custom.fill)<-ggplot.levels
+swatch(custom.fill)
+
+if(inside.host==TRUE){
+  pretty.asv.names.df<-ps.q.agg%>%
+    ungroup()%>%
+    filter(get(agglom.rank)%in%maaslin.signif.features$feature,class=="NMR")%>%
+    distinct(get(agglom.rank),.keep_all = T)%>%
+    dplyr::select(OTU,Genus)%>%
+    mutate(Taxon=paste0("ASV from ","<i>",Genus,"</i> (p = ",
+                        round(maaslin.signif.features$qval,digits=3),")"))
+  pretty.asv.names<-c(pretty.asv.names.df$Taxon)
+  names(pretty.asv.names)<-pretty.asv.names.df$OTU
+  
+  feature.plot<-ps.q.agg%>%
+    filter(get(agglom.rank)%in%maaslin.signif.features$feature,class=="NMR")%>%
+    left_join(custom.md)%>%
+    group_by_at(c(agglom.rank,"agegroup"))%>%
+    ggplot(aes(x=factor(agegroup,levels=names(pretty.level.names)),
+               y=RelativeAbundance,
+               fill=factor(agegroup)))+
+    geom_boxplot(show.legend = FALSE)+
+    facet_wrap(~OTU,scales = "free_y",
+               ncol = 2,
+               labeller = as_labeller(pretty.asv.names))+
+    theme_bw()+
+    labs(x="",
+         y="Relative abundance (%)")+
+    scale_x_discrete(labels=pretty.level.names,
+                     limits=ggplot.levels)+ # rename boxplot labels (x axis)
+    scale_fill_manual(values = custom.fill)+
+    theme(axis.title = element_text(size = 20),
+          axis.text.y = ggtext::element_markdown(size=18),
+          axis.text.x = element_text(size=20),
+          strip.text.x= ggtext::element_markdown(size=20),
+          plot.title = element_text(size = 27),
+          legend.text = element_text(size = 20),
+          legend.title = element_text(size = 25),
+          legend.position = "none")+
+    ggtitle(paste0("Relative abundance of differentially abundant ASVs \nin different naked mole-rat groups"))
+  for(image.format in image.formats){
+    ggsave(paste0("./images/taxaboxplots/",
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        ref.level,"specific-bacteria",host,comparison,
+                        sep = "-"),".",image.format),
+           plot=feature.plot,
+           width = 4000,height = 2000,
+           units = "px",dpi=300,device = image.format)
+}
+}else{
+  feature.plot<-ps.q.agg%>%
+    filter(get(agglom.rank)%in%common.decreased)%>%
+    group_by_at(c("class",agglom.rank))%>%
+    ggplot(aes(x=factor(class,level=rev(ggplot.levels)),
+               y=RelativeAbundance,
+               fill=factor(class)))+
+    geom_boxplot(show.legend = FALSE)+
+    facet_wrap(~Genus,scales = "free_x",
+               ncol = 2)+
+    theme_bw()+
+    coord_flip()+
+    labs(x="",
+         y="Relative abundance (%)")+
+    scale_color_manual(breaks = rev(unname(pretty.level.names)),
+                       labels=rev(unname(pretty.level.names)))+
+    scale_x_discrete(labels=rev(pretty.level.names),
+                     limits=rev(ggplot.levels))+ # rename boxplot labels (x axis)
+    scale_fill_manual(values = rev(custom.fill))+
+    theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+          axis.title.y = element_blank(),
+          axis.title = element_text(size = 20),
+          axis.text.y = ggtext::element_markdown(size=18),
+          axis.text.x = element_text(size=20),
+          strip.text.x = element_text(size=20),
+          plot.title = element_text(size = 27),
+          legend.text = element_text(size = 20),
+          legend.title = element_text(size = 25),
+          legend.position = "none")+
+    ggtitle(paste0("Relative abundance of naked mole-rat-specific taxa"))
+  for(image.format in image.formats){
+    ggsave(paste0("./images/taxaboxplots/",
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        "NMR-specific-bacteria",
+                        sep = "-"),".",image.format),
+           plot=feature.plot,
+           width = 4000,height = 12000,
+           units = "px",dpi=300,device = image.format)
+  }
+
+}
