@@ -1005,7 +1005,7 @@ pca.plot<-pca.plot +
 library(ggrepel)
 pca.labeled<-pca.plot+
   ggrepel::geom_text_repel(aes(label=Sample),
-                           show.legend = FALSE) # add labels to samples
+                           show.legend = FALSE,size=7) # add labels to samples
 
 pca.labeled<-pca.plot+
     geom_text_repel(aes(label=new_age),max.overlaps = Inf,
