@@ -132,16 +132,27 @@ custom.md$class<-as.factor(custom.md$class)
 custom.md$animal<-as.factor(custom.md$animal)
 custom.md$sex<-as.factor(custom.md$sex)
 custom.md$birthday<-as.Date(custom.md$birthday)
+custom.md<-custom.md%>%  
+  mutate(age=case_when(
+  class =="NMR" & Sample%in%c("2D10", "2D14","CG33","D27","DCG6",
+                              "GA17","GA5","GH36","GH6","L122","L128",
+                              "L133","M40","O15","R10","R35",
+                              "Y51b","Y66b")~year(as.period(interval(birthday,as.Date("2023-09-28")))),
+  class == "NMR" & Sample %in%c("G14","G18",
+                                "H15","H21",
+                                "H3","H4") ~ year(as.period(interval(birthday,as.Date("2023-09-28")))),
+  class == "B6mouse" ~ 0,
+  class == "MSMmouse"| class=="FVBNmouse" ~ year(as.period(interval(birthday,as.Date("2023-08-23")))),
+  TRUE ~ NA # NA if none of the conditions are satisfied
+))
+ps.q.agg<-ps.q.agg%>%left_join(custom.md[,c("Sample","age")])%>%relocate(age,.after = "birthday")
+
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
 
 ### For NMR, we create a separate metadata object with age groups. ####
 custom.md.ages<-custom.md%>% 
   filter(class=="NMR")%>%
-  group_by(Sample)%>%
-  mutate(birthday=as.Date(birthday))%>%
-  mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))
-custom.md.ages<-custom.md.ages%>%
   mutate(agegroup=cut(age, breaks =c(0,10,16),
                       right = FALSE))
 # We create these new levels for differential microbial abundance
@@ -328,7 +339,7 @@ write.table(ps.q.agg,
           paste(format(Sys.time(),format="%Y%m%d"),
                 format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
           "phyloseq-qiime",authorname,agglom.rank,read.end.type,truncationlvl,
-          "table.rds",sep="-")),
+          "table.tsv",sep="-")),
         row.names = F,sep = "\t")
 saveRDS(ps.q.agg,
             file=file.path("./output/rdafiles",paste(
