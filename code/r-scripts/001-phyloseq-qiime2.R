@@ -133,19 +133,22 @@ custom.md$animal<-as.factor(custom.md$animal)
 custom.md$sex<-as.factor(custom.md$sex)
 custom.md$birthday<-as.Date(custom.md$birthday)
 custom.md<-custom.md%>%  
-  mutate(age=case_when(
-  class =="NMR" & Sample%in%c("2D10", "2D14","CG33","D27","DCG6",
-                              "GA17","GA5","GH36","GH6","L122","L128",
-                              "L133","M40","O15","R10","R35",
-                              "Y51b","Y66b")~year(as.period(interval(birthday,as.Date("2023-09-28")))),
-  class == "NMR" & Sample %in%c("G14","G18",
-                                "H15","H21",
-                                "H3","H4") ~ year(as.period(interval(birthday,as.Date("2023-09-28")))),
-  class == "B6mouse" ~ 0,
-  class == "MSMmouse"| class=="FVBNmouse" ~ year(as.period(interval(birthday,as.Date("2023-08-23")))),
-  TRUE ~ NA # NA if none of the conditions are satisfied
-))
-ps.q.agg<-ps.q.agg%>%left_join(custom.md[,c("Sample","age")])%>%relocate(age,.after = "birthday")
+  mutate(sampling_date=case_when(
+    class =="NMR" & Sample%in%c("2D10", "2D14","CG33","D27","DCG6",
+                                "GA17","GA5","GH36","GH6","L122","L128",
+                                "L133","M40","O15","R10","R35",
+                                "Y51b","Y66b")~as.Date("2023-02-13"),
+    class == "NMR" & Sample %in%c("G14","G18",
+                                  "H15","H21",
+                                  "H3","H4") ~ as.Date("2023-09-28"),
+    class == "B6mouse" ~ as.Date("2023-02-13"),
+    Sample %in% c("MSM339","MSM340","MSM341","MSM342") ~ as.Date("2023-06-07"),
+    Sample %in% c("MSM343","MSM344","MSM345") ~ as.Date("2023-06-22"),
+    Sample %in% c("MSM346") ~ as.Date("2023-06-23"),
+    Sample %in% c("FVBN549","FVBN550","FVBN551") ~ as.Date("2023-06-23"),
+    TRUE ~ NA # NA if none of the conditions are satisfied
+  ),
+  birthday=as.Date(ifelse(class=="B6mouse",sampling_date-weeks(12),birthday)))
 
 # assign the custom metadata as your phyloseq object's metadata
 sample_data(ps.q)<-custom.md
@@ -153,6 +156,7 @@ sample_data(ps.q)<-custom.md
 ### For NMR, we create a separate metadata object with age groups. ####
 custom.md.ages<-custom.md%>% 
   filter(class=="NMR")%>%
+  mutate(age=year(as.period(interval(birthday,sampling_date))))%>%
   mutate(agegroup=cut(age, breaks =c(0,10,16),
                       right = FALSE))
 # We create these new levels for differential microbial abundance
@@ -239,8 +243,8 @@ if (asvlevel==TRUE){
 # Remove entries with zero Abundance
 ps.q.agg<-ps.q.agg%>%
   filter(Abundance!=0)%>%
-  select(-sample_Sample) # remove the duplicate column
-
+  select(-sample_Sample)%>% # remove the duplicate column
+  select(-sex,-birthday,-animal,-sampling_date)
 # Number of samples in the filtered dataset ####
 ps.q.agg%>%
   distinct(Sample)%>%
