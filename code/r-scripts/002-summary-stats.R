@@ -104,6 +104,19 @@ image.formats<-c("png","tiff")
 # custom.md$animal<-as.factor(custom.md$animal)
 # custom.md$sex<-as.factor(custom.md$sex)
 # custom.md$birthday<-as.Date(custom.md$birthday)
+# custom.md<-custom.md%>%  
+#   mutate(age=case_when(
+#     class =="NMR" & Sample%in%c("2D10", "2D14","CG33","D27","DCG6",
+#                                 "GA17","GA5","GH36","GH6","L122","L128",
+#                                 "L133","M40","O15","R10","R35",
+#                                 "Y51b","Y66b")~year(as.period(interval(birthday,as.Date("2023-09-28")))),
+#     class == "NMR" & Sample %in%c("G14","G18",
+#                                   "H15","H21",
+#                                   "H3","H4") ~ year(as.period(interval(birthday,as.Date("2023-09-28")))),
+#     class == "B6mouse" ~ 0,
+#     class == "MSMmouse"| class=="FVBNmouse" ~ year(as.period(interval(birthday,as.Date("2023-08-23")))),
+#     TRUE ~ NA # NA if none of the conditions are satisfied
+#   ))
 # # assign the custom metadata as your phyloseq object's metadata
 # sample_data(ps.q)<-custom.md
 # 
@@ -201,14 +214,14 @@ image.formats<-c("png","tiff")
 
 ## Setup plots ####
 pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+                      "DMR" = "*Fukomys Damarensis*",
                       "B6mouse" = "B6 mouse",
                       "MSMmouse" = "MSM/Ms mouse",
                       "FVBNmouse" = "FVB/N mouse",
-                      "DMR" = "*Fukomys Damarensis*",
-                      "hare" = "*Lepus europaeus*",
-                      "rabbit" = "*Oryctolagus cuniculus*",
                       "spalax" = "*Nannospalax leucodon*",
-                      "pvo" = "*Pteromys volans orii*")
+                      "pvo" = "*Pteromys volans orii*",
+                      "hare" = "*Lepus europaeus*",
+                      "rabbit" = "*Oryctolagus cuniculus*")
 # Use only the taxa that are present in the workspace
 # (custom.md is metadata from the rdafile)
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
@@ -224,9 +237,9 @@ if(exists("excluded.samples")){
 }
 set.seed(1)
 custom.fill<-createPalette(length(custom.levels),
-                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
-                                          "#FF8C00","#BF3EFF", "#00FFFF",
-                                          "#FF6EB4","#00EE00","#EEC900",
+                           seedcolors = c("#EE2C2C","#BF3EFF","#5CACEE","#00CD66",
+                                          "#FF8C00","#00EE00","#EEC900", "#00FFFF",
+                                          "#FF6EB4",
                                           "#FFA07A"))
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
@@ -361,7 +374,7 @@ ps.q.agg.genus.relab<-add_relab_to_tax_df(ps.q.agg.genus,"Genus")
 ps.q.agg.relab<-add_relab_to_tax_df(ps.q.agg,"OTU")
 
 # 9. Add agegroup (Must run for plotting) ####
-custom.md.ages<-readRDS("./output/rdafiles/custom.md.ages.rds")
+custom.md.ages<-readRDS("./output/rdafiles/use/custom.md.ages.rds")
 # we create these new levels for plots
 # The function add_agegroup_to_tax_df takes a dataframe of abundances,
 # the lowest taxonomic rank in the dataframe (e.g. genus), and a metadata with
@@ -374,7 +387,7 @@ custom.md.ages<-readRDS("./output/rdafiles/custom.md.ages.rds")
 # inside each age group.
 add_agegroup_to_tax_df<-function(tax.df,tax.rank,metadata.df){
   tax.df<-tax.df%>%
-    left_join(metadata.df)%>%
+    left_join(metadata.df[,c("Sample","agegroup","old_agegroup")],by="Sample")%>%
     group_by(agegroup)%>% # group by class (animal host),
     mutate(TotalAgegroup=sum(Abundance))%>%
     group_by_at(c("agegroup",tax.rank))%>%
@@ -384,13 +397,6 @@ add_agegroup_to_tax_df<-function(tax.df,tax.rank,metadata.df){
     select(-TotalAgegroup,-TotalAgglomRankAge)
 }
 
-ps.q.agg.genus.relab<-add_agegroup_to_tax_df(ps.q.agg.genus.relab,"Genus",
-                                             custom.md.ages)
-ps.q.agg.family.relab<-add_agegroup_to_tax_df(ps.q.agg.family.relab,"Family",
-                                              custom.md.ages)
-
-ps.q.agg.relab<-add_agegroup_to_tax_df(ps.q.agg.relab,"OTU",
-                                      custom.md.ages)
 
 ps.q.agg.family.relab.nmr<-ps.q.agg.family.relab%>%
   filter(class=="NMR")
@@ -399,6 +405,12 @@ ps.q.agg.genus.relab.nmr<-ps.q.agg.genus.relab%>%
 ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
   filter(class=="NMR")
 
+ps.q.agg.family.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.family.relab.nmr,"Family",
+                                              custom.md.ages)
+ps.q.agg.genus.relab<-add_agegroup_to_tax_df(ps.q.agg.genus.relab,"Genus",
+                                             custom.md.ages)
+ps.q.agg.relab<-add_agegroup_to_tax_df(ps.q.agg.relab,"OTU",
+                                       custom.md.ages)
 # 10. Check the percentage of unclassified taxa in each animal ####
 # Here, we are interested in unclassified genera, but you can also try Families,
 # Orders, Classes, etc.
@@ -449,7 +461,7 @@ unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
   distinct(Genus,.keep_all = T)%>%
   tally()%>%
   arrange(-n)%>%
-  rename(NumCclassifiedGenera=n)%>%
+  rename(NumClassifiedGenera=n)%>%
   left_join(unclassified.genus.summary.stats.table)
 
 # write.table(unclassified.genus.summary.stats.table,
@@ -490,7 +502,7 @@ get_rarefied_table<-function(tax.df,tax.rank,host.classes){
     as_tibble(rownames="Sample")%>%
     pivot_longer(-Sample)%>%
     as.data.frame()%>%
-    left_join(unique(tax.df[,c("Sample","class","sex","birthday")]),
+    left_join(unique(tax.df[,c("Sample","class","sex","birthday","age")]),
               by="Sample")
   if(tax.rank=="OTU"){
     tax.df.rare<-tax.df.rare%>%
@@ -527,6 +539,17 @@ get_rarefied_table<-function(tax.df,tax.rank,host.classes){
 ps.q.agg.genus.rare<-get_rarefied_table(ps.q.agg.genus,"Genus",custom.levels)
 ps.q.agg.genus.nmr.rare<-get_rarefied_table(ps.q.agg.genus.relab.nmr,"Genus","NMR")
 ps.q.agg.nmr.rare<-get_rarefied_table(ps.q.agg.relab.nmr,"OTU","NMR")
+
+### Add relative abundances and taxonomic information to the rarefied dataframe ####
+ps.q.agg.genus.rare.relab<-add_relab_to_tax_df(ps.q.agg.genus.rare,"Genus")
+# Add other taxonomic ranks to the dataframe
+ps.q.agg.genus.rare.relab<-ps.q.agg.genus.rare.relab%>%
+  left_join(unique(ps.q.agg.genus[,c("Kingdom","Phylum","Class","Order","Family","Genus")]))
+
+# Add relative abundances to NMR dataframe (ASV level)
+ps.q.agg.nmr.rare.relab<-add_relab_to_tax_df(ps.q.agg.nmr.rare,"OTU")
+ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
+  left_join(unique(ps.q.agg[,c("Kingdom","Phylum","Class","Order","Family","Genus","OTU")]))
 
 ### 11.1 Plot a rarefaction curve ####
 # ps.q.mat<-as(t(otu_table(ps.q)),"matrix") # from phyloseq
@@ -573,10 +596,6 @@ ps.q.agg.nmr.rare<-get_rarefied_table(ps.q.agg.relab.nmr,"OTU","NMR")
 #        plot=last_plot(),
 #        width = 4500,height = 3000,
 #        units = "px",dpi=300,device = "png")
-### Add relative abundances and taxonomic information to the rarefied dataframe ####
-ps.q.agg.genus.rare.relab<-add_relab_to_tax_df(ps.q.agg.genus.rare,"Genus")
-ps.q.agg.genus.rare.relab<-ps.q.agg.genus.rare.relab%>%
-  left_join(unique(ps.q.agg.genus[,c("Kingdom","Phylum","Class","Order","Family","Genus")]))
 
 ### 11.3 Calculate summary stats of unclassified taxa for rarefied data ####
 unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
@@ -613,7 +632,7 @@ unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
   distinct(Genus,.keep_all = T)%>%
   tally()%>%
   arrange(-n)%>%
-  rename(NumCclassifiedGenera=n)%>%
+  rename(NumClassifiedGenera=n)%>%
   left_join(unclassified.genus.summary.stats.table.rare)
 
 # write.table(unclassified.genus.summary.stats.table.rare,
@@ -623,7 +642,7 @@ unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
 #                                  "unclassified-genus-summary-table-rarefied.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 11. Plot the total number of unique genera per host ####
+# 11. Bar plot of the total number of unique genera per host ####
 summary.stats.table%>%
   ggplot(aes(x=reorder(class,-GeneraPerHost),y=GeneraPerHost))+
   geom_bar(stat = "identity")+
@@ -659,12 +678,18 @@ summary.stats.table%>%
 
 # Boxplot that shows the distribution of genera in samples from each host ####
 ps.q.agg.genus%>%
+  mutate(class=factor(class,levels=custom.levels))%>%
   group_by(Sample,class,Genus)%>% # group by class (animal host),
   distinct(Genus)%>%
   group_by(class,Sample)%>%
   tally%>%
-  ggplot(aes(x=class,y=n))+
-  geom_boxplot()
+  ggplot(aes(x=class,y=n,fill=class))+
+  geom_boxplot(alpha=0.1)+ # colorless boxplot
+  geom_jitter(aes(color=class),
+              width = 0.1, # jitter spread
+              shape = 1, # empty dots
+              size=2)+
+  theme_bw()
 
 # Arrange boxplot by mean unclassified genera
 # We take the table of unclassified genera stats and sort it by the average
@@ -681,15 +706,25 @@ ps.q.agg.genus.relab%>%
   group_by(Sample,class)%>%
   summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
   ggplot(aes(x=factor(class,levels=mean.factors),y=TotalUnclassifiedPercent))+
-  geom_boxplot()+
-  stat_summary(fun=mean, geom='point', shape=23,fill="red",size=4)+ # add a point
-  # that shows the mean value in each box
+  geom_boxplot(alpha=0)+
+  stat_summary(fun=mean, 
+               geom='point', 
+               shape=23,
+               fill="red",
+               size=4,
+               alpha=0.5)+ # add a point that shows the mean value in each box
+  geom_jitter(aes(color=class),
+              width = 0.1, # jitter spread
+              shape = 1, # empty dots
+              size=2,
+              show.legend = FALSE)+
+  scale_color_manual(values=custom.fill)+
   theme_bw()+
   labs(x="",
        y="Unclassified genera per sample (%)")+
   scale_x_discrete(labels =pretty.level.names) +
   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
-        axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+        axis.text.x = element_markdown(angle=45,size=20,hjust=1),# rotate 
         # the x-axis labels by 45 degrees and shift to the right
         axis.text.y = element_text(size=20), # size of y axis ticks
         axis.title = element_text(size = 20), # size of axis names
@@ -796,172 +831,172 @@ ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
 #                                  "dominant-genera-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 13. Analyse data from Debebe ####
-### 13.1 Load data from Debebe ####
-truncationlvl<-"0" # truncation level that we chose in QIIME2
-authorname<-"biagi" # name of the folder with QIIME2 output
-read.end.type<-"single" # single reads or paired reads: decided in QIIME2
-# If you already created a workspace, just load it
-phyloseq.biagi.date_time<-"20240502_23_43_39"
-load(file.path("./output/rdafiles",paste(
-  phyloseq.biagi.date_time,
-  authorname,read.end.type,"phyloseq-summary-stats",
-  truncationlvl,
-  "workspace.RData",sep = "-")))
-
-### 13.1 Total number of unique ASV/phyla/families/genera per class in Debebe ####
-n.asv.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.biagi,"OTU")
-n.phylum.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.phylum.biagi,"Phylum")
-n.family.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.family.biagi,"Family")
-n.genus.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.genus.biagi,"Genus")
-
-### 13.2 Summary statistics table from Debebe ####
-summary.stats.table.biagi<-create_summary_stats_table(ps.q.agg.genus.biagi,
-                                                      n.asv.per.host.biagi,
-                                                      n.phylum.per.host.biagi,
-                                                      n.family.per.host.biagi,
-                                                      n.genus.per.host.biagi)
-
-# write.table(summary.stats.table.biagi,
-#             file=file.path("./output/rtables","biagi",
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "summary-table.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-
-### 13.3 Most abundant phyla, families, and genera in Debebe ####
-ps.q.agg.dominant.phyla.biagi<-get_dominant_taxa_in_host(ps.q.agg.phylum.biagi,
-                                                       "Phylum","NMRwt")
-ps.q.agg.dominant.families.biagi<-get_dominant_taxa_in_host(ps.q.agg.family.biagi,
-                                                          "Family","NMRwt")
-ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
-                                                        "Genus","NMR")
-# save.image(paste0("./output/rdafiles/",
-#                   paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                         "pooled-and-biagi-workspace.Rda")))
-
-
-
-
-### 13.4 Plot dominant families in lab vs wild NMR from our data (wild data reanalysed) ####
-ps.q.agg.dominant.families.nmr%>%
-  ungroup()%>%
-  select(Family,MeanRelativeAbundance)%>%
-  full_join(ps.q.agg.dominant.families.biagi[,c("Family","MeanRelativeAbundance")],
-            by="Family")%>%
-  rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
-  pivot_longer(cols = c("NMR","NMRwt"),
-               names_to = "class",
-               values_to = "MeanRelativeAbundance")%>%
-  arrange(-MeanRelativeAbundance)%>%
-  head(n=30)%>%
-  mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
-  ggplot(aes(x=reorder(Family,desc(MeanRelativeAbundance)),
-             y=MeanRelativeAbundance,
-             fill=animal))+
-  geom_bar(stat = "identity",position = "dodge")+
-  theme_bw()+
-  xlab("") +
-  ylab("Average relative abundance (%)")+
-  labs(fill="")+
-  coord_cartesian(expand = FALSE)+
-  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
-        axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
-        # the x-axis labels by 45 degrees and shift to the right
-        axis.text.y = element_text(size=20), # size of y axis ticks
-        axis.title = element_text(size = 20), # size of axis names
-        plot.title = element_text(size = 25), # size of plot title
-        plot.caption = element_text(size=23), # size of plot caption
-        legend.title = element_text(size = 25), # size of legend title
-        legend.position = "inside",
-        legend.position.inside =  c(0.9,0.8),
-        legend.text = element_text(size = 20)) # legend under the plot
-# ggsave(file.path("./images/barplots",
-#                  paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                        "barplot-wild-vs-lab-nmr-my-results.png")),
-#        plot=last_plot(),
-#        width = 5000,height = 4000,
-#        units = "px",dpi=300,device = "png")  
-
-
-
-#### 13.4.1 Plot dominant families reported in the paper ####
-wild.nmr.families<-data.frame(
-  Family=c("Lachnospiraceae",
-           "Prevotellaceae",
-           "Paraprevotellaceae",
-           "Bacteroidales Order",
-           "Clostridiales Order",
-           "Oscillospiraceae",
-           "Veillonellaceae",
-           "Clostridiaceae",
-           "Muribaculaceae",
-           "Porphyromonadaceae"),
-  MeanRelativeAbundance=c(17.6,
-                          11,
-                          8.8,
-                          6.2,
-                          6.1,
-                          5.7,
-                          4.7,
-                          4.1,
-                          4,
-                          3)
-)
-# Add a column if the family was reported as dominant or not
-ps.q.agg.dominant.families.nmr.with_domin<-ps.q.agg.dominant.families.nmr%>%
-  ungroup()%>%
-  mutate(row.index=as.numeric(rownames(ps.q.agg.dominant.families.nmr)),
-         dominant=ifelse(row.index<=10,"dominant","not_dominant"))
-
-ps.q.agg.dominant.families.nmr.with_domin%>%
-  select(Family,MeanRelativeAbundance,dominant)%>%
-  distinct(Family,.keep_all = T)%>%
-  filter(Family%in%wild.nmr.families$Family)%>%
-  full_join(ps.q.agg.dominant.families.nmr.with_domin[1:10,c("Family","MeanRelativeAbundance","dominant")])%>%
-  full_join(wild.nmr.families[,c("Family","MeanRelativeAbundance")],
-            by="Family")%>%
-  rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
-  pivot_longer(cols = c("NMR","NMRwt"),
-               names_to = "class",
-               values_to = "MeanRelativeAbundance")%>%
-  arrange(-MeanRelativeAbundance)%>%
-  # head(n=30)%>%
-  mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
-  replace_na(replace =list( MeanRelativeAbundance=0))%>%
-  ggplot(aes(x=reorder(Family,desc(MeanRelativeAbundance)),
-             y=MeanRelativeAbundance,
-             fill=animal))+
-  geom_bar(stat = "identity",position = position_dodge2())+
-  theme_bw()+
-  labs(x="",
-       y="Average relative abundance (%)")+
-  labs(fill="")+
-  coord_cartesian(expand = FALSE)+
-  theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
-        axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
-        # the x-axis labels by 45 degrees and shift to the right
-        axis.text.y = element_text(size=20), # size of y axis ticks
-        axis.title = element_text(size = 20), # size of axis names
-        plot.title = element_text(size = 25), # size of plot title
-        plot.caption = element_text(size=23), # size of plot caption
-        legend.title = element_text(size = 25), # size of legend title
-        legend.position = "inside",
-        legend.position.inside = c(0.9,0.8),
-        legend.text = element_text(size = 20))
-# ggsave(file.path("./images/barplots",
-#                  paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                        "barplot-wild-vs-lab-nmr-from-paper.png")),
-#        plot=last_plot(),
-#        width = 5000,height = 4000,
-#        units = "px",dpi=300,device = "png")  
+# # 13. Analyse data from Debebe ####
+# ### 13.1 Load data from Debebe ####
+# truncationlvl<-"0" # truncation level that we chose in QIIME2
+# authorname<-"biagi" # name of the folder with QIIME2 output
+# read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+# # If you already created a workspace, just load it
+# phyloseq.biagi.date_time<-"20240502_23_43_39"
+# load(file.path("./output/rdafiles",paste(
+#   phyloseq.biagi.date_time,
+#   authorname,read.end.type,"phyloseq-summary-stats",
+#   truncationlvl,
+#   "workspace.RData",sep = "-")))
+# 
+# ### 13.1 Total number of unique ASV/phyla/families/genera per class in Debebe ####
+# n.asv.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.biagi,"OTU")
+# n.phylum.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.phylum.biagi,"Phylum")
+# n.family.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.family.biagi,"Family")
+# n.genus.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.genus.biagi,"Genus")
+# 
+# ### 13.2 Summary statistics table from Debebe ####
+# summary.stats.table.biagi<-create_summary_stats_table(ps.q.agg.genus.biagi,
+#                                                       n.asv.per.host.biagi,
+#                                                       n.phylum.per.host.biagi,
+#                                                       n.family.per.host.biagi,
+#                                                       n.genus.per.host.biagi)
+# 
+# # write.table(summary.stats.table.biagi,
+# #             file=file.path("./output/rtables","biagi",
+# #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+# #                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+# #                                  "summary-table.tsv",sep="-")),
+# #             row.names = F,sep = "\t")
+# 
+# ### 13.3 Most abundant phyla, families, and genera in Debebe ####
+# ps.q.agg.dominant.phyla.biagi<-get_dominant_taxa_in_host(ps.q.agg.phylum.biagi,
+#                                                        "Phylum","NMRwt")
+# ps.q.agg.dominant.families.biagi<-get_dominant_taxa_in_host(ps.q.agg.family.biagi,
+#                                                           "Family","NMRwt")
+# ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
+#                                                         "Genus","NMR")
+# # save.image(paste0("./output/rdafiles/",
+# #                   paste(paste(format(Sys.time(),format="%Y%m%d"),
+# #                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+# #                         "pooled-and-biagi-workspace.Rda")))
+# 
+# 
+# 
+# 
+# ### 13.4 Bar plot of dominant families in lab vs wild NMR from our data (wild data reanalysed) ####
+# ps.q.agg.dominant.families.nmr%>%
+#   ungroup()%>%
+#   select(Family,MeanRelativeAbundance)%>%
+#   full_join(ps.q.agg.dominant.families.biagi[,c("Family","MeanRelativeAbundance")],
+#             by="Family")%>%
+#   rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
+#   pivot_longer(cols = c("NMR","NMRwt"),
+#                names_to = "class",
+#                values_to = "MeanRelativeAbundance")%>%
+#   arrange(-MeanRelativeAbundance)%>%
+#   head(n=30)%>%
+#   mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
+#   ggplot(aes(x=reorder(Family,desc(MeanRelativeAbundance)),
+#              y=MeanRelativeAbundance,
+#              fill=animal))+
+#   geom_bar(stat = "identity",position = "dodge")+
+#   theme_bw()+
+#   xlab("") +
+#   ylab("Average relative abundance (%)")+
+#   labs(fill="")+
+#   coord_cartesian(expand = FALSE)+
+#   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+#         axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+#         # the x-axis labels by 45 degrees and shift to the right
+#         axis.text.y = element_text(size=20), # size of y axis ticks
+#         axis.title = element_text(size = 20), # size of axis names
+#         plot.title = element_text(size = 25), # size of plot title
+#         plot.caption = element_text(size=23), # size of plot caption
+#         legend.title = element_text(size = 25), # size of legend title
+#         legend.position = "inside",
+#         legend.position.inside =  c(0.9,0.8),
+#         legend.text = element_text(size = 20)) # legend under the plot
+# # ggsave(file.path("./images/barplots",
+# #                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+# #                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+# #                        "barplot-wild-vs-lab-nmr-my-results.png")),
+# #        plot=last_plot(),
+# #        width = 5000,height = 4000,
+# #        units = "px",dpi=300,device = "png")  
+# 
+# 
+# 
+# #### 13.4.1 Bar plot of dominant families reported in the paper ####
+# wild.nmr.families<-data.frame(
+#   Family=c("Lachnospiraceae",
+#            "Prevotellaceae",
+#            "Paraprevotellaceae",
+#            "Bacteroidales Order",
+#            "Clostridiales Order",
+#            "Oscillospiraceae",
+#            "Veillonellaceae",
+#            "Clostridiaceae",
+#            "Muribaculaceae",
+#            "Porphyromonadaceae"),
+#   MeanRelativeAbundance=c(17.6,
+#                           11,
+#                           8.8,
+#                           6.2,
+#                           6.1,
+#                           5.7,
+#                           4.7,
+#                           4.1,
+#                           4,
+#                           3)
+# )
+# # Add a column if the family was reported as dominant or not
+# ps.q.agg.dominant.families.nmr.with_domin<-ps.q.agg.dominant.families.nmr%>%
+#   ungroup()%>%
+#   mutate(row.index=as.numeric(rownames(ps.q.agg.dominant.families.nmr)),
+#          dominant=ifelse(row.index<=10,"dominant","not_dominant"))
+# 
+# ps.q.agg.dominant.families.nmr.with_domin%>%
+#   select(Family,MeanRelativeAbundance,dominant)%>%
+#   distinct(Family,.keep_all = T)%>%
+#   filter(Family%in%wild.nmr.families$Family)%>%
+#   full_join(ps.q.agg.dominant.families.nmr.with_domin[1:10,c("Family","MeanRelativeAbundance","dominant")])%>%
+#   full_join(wild.nmr.families[,c("Family","MeanRelativeAbundance")],
+#             by="Family")%>%
+#   rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
+#   pivot_longer(cols = c("NMR","NMRwt"),
+#                names_to = "class",
+#                values_to = "MeanRelativeAbundance")%>%
+#   arrange(-MeanRelativeAbundance)%>%
+#   # head(n=30)%>%
+#   mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
+#   replace_na(replace =list( MeanRelativeAbundance=0))%>%
+#   ggplot(aes(x=reorder(Family,desc(MeanRelativeAbundance)),
+#              y=MeanRelativeAbundance,
+#              fill=animal))+
+#   geom_bar(stat = "identity",position = position_dodge2())+
+#   theme_bw()+
+#   labs(x="",
+#        y="Average relative abundance (%)")+
+#   labs(fill="")+
+#   coord_cartesian(expand = FALSE)+
+#   theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+#         axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+#         # the x-axis labels by 45 degrees and shift to the right
+#         axis.text.y = element_text(size=20), # size of y axis ticks
+#         axis.title = element_text(size = 20), # size of axis names
+#         plot.title = element_text(size = 25), # size of plot title
+#         plot.caption = element_text(size=23), # size of plot caption
+#         legend.title = element_text(size = 25), # size of legend title
+#         legend.position = "inside",
+#         legend.position.inside = c(0.9,0.8),
+#         legend.text = element_text(size = 20))
+# # ggsave(file.path("./images/barplots",
+# #                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+# #                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+# #                        "barplot-wild-vs-lab-nmr-from-paper.png")),
+# #        plot=last_plot(),
+# #        width = 5000,height = 4000,
+# #        units = "px",dpi=300,device = "png")  
 
 
 # 14. Compare dominant phyla, and genera in NMR vs mice ####
-ps.q.agg.dominant.phyla.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.phylum,
+ps.q.agg.dominant.phyla.nmr_b6mouse<-get_dominant_taxa_in_hostinant_taxa_in_host(ps.q.agg.phylum,
                                                                "Phylum",c("NMR","B6mouse"))
 ps.q.agg.dominant.families.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.family,
                                                                   "Family",c("NMR","B6mouse"))
@@ -1120,39 +1155,46 @@ ps.q.agg.phylum.relab%>%
 #                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
 #                                  "desulfobacterota-table-nmr.tsv",sep="-")),
 #             row.names = F,sep = "\t")
-write.table(desulfobacterota.all.mean,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "desulfobacterota-table-all-mean.tsv",sep="-")),
-            row.names = F,sep = "\t")
-write.table(desulfobacterota.all.mean,
-            file=file.path("./output/rtables",authorname,
-                           paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                                 "desulfobacterota-table-all-sd.tsv",sep="-")),
-            row.names = F,sep = "\t")
+# write.table(desulfobacterota.all.mean,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "desulfobacterota-table-all-mean.tsv",sep="-")),
+#             row.names = F,sep = "\t")
+# write.table(desulfobacterota.all.mean,
+#             file=file.path("./output/rtables",authorname,
+#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
+#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+#                                  "desulfobacterota-table-all-sd.tsv",sep="-")),
+#             row.names = F,sep = "\t")
 
 ### 18.2 Plot Desulfobacterota ####
 # It's a flipped plot
 ps.q.agg.genus.relab%>%
+  mutate(class=factor(class,levels=custom.levels))%>%
   filter(Phylum=="Desulfobacterota")%>%
   group_by(class,Genus)%>%
-  ggplot(aes(x=factor(class,level=rev(custom.levels)),
+  ggplot(aes(x=factor(class,levels=rev(custom.levels)),
              y=RelativeAbundance,
              fill=factor(class)))+
-  geom_boxplot(show.legend = FALSE)+
+  geom_boxplot(show.legend = FALSE,
+               outliers = FALSE)+
+  geom_jitter(width = 0.1, # jitter spread
+              shape = 1, # empty dots
+              size=3,
+              show.legend = FALSE)+
   facet_wrap(~Genus,scales = "free_x",
              ncol = 2)+
   theme_bw()+
   coord_flip()+
   labs(x="",
        y="Relative abundance (%)")+
-  scale_color_manual(breaks = rev(unname(pretty.level.names)),
-                     labels=rev(unname(pretty.level.names)))+
-  scale_x_discrete(labels=rev(pretty.level.names),
-                   limits=rev(custom.levels))+ # rename boxplot labels (x axis)
-  scale_fill_manual(values = rev(custom.fill))+
+  # VVV scale_x_discrete works on x axis but the final labels are on y because the coord_flip() flipped the plot.
+  # So, we use rev() to address the flipping VVV
+  scale_x_discrete(labels=rev(pretty.level.names), # new labels (named vector) on the axis
+                   limits=rev(custom.levels) # limits adjust which levels (and in what order) are displayed
+                   )+ # rename boxplot labels 
+  scale_fill_manual(values = rev(custom.fill))+ # use custom color for boxplots (values matches data to the named vector)
   theme(plot.margin=unit(c(1,1,1,2), 'cm'),
         axis.title.y = element_blank(),
         axis.title = element_text(size = 20),
@@ -1179,14 +1221,16 @@ ps.q.agg.genus.relab%>%
 
 
 
-## 19. Setup sample levels ####
+## 19. Setup sample levels for NMR####
 sample.levels<-custom.md.ages%>%
   ungroup()%>%
-  select(Sample,agegroup)%>%
-  arrange(agegroup)%>%
-  distinct()
-sample.levels$Sample<-factor(sample.levels$Sample,
-                             levels=unique(sample.levels$Sample))
+  select(Sample,age)%>%
+  arrange(age)%>%
+  distinct()%>%
+  mutate(NewSample=paste0(Sample," (",age,")"))%>%
+  mutate(Sample=factor(Sample,levels=Sample),
+         NewSample=factor(NewSample,levels=NewSample))
+
 
 ## 20. Groups 1, 2, and 3 ####
 group1.genera<-c("Faecalibacterium",
@@ -1266,8 +1310,8 @@ ggplot.species<-function(taxa.to.plot,
   sample.levels<-tax.df%>%
     ungroup()%>%
     filter(class=="NMR")%>%
-    select(Sample,agegroup)%>%
-    arrange(agegroup,Sample)%>%
+    select(Sample,age)%>%
+    arrange(age,Sample)%>%
     distinct()
   # convert samples to factors
   sample.levels$Sample<-factor(sample.levels$Sample,
@@ -1643,13 +1687,18 @@ ps.q.agg.relab.nmr%>%
   arrange(-MeanRelAbGenus)%>%
   select(Genus,MeanRelAbGenus)
 
-# Barplot of abundances: high variability
+# Bar plot of abundances: high variability
 ps.q.agg.relab.nmr%>%
+  mutate(Sample=factor(Sample,levels=sample.levels$Sample),
+         NewSample=paste0(Sample," (",age,")"),
+         NewSample=factor(NewSample,levels=sample.levels$NewSample))%>%
+  
   filter(OTU%in%subset(shared.otu.genera,Genus%in%unique(shared.otu.genera$Genus)[1:5])$OTU)%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance,fill=Genus))+
-  geom_bar(stat="identity")+
-  facet_grid(~agegroup,
-             scales="free")
+  ggplot(aes(x=NewSample,y=RelativeAbundance,fill=Genus))+
+  geom_bar(stat="identity")
+  # facet_grid(~agegroup,
+  #            space = "free", # bars will have same widths
+  #            scales="free")
 
 # Finished up to this line ^^^^ ################################################ 
 # Which shared ASVs are the most abundant? ####
@@ -1662,14 +1711,15 @@ top10.asv.average<-ps.q.agg.relab.nmr%>%
   select(Genus,OTU,MeanRelativeAbundance)%>%
   head(n=10)
 
-### The 10 most abundant ASVs on average account for 30-40% of samples ####
+### Bar plot shows the 10 most abundant ASVs on average account for 30-40% of samples ####
 ps.q.agg.relab.nmr%>%
   filter(OTU%in%top10.asv.average$OTU)%>%
   mutate(new_OTU=paste0(OTU," (",Genus,")"))%>%
   ggplot(aes(x=Sample,y=RelativeAbundance,fill=new_OTU))+
   geom_bar(stat="identity")+
   facet_grid(~agegroup,
-             scales="free")
+             scales="free",
+             space = "free")
 
 ### Most abundant ASVs in each age group ####
 ps.q.agg.relab.nmr%>%
@@ -1704,7 +1754,8 @@ ps.q.agg.relab.nmr%>%
   ggplot(aes(x=Sample,y=RelativeAbundance,fill=new_OTU))+
   geom_bar(stat="identity")+
   facet_grid(~agegroup,
-             scales="free")
+             scales="free",
+             space = "free")
 # Union of the top 10 ASVs in each of the two age groups 
 top10.asv.union<-sort(union(top10.asv.young$OTU[1:10],top10.asv.old$OTU[1:10]))
 set.seed(1)
@@ -1716,14 +1767,12 @@ names(otu.fill)<-top10.asv.union
 ps.q.agg.relab.nmr%>%
   filter(OTU%in%top10.asv.union)%>%
   mutate(new_OTU=paste0(OTU," (",Genus,")"))%>%
-  mutate(agegroup=ifelse(agegroup=="agegroup0_10","Young",
-                             "Old"),
-         agegroup=factor(agegroup,levels=c("Young","Old")))%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance,fill=OTU))+
+  mutate(Sample=factor(Sample,levels=sample.levels$Sample),
+         NewSample=paste0(Sample," (",age,")"),
+         NewSample=factor(NewSample,levels=sample.levels$NewSample))%>%
+  
+  ggplot(aes(x=NewSample,y=RelativeAbundance,fill=OTU))+
   geom_bar(stat="identity")+
-  facet_grid(~agegroup,
-             space = "free", # bars will have same widths
-             scales="free")+
   scale_fill_manual(labels=names(otu.fill),
                     values=otu.fill)+
   theme_bw()+
@@ -1731,7 +1780,7 @@ ps.q.agg.relab.nmr%>%
   labs(x="Sample",
        y="Relative abundance (%)",
        fill="ASV",
-       title="Top 10 most abundant ASVs in each age group")+
+       title="Top 10 most abundant ASVs across age")+
   theme(axis.title.y = element_text(size = 25),
         axis.title = element_text(size = 20),
         axis.text.y = ggtext::element_markdown(size=18),
@@ -1765,16 +1814,13 @@ m40.otu.fill<-createPalette(length(m40.asvs$OTU),
 names(m40.otu.fill)<-sort(m40.asvs$OTU)
 
 ps.q.agg.relab.nmr%>%
+  mutate(Sample=factor(Sample,levels=sample.levels$Sample),
+         NewSample=paste0(Sample," (",age,")"),
+         NewSample=factor(NewSample,levels=sample.levels$NewSample))%>%
   filter(OTU%in%m40.asvs$OTU)%>%
   # mutate(new_OTU=paste0(OTU," (",Genus,")"))%>%
-  mutate(agegroup=ifelse(agegroup=="agegroup0_10","Young",
-                         "Old"),
-         agegroup=factor(agegroup,levels=c("Young","Old")))%>%
-  ggplot(aes(x=Sample,y=RelativeAbundance,fill=OTU))+
+  ggplot(aes(x=NewSample,y=RelativeAbundance,fill=OTU))+
   geom_bar(stat="identity")+
-  facet_grid(~agegroup,
-             space = "free", # bars will have same widths
-             scales="free")+
   scale_fill_manual(labels=names(m40.otu.fill),
                     values=m40.otu.fill)+
   theme_bw()+
@@ -1804,123 +1850,56 @@ ggsave(file.path("./images/barplots",
 
 
 # Alpha diversity  ####
-library(vegan)
-all.div<-ps.q.agg.relab.nmr%>%
-  group_by(Sample)%>%
-  reframe(sobs=specnumber(Abundance), # richness (num of species)
-          shannon=diversity(Abundance,index = "shannon"),
-          # simpson=diversity(Abundance, index="simpson"),
-          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-          tot=sum(Abundance),
-          agegroup=agegroup,
-          sex=sex)%>%
-  group_by(Sample)%>%
-  pivot_longer(cols=c(sobs,shannon,invsimpson),
-               names_to="metric")%>%
-  distinct()
-
-
-## Alpha diversity tests
+# facet labels
 metric.labs=c('sobs'="Richness \n(Observed species)",
               'shannon' = "Shannon",
               # 'simpson' = "Simpson",
               'invsimpson' = "Inverse \nSimpson")
+# metrics to plot
 plot.metrics<-c("sobs","shannon", # "simpson",
-                "invsimpson") # metrics to plot
+                "invsimpson")
 div.indices<-c("sobs","shannon",# "simpson",
                "invsimpson")
-kt.results<-data.frame(matrix(nrow = 2,ncol=length(div.indices)))
-colnames(kt.results)<-div.indices
-rownames(kt.results)<-c("statistic", "pvalue")
-custom.levels<-c("agegroup0_10",
-                 "agegroup10_16")
 
-combinations<-combn(custom.levels,2) # all unique pairwise combinations
-w.results<-data.frame(matrix(nrow = ncol(combinations),ncol=length(div.indices))) # ncol(combinations) pairwise comparisons
-colnames(w.results)<-div.indices
-w.results<-array(dim = c(length(table(combinations[1,])), # nrows
-                         length(table(combinations[2,])), # ncols
-                         length(div.indices)), # num of 2D arrays (stacking) 
-                 dimnames = list(NULL, NULL, div.indices))
-
-
+all.div<-ps.q.agg.nmr.rare.relab%>%
+  group_by(Sample)%>%
+  reframe(sobs=specnumber(Abundance), # richness (num of species)
+          shannon=diversity(Abundance,index = "shannon"),
+          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
+          tot=sum(Abundance),
+          age=age,
+          sex=sex)%>%
+  left_join(custom.md.ages[,c("Sample","agegroup")])%>%
+  ungroup()%>%
+  mutate(Sample=factor(Sample,levels=sample.levels$Sample),
+         NewSample=paste0(Sample," (",age,")"),
+         NewSample=factor(NewSample,levels=sample.levels$NewSample))%>%
+  group_by(Sample)%>%
+  pivot_longer(cols=c(sobs,shannon,invsimpson),
+               names_to="metric")%>%
+  distinct()
 comparison="age"
-for (div.metric in div.indices) {
-  metric.ds<-all.div%>%
-    filter(metric==div.metric)%>%
-    distinct()
-  # perform kruskal-wallis test
-  if(comparison=="age"){
-    kt<-kruskal.test(value~agegroup,data=metric.ds)
-    
-  }else if (comparison=="sex"){
-    kt<-kruskal.test(value~sex,data=metric.ds)
-    
-  }else if(comparison=="strain"){
-    kt<-kruskal.test(value~class,data=metric.ds)
-    
-  }
-  
-  kt.results["statistic",div.metric]<- kt$statistic
-  kt.results["pvalue",div.metric]<- kt$p.value
-  # low pvalue indicates statistical difference between some groups
-  # But which groups are different from others?
-  # Perform pairwise wilcoxon test
-  
-  # NB: You must not run pairwise wilcoxon test unless kruskal wallis results 
-  # are significant
-  if(kt$p.value<0.05){
-    if(comparison=="age"){
-      w.test<-pairwise.wilcox.test(metric.ds$value,
-                                   metric.ds$agegroup,
-                                   p.adjust.method = "BH",
-                                   exact=FALSE)
-    }else if (comparison=="sex"){
-      w.test<-pairwise.wilcox.test(metric.ds$value,
-                                   metric.ds$sex,
-                                   p.adjust.method = "BH",
-                                   exact=FALSE)
-      
-    }else if(comparison=="strain"){
-      w.test<-pairwise.wilcox.test(metric.ds$value,
-                                   metric.ds$class,
-                                   p.adjust.method = "BH",
-                                   exact=FALSE)
-    }
-    
-    w.results[,,div.metric]<-w.test$p.value
-    
-  }else(
-    w.results[,,div.metric]<-matrix(data = "n.s.",
-                                    nrow = nrow(w.test$p.value),
-                                    ncol = ncol(w.test$p.value))
-    
-  )
-  dimnames(w.results)[[1]]<-dimnames(w.test$p.value)[[1]] # change rownames of w.results
-  dimnames(w.results)[[2]]<-dimnames(w.test$p.value)[[2]] # change colnames of w.results
-}
-
-kt.results
-w.results
-stopifnot(all(kt.results[2,]<0.05))
 
 # Prepare data for plotting
 if(comparison=="age"){
-  all.div$agegroup<-factor(all.div$agegroup,levels=custom.levels)
+  all.div$agegroup<-factor(all.div$agegroup,levels=unique(custom.md.ages$agegroup))
 }else if (comparison=="sex"){
   all.div$sex<-factor(all.div$sex,levels=custom.levels)
-  
+
 }else if(comparison=="strain"){
   all.div$agegroup<-factor(all.div$class,levels=custom.levels)
 }else if(comparison=="colony"){
   all.div$colony<-factor(all.div$colony,levels=custom.levels)
 }
 
+
 ## Plot alpha diversity metrics ####
 div.plot<-ggplot(all.div,
                  # aes(x=reorder(class,-value),y=value,fill=class))+
                  aes(x=factor(all.div$agegroup,
-                              level=custom.levels),y=value,fill=factor(agegroup)))+
+                              level=unique(custom.md.ages$agegroup)),
+                     y=value,
+                     fill=factor(agegroup)))+
   geom_boxplot(show.legend = FALSE)+
   facet_wrap(~factor(metric, # reorder facets
                      levels=plot.metrics),
@@ -1928,9 +1907,128 @@ div.plot<-ggplot(all.div,
              scales="free_y", # free y axis range
              labeller = as_labeller(metric.labs))+ # rename facets
   theme_bw()
+div.plot
+
+
+# Per-sample plot ####
+per.sample.div.plot<-ggplot(all.div[all.div$metric %in%
+                                      plot.metrics,],
+                            aes(x=NewSample,y=value,colour=age))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             nrow=length(plot.metrics),
+             scales="free_y", # free y axis range
+             labeller = as_labeller(metric.labs))+ # rename facets
+  scale_color_viridis_c(option="D")+
+  theme_bw()+
+  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        strip.text.x = element_text(size=20),
+        plot.title = element_text(size = 27),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25),
+        legend.position = "right")+
+  ggtitle(paste("Alpha diversity of the naked mole-rat gut microbiota across age"))
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-sample",
+                      paste(plot.metrics,collapse = "-"),
+                      host,comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=per.sample.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+# Alpha diversity for NMR and mice ####
+nmr.mouse.sample.levels<-custom.md%>%
+  mutate(age_weeks=case_when(
+    class=="FVBNmouse"|class=="MSMmouse"~as.double(difftime(birthday,as.Date("2023-08-23"),units = "weeks")),
+    class=="B6mouse"~12,
+    TRUE~NA))
+  filter(class%in%c("NMR","B6mouse","FVBNmouse","MSMmouse"))%>%
+  select(Sample,age,class)%>%
+  mutate(newclass=ifelse(class=="NMR","NMR","mice"))%>%
+  arrange(factor(newclass,levels=c("NMR","mice")),age)%>%
+  distinct()%>%
+  mutate(NewSample=paste0(Sample," (",age,")"))%>%
+  mutate(Sample=factor(Sample,levels=Sample),
+         NewSample=factor(NewSample,levels=NewSample))
+
+
+nmr.mouse.div<-ps.q.agg.genus.rare%>%
+  filter(class%in%c("NMR","B6mouse","FVBNmouse","MSMmouse"))%>%
+  group_by(Sample)%>%
+  reframe(sobs=specnumber(Abundance), # richness (num of species)
+          shannon=diversity(Abundance,index = "shannon"),
+          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
+          tot=sum(Abundance),
+          age=age,
+          class=class,
+          sex=sex)%>%
+  ungroup()%>%
+  mutate(Sample=factor(Sample,levels=nmr.mouse.sample.levels$Sample),
+         NewSample=paste0(Sample," (",age,")"),
+         NewSample=factor(NewSample,levels=nmr.mouse.sample.levels$NewSample),
+         newclass=ifelse(class=="NMR","NMR","mice"))%>%
+  group_by(Sample)%>%
+  pivot_longer(cols=c(sobs,shannon,invsimpson),
+               names_to="metric")%>%
+  distinct()
+
+## Plot alpha diversity metrics ####
+nmr.mouse.div.plot<-ggplot(nmr.mouse.div,
+                 # aes(x=reorder(class,-value),y=value,fill=class))+
+                 aes(x=factor(class,levels = custom.levels),
+                     y=value,
+                     fill=class))+
+  geom_boxplot(show.legend = FALSE)+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             ncol=length(plot.metrics),
+             scales="free_y", # free y axis range
+             labeller = as_labeller(metric.labs))+ # rename facets
+  theme_bw()
+nmr.mouse.div.plot
 
 
 
+# Per-sample plot ####
+nmr.mouse.div.per.sample<-ggplot(nmr.mouse.div,
+                            aes(x=age,y=value,colour=age))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(newclass~factor(metric, # reorder facets
+                             levels=plot.metrics),
+             nrow=length(unique(nmr.mouse.div$newclass)),
+             scales="free",
+             labeller = as_labeller(c(mice="Mice","NMR"="Naked mole-rat",metric.labs)))+ # rename facets
+  scale_color_viridis_c(option="D")+
+  theme_bw()+
+  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size = 20),
+        strip.text.x = element_text(size=20),
+        plot.title = element_text(size = 27),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 25),
+        legend.position = "right")+
+  ggtitle(paste("Alpha diversity of the naked mole-rat gut microbiota across age"))
+
+
+
+
+# Import the rarefied dataframe ####
 ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
 ps.q.df.preprocessed<-read.table(
   file.path("./output/rtables/",authorname,"use",paste0(
@@ -1941,50 +2039,6 @@ ps.q.df.preprocessed<-read.table(
     ".tsv")),
   header = T)
 
-ps.q.agg.relab.nmr%>%
-  filter(Sample=="O15")%>%
-  ggplot(aes(x=OTU,y=Abundance))+
-  geom_bar(stat = "identity")
-ps.q.df.preprocessed%>%
-  filter(Sample=="O15")%>%
-  ggplot(aes(x=OTU,y=Abundance))+
-  geom_bar(stat = "identity")
-
-ps.q.agg.relab.nmr%>%
-  filter(Sample%in%c("O15","2D10"))%>%
-  group_by(Sample)%>%
-  reframe(sobs=specnumber(Abundance), # richness (num of species)
-          shannon=diversity(Abundance,index = "shannon"),
-          # simpson=diversity(Abundance, index="simpson"),
-          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-          tot=sum(Abundance),
-          agegroup=agegroup,
-          sex=sex)%>%
-  group_by(Sample)%>%
-  pivot_longer(cols=c(sobs,shannon,invsimpson),
-               names_to="metric")%>%
-  distinct()
-# Alpha diversity is the same in rarefied and raw data
-ps.q.agg.relab.nmr%>%
-  filter(Sample=="2D10")%>%
-  ggplot(aes(x=OTU,y=Abundance))+
-  geom_bar(stat = "identity")
-ps.q.df.preprocessed%>%
-  filter(Sample=="2D10")%>%
-  ggplot(aes(x=OTU,y=Abundance))+
-  geom_bar(stat = "identity")
-ps.q.df.preprocessed%>%
-  filter(Sample%in%c("O15","2D10"))%>%
-  group_by(Sample)%>%
-  reframe(sobs=specnumber(Abundance), # richness (num of species)
-          shannon=diversity(Abundance,index = "shannon"),
-          # simpson=diversity(Abundance, index="simpson"),
-          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-          tot=sum(Abundance))%>%
-  group_by(Sample)%>%
-  pivot_longer(cols=c(sobs,shannon,invsimpson),
-               names_to="metric")%>%
-  distinct()
 
 # Let's find which major ASVs are specific to one age group
 young.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
@@ -2421,3 +2475,133 @@ filtered.df%>%
 #   facet_wrap(~Genus,scales="free_y")+
 #   theme_bw()+
 #   theme(axis.text.x = element_text(angle=45,hjust=1))
+
+
+
+
+## Hierarchical clustering ####
+library(cluster)
+library(factoextra)
+relations<-read.table("./data/metadata/pooled-metadata/nmr-relations.tsv",
+                      header = T,
+                      sep = "\t")
+ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  left_join(relations,by="Sample")
+
+#load data
+df <- USArrests
+ps.q.df.wide<-ps.q.df.preprocessed%>%
+  filter(Sample!="M40")%>%
+  pivot_wider(names_from = "OTU", # or OTU
+              values_from = "Abundance",
+              values_fill = 0)%>%
+  as.data.frame()%>%
+  select(-class,-birthday,-sex,-colony,-relation)%>%
+  column_to_rownames("Sample")
+# Transform the data
+ps.q.df.wide<-decostand(ps.q.df.wide,method="rclr",logbase = exp)
+
+#remove rows with missing values
+df <- na.omit(df)
+ps.q.df.wide<-na.omit(ps.q.df.wide)
+
+#scale each variable to have a mean of 0 and sd of 1
+df <- scale(df)
+# No scaling on compositional data
+
+#view first six rows of dataset
+head(df)
+head(ps.q.df.wide[,1:10])
+
+#define linkage methods
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+#function to compute agglomerative coefficient
+ac <- function(x) {
+  agnes(df, method = x)$ac
+}
+
+get_agglom_coef<-function(tax.df,link.method){
+  agnes(tax.df,method=link.method)$ac
+}
+
+#calculate agglomerative coefficient for each clustering linkage method
+sapply(m, ac)
+for(mm in m){
+  print(paste(mm,get_agglom_coef(ps.q.df.wide,mm)))
+}
+  
+agnes(df,method="average")
+agnes(ps.q.df.wide,method="average")
+# We can see that Ward’s minimum variance method produces the highest 
+# agglomerative coefficient, thus we’ll use that as the method for our final hierarchical clustering:
+  
+#perform hierarchical clustering using Ward's minimum variance
+clust <- agnes(df, method = "ward")
+clust <- agnes(ps.q.df.wide,method="ward")
+
+
+#produce dendrogram
+pltree(clust, cex = 0.6, hang = -1, main = "Dendrogram")
+
+#calculate gap statistic for each number of clusters (up to 10 clusters)
+gap_stat <- clusGap(df, FUN = hcut, nstart = 25, K.max = 10, B = 50)
+gap_stat <- clusGap(ps.q.df.wide, FUN = hcut, nstart = 25, K.max = 10, B = 50)
+
+#produce plot of clusters vs. gap statistic
+fviz_gap_stat(gap_stat)
+# gap statistic is highest at k = 4 clusters. Thus, we’ll choose to group our observations into 4 distinct clusters.
+# Apply Cluster Labels to Original Dataset
+#compute distance matrix
+d <- dist(df, method = "euclidean")
+d <- dist(ps.q.df.wide, method = "euclidean")
+
+#perform hierarchical clustering using Ward's method
+final_clust <- hclust(d, method = "ward.D2" )
+
+#cut the dendrogram into 4 clusters
+groups <- cutree(final_clust, k=4)
+
+#find number of observations in each cluster
+table(groups)
+
+#append cluster labels to original data
+final_data <- cbind(USArrests, cluster = groups)
+
+#display first six rows of final data
+head(final_data)
+
+#find mean values for each cluster
+aggregate(final_data, by=list(cluster=final_data$cluster), mean)
+
+
+####
+#perform hierarchical clustering using Ward's minimum variance
+clust.average<-agnes(ps.q.df.wide,method="average")
+clust.single<-agnes(ps.q.df.wide,method="single")
+clust.complete<-agnes(ps.q.df.wide,method="complete")
+clust.ward<-agnes(ps.q.df.wide,method="ward")
+
+par(mfrow=c(2,2))
+#produce dendrogram
+pltree(clust.average, cex = 0.6, hang = -1, main = "Dendrogram")
+pltree(clust.single, cex = 0.6, hang = -1, main = "Dendrogram")
+pltree(clust.complete, cex = 0.6, hang = -1, main = "Dendrogram")
+pltree(clust.ward, cex = 0.6, hang = -1, main = "Dendrogram")
+par(mfrow=c(1,1))
+
+
+
+
+foo<-ps.q.df.wide[,1:4]
+foo<-foo/rowSums(foo)
+foo1<-foo
+plot(foo$`775f1d61e616978239ee36c337b0403c`,foo$`775f1d61e616978239ee36c337b0403c`)
+foo<-log(foo+1e-10)
+summary(foo)
+summary(foo1)
+plot(foo$`775f1d61e616978239ee36c337b0403c`,foo1$`775f1d61e616978239ee36c337b0403c`)
+pairs(foo1,panel = panel.smooth)
+
+pairs(decostand(foo1,method="rclr",logbase = exp),panel = panel.smooth)
