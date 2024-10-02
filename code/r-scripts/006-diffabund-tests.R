@@ -5,24 +5,18 @@
 # BiocManager::install("ALDEx2")
 # BiocManager::install("ANCOMBC")
 # BiocManager::install("phyloseq")
-# install.packages(c("tidyverse"))
+# install.packages(c("tidyverse","Polychrome"))
 # Differential abundance tests ####
 library(tidyverse)
 library(Maaslin2)
 library(ALDEx2)
 library(ANCOMBC)
 library(phyloseq)
-# Import data, such as custom.md, ps.q.df.wide, custom.levels ####
-# input_data_date_time is Rdata workspace from diffabund-input.R
-# with a rarefied table in wide format and metadata
-input_data_date_time<-"20240809_14_40_39"
-# 20240809_14_52_10 for all hosts, genus level
-# 20240809_14_40_39 for NMR, OTU level
-# 20240809_15_38_22 for NMR, genus level
-ps.q.agg.date_time<-"20240613_21_47_12"
-# 20240613_21_47_12 phyloseq OTU table
-# 20240613_21_42_48 phyloseq Genus table
-authorname<-"pooled"
+library(Polychrome)
+ps.q.df.preprocessed.date_time<-"20240809_13_18_49" 
+# "20240426_22_00_04" rarefied table for all hosts, genus level
+# "20240524_13_58_11" rarefied table file for NMR, OTU level
+# 20240809_13_18_49 rarefied table file for NMR, genus level
 inside.host<-TRUE
 if(inside.host=="TRUE"){
   # choose what to compare
@@ -31,38 +25,82 @@ if(inside.host=="TRUE"){
   # comparison<-"strain"
   ref.level<-"agegroup0_10" # choose the reference level
   custom.levels<-"NMR"
+  # custom.levels<-c("B6mouse",
+  #                  "MSMmouse",    
+  #                  "FVBNmouse")
 }else{
   comparison<-"host"
   ref.level<-"NMR"
   custom.levels<-c("NMR",
+                   "DMR",
                    "B6mouse",
                    "MSMmouse",
                    "FVBNmouse",
-                   "DMR",
-                   "hare",
-                   "rabbit",
                    "spalax",
-                   "pvo")
-  
+                   "pvo",
+                   "hare",
+                   "rabbit")
 }
-
 truncationlvl<-"234"
 agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
+authorname<-"pooled"
+ps.q.agg.date_time<-"20240613_21_47_12"
+# 20240613_21_47_12 phyloseq OTU table
+# 20240613_21_42_48 phyloseq Genus table
+
 output.filename<-paste(paste(custom.levels,collapse = '-'),
-                           agglom.rank,comparison,
-                           truncationlvl,"ref",ref.level,
-                           sep="-")
+                       agglom.rank,comparison,
+                       truncationlvl,"ref",ref.level,
+                       sep="-")
 
 
+# Import data ####
+ps.q.df.preprocessed<-read.table(
+  file.path("./output/rtables",authorname,paste0(
+    paste(
+      ps.q.df.preprocessed.date_time,
+      paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
+      paste(custom.levels,collapse = '-'),sep = "-"),
+    ".tsv")),
+  header = T)
 
-load(file.path("./output/rdafiles",paste(
-  input_data_date_time,
-  "diffabund-input-data",rare.status,filter.status,agglom.rank,
-  truncationlvl,
-  paste(custom.levels,collapse = '-'),"workspace.RData",sep="-")))
+if(setequal(custom.levels,"NMR")){
+  custom.md<-readRDS("./output/rdafiles/custom.md.ages.rds")
+  # select nmr and add age groups
+  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+    filter(class=="NMR",Abundance!=0)
+}else if(setequal(custom.levels,c("B6mouse","MSMmouse","FVBNmouse"))){
+  # select mice and add age groups: B6, old, or young
+  # B6 are separate
+  # mice born before 2020 are old
+  # after 2023 are young
+  custom.md<-readRDS("./output/rdafiles/custom.md.rds")
+  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+    filter(class%in%custom.levels,Abundance!=0)
+  custom.md<-custom.md%>%
+    filter(class%in%custom.levels)
+  custom.md$agegroup<-ifelse(custom.md$class=="B6mouse","B6",
+                                        ifelse(grepl("2020",custom.md$birthday),"old","young"))
+}else{
+  custom.md<-readRDS("./output/rdafiles/custom.md.rds")
+}
+
+# Preparing the dataset ####
+# filter the dataset
+ps.q.df.wide<-ps.q.df.preprocessed%>%
+  dplyr::select(all_of(c("Sample",agglom.rank,"Abundance","class")))%>%
+  filter(Abundance!=0)%>%
+  pivot_wider(names_from = agglom.rank, # or OTU
+              values_from = "Abundance",
+              values_fill = 0)%>%
+  as.data.frame()%>%
+  column_to_rownames("Sample")%>%
+  select(-class)
+# colnames are OTUs and rownames are sample IDs
+
 
 ## MaAsLin 2 ####
 ### Create reference levels  ####
@@ -452,7 +490,6 @@ write.table(ancombc.signif.decreased,
 
 
 # Downstream processing of the test output ####
-library(Polychrome)
 authorname<-"pooled"
 inside.host<-TRUE
 if(inside.host=="TRUE"){
@@ -615,6 +652,15 @@ if(inside.host!=TRUE){
   common.decreased<-Reduce(intersect,list(maaslin.signif.decreased$feature,
                                           ancombc.signif.decreased$taxon_id))
   
+  ps.q.agg%>%
+    filter(class==ref.level,Genus%in%common.decreased)%>%
+    distinct(Genus,.keep_all = T)%>%
+    ungroup()%>%
+    arrange(-MeanRelativeAbundance)%>%
+    dplyr::select(Genus,MeanRelativeAbundance)%>%
+    head(n=10)%>%
+    print()
+  
   write.table(common.decreased,
               file=file.path(rtables.directory,
                              paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -636,7 +682,7 @@ if(setequal(custom.levels,"NMR")){
     mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))%>%
     mutate(agegroup=cut(age, breaks =c(0,10,16),
                         right = FALSE))
-}else if(host=="mice"){
+}else if(setequal(custom.levels,c("B6mouse","MSMmouse","FVBNmouse"))){
   # select mice and add age groups
   custom.md<-custom.md%>%
     filter(Abundance!=0)
@@ -644,7 +690,21 @@ if(setequal(custom.levels,"NMR")){
                                         ifelse(grepl("2020",custom.md$birthday),"old","young"))
 }
 
-if (comparison=="age"){
+if(comparison=="host"){
+  pretty.level.names<-
+    c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+      "B6mouse" = "B6 mouse",
+      "MSMmouse" = "MSM/Ms mouse",
+      "FVBNmouse" = "FVB/N mouse",
+      "DMR" = "*Fukomys Damarensis*",
+      "hare" = "*Lepus europaeus*",
+      "rabbit" = "*Oryctolagus cuniculus*",
+      "spalax" = "*Nannospalax leucodon*",
+      "pvo" = "*Pteromys volans orii*")
+  ggplot.levels<-names(pretty.level.names)
+  gg.labs.name<-"Age group"
+  gg.title.groups<-"age groups"
+}else if (comparison=="age"){
   pretty.level.names<-names(table(custom.md$agegroup))
   custom.md<-custom.md%>%
     ungroup()%>%
@@ -684,10 +744,11 @@ if (comparison=="age"){
 }
 
 set.seed(1)
-custom.fill<-createPalette(length(ggplot.levels),
-                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
-                                          "#FF8C00","#BF3EFF", "#00FFFF",
-                                          "#FF6EB4","#00EE00","#EEC900"))
+custom.fill<-createPalette(length(custom.levels),
+                           seedcolors = c("#EE2C2C","#BF3EFF","#5CACEE","#00CD66",
+                                          "#FF8C00","#00EE00","#EEC900", "#00FFFF",
+                                          "#FF6EB4",
+                                          "#FFA07A"))
 names(custom.fill)<-ggplot.levels
 swatch(custom.fill)
 
@@ -732,7 +793,7 @@ if(inside.host==TRUE){
     ggsave(paste0("./images/taxaboxplots/",
                   paste(paste(format(Sys.time(),format="%Y%m%d"),
                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                        ref.level,"specific-bacteria",host,comparison,
+                        ref.level,"specific-bacteria","NMR",comparison,
                         sep = "-"),".",image.format),
            plot=feature.plot,
            width = 4000,height = 2000,
