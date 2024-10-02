@@ -1,10 +1,9 @@
-# Alpha diversity inside custom host #### 
+# Alpha and beta diversity inside custom host #### 
 library(vegan)
 library(tidyverse)
 # library(phyloseq)
 library(Polychrome)
 # Import data ####
-phyloseq.workspace.date_time<-"20240524_13_54_21"
 ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
 # 20240426_22_00_04 preprocessed df for all hosts, genus level
 # "20240524_13_58_11" preprocessed df for NMR, OTU level
@@ -15,11 +14,18 @@ agglom.rank<-"OTU"
 read.end.type<-"single"
 rare.status<-"rare"
 
-load(file.path("./output/rdafiles",paste(
-  phyloseq.workspace.date_time,
-  authorname,read.end.type,"qiime2",
-  truncationlvl,agglom.rank,
-  "phyloseq-workspace.RData",sep = "-")))
+ps.q.agg.date_time<-"20240620_12_38_18"
+ps.q.agg<-readRDS(file=file.path(
+  "./output/rdafiles",
+  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
+        read.end.type, truncationlvl,"table.rds",sep = "-")))
+
+# 20240620_12_38_18 OTU level, all hosts
+# 20240620_12_40_41 genus level, all hosts
+# 20240917_10_54_12 family level, all hosts
+# 20240917_21_29_36 phylum level, all hosts
+# Import metadata
+custom.md<-readRDS("./output/rdafiles/custom.md.rds")
 image.formats<-c("png","tiff")
 filter.status<-"nonfiltered"
 
@@ -58,50 +64,37 @@ ps.q.df.preprocessed<-read.table(
   header = T)
 
 if(host=="NMR"){
-  # select nmr and add age groups
+  # Load a table with ages
   custom.md<-readRDS("./output/rdafiles/custom.md.ages.rds")
-  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    filter(Abundance!=0)%>%
-    group_by(Sample)%>%
-    mutate(birthday=as.Date(birthday))%>%
-    mutate(age=year(as.period(interval(birthday,as.Date("2023-11-16")))))%>%
-    mutate(class=as.factor(class),
-           sex=as.factor(sex))
-  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    left_join(custom.md)
 }else if(host=="mice"){
-  # select mice and add age groups
-  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-    filter(Abundance!=0)
   # this is an if/else statement to create the agegroup column
-  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  custom.md%>%
+    filter(class%in%c("B6mouse","FVBNmouse","MSMmouse"))%>%
     mutate(agegroup=case_when(
       class == "B6mouse" ~ "B6",
       class == "MSMmouse" & grepl("2020", birthday) ~ "MSM/Ms old",
       class == "MSMmouse" & as.Date(birthday) > as.Date("2021-01-01") ~ "MSM/Ms young",
       class == "FVBNmouse" ~ "FVB/N young",
-      TRUE ~ NA_character_ # NA if none of the conditions are satisfied
+      TRUE ~ NA # NA if none of the conditions are satisfied
     ))
 }
 
 
-
-
 if (comparison=="age"){
-    pretty.level.names<-names(table(ps.q.df.preprocessed$old_agegroup))
-    names(pretty.level.names)<-names(table(ps.q.df.preprocessed$agegroup))
-    custom.levels<-names(pretty.level.names)
-    gg.labs.name<-"Age group"
-    gg.title.groups<-"age groups"
-    
+  pretty.level.names<-names(table(custom.md$old_agegroup))
+  names(pretty.level.names)<-names(table(custom.md$agegroup))
+  custom.levels<-names(pretty.level.names)
+  gg.labs.name<-"Age group"
+  gg.title.groups<-"age groups"
+  
 }else if (comparison=="sex"){
-    pretty.level.names<-
-      c("F" = "Females",
-        "M" = "Males")
-    custom.levels<-names(pretty.level.names)
-    pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
-    gg.labs.name<-"Host sex"
-    gg.title.groups<-"groups"
+  pretty.level.names<-
+    c("F" = "Females",
+      "M" = "Males")
+  custom.levels<-names(pretty.level.names)
+  pretty.level.names<-pretty.level.names[which(names(pretty.level.names)%in%custom.levels)]
+  gg.labs.name<-"Host sex"
+  gg.title.groups<-"groups"
 }else if(comparison=="strain"){
   pretty.level.names<-
     c("B6mouse" = "B6 mouse",
@@ -113,13 +106,13 @@ if (comparison=="age"){
   gg.labs.name<-"Strain"
   gg.title.groups<-"strains"
 }else if(comparison =="colony"){
-  relations<-relations<-read.table("./data/metadata/pooled-metadata/nmr-relations.tsv",
+  relations<-read.table("./data/metadata/pooled-metadata/nmr-relations.tsv",
                                    header = T,
                                    sep = "\t")
-  ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  custom.md<-custom.md%>%
     left_join(relations,by="Sample")
-  pretty.level.names<-names(table(ps.q.df.preprocessed$colony))
-  names(pretty.level.names)<-names(table(ps.q.df.preprocessed$colony))
+  pretty.level.names<-names(table(custom.md$colony))
+  names(pretty.level.names)<-names(table(custom.md$colony))
   custom.levels<-names(pretty.level.names)
   gg.labs.name<-"Colony"
   gg.title.groups<-"colonies"
@@ -143,60 +136,20 @@ custom.fill<-createPalette(length(custom.levels),
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
-if(comparison=="colony"){
-  ps.q.df <-ps.q.df.preprocessed%>%
-    select(Sample,Abundance,class,OTU,agegroup,sex,colony)# select(Sample,OTU,Abundance,class,Taxon)
-}else{
-  ps.q.df <-ps.q.df.preprocessed%>%
-    select(all_of(c(agglom.rank,"Sample","Abundance","class","agegroup","sex")))
-}
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
-if(comparison=="age"||comparison=="sex"){
-  all.div<-ps.q.df%>%
-    group_by(Sample)%>%
-    reframe(sobs=specnumber(Abundance), # richness (num of species)
-            shannon=diversity(Abundance,index = "shannon"),
-            # simpson=diversity(Abundance, index="simpson"),
-            invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-            tot=sum(Abundance),
-            agegroup=agegroup,
-            sex=sex)%>%
-    group_by(Sample)%>%
-    pivot_longer(cols=c(sobs,shannon,invsimpson),
-                 names_to="metric")%>%
-    distinct()
-}else if(comparison=="strain"){
-  all.div<-ps.q.df%>%
-    group_by(Sample)%>%
-    reframe(sobs=specnumber(Abundance), # richness (num of species)
-            shannon=diversity(Abundance,index = "shannon"),
-            # simpson=diversity(Abundance, index="simpson"),
-            invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-            tot=sum(Abundance),
-            class=class)%>%
-    group_by(Sample)%>%
-    pivot_longer(cols=c(sobs,shannon,invsimpson),
-                 names_to="metric")%>%
-    distinct()
-}else if(comparison=="colony"){
-  all.div<-ps.q.df%>%
-    group_by(Sample)%>%
-    reframe(sobs=specnumber(Abundance), # richness (num of species)
-            shannon=diversity(Abundance,index = "shannon"),
-            # simpson=diversity(Abundance, index="simpson"),
-            invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-            tot=sum(Abundance),
-            agegroup=agegroup,
-            sex=sex,
-            colony=colony)%>%
-    group_by(Sample)%>%
-    pivot_longer(cols=c(sobs,shannon,invsimpson),
-                 names_to="metric")%>%
-    distinct()
-}
-
+all.div<-ps.q.df.preprocessed%>%
+  group_by(Sample)%>%
+  reframe(sobs=specnumber(Abundance), # richness (num of species)
+          shannon=diversity(Abundance,index = "shannon"),
+          # simpson=diversity(Abundance, index="simpson"),
+          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
+          tot=sum(Abundance))%>%
+  group_by(Sample)%>%
+  pivot_longer(cols=c(sobs,shannon,invsimpson),
+               names_to="metric")%>%
+  distinct()
 
 
 ## Alpha diversity tests ####
@@ -216,6 +169,7 @@ w.results<-array(dim = c(length(table(combinations[1,])), # nrows
 
 for (div.metric in div.indices) {
   metric.ds<-all.div%>%
+    left_join(custom.md)%>%
     filter(metric==div.metric)%>%
     distinct()
   # perform kruskal-wallis test
@@ -286,47 +240,51 @@ max.values<-all.div%>%
 
 # Prepare data for plotting
 if(comparison=="age"){
-  all.div$agegroup<-factor(all.div$agegroup,levels=custom.levels)
+  custom.md$agegroup<-factor(custom.md$agegroup,levels=custom.levels)
 }else if (comparison=="sex"){
-  all.div$sex<-factor(all.div$sex,levels=custom.levels)
+  custom.md$sex<-factor(custom.md$sex,levels=custom.levels)
   
 }else if(comparison=="strain"){
-  all.div$agegroup<-factor(all.div$class,levels=custom.levels)
+  custom.md$agegroup<-factor(custom.md$class,levels=custom.levels)
 }else if(comparison=="colony"){
-  all.div$colony<-factor(all.div$colony,levels=custom.levels)
+  custom.md$colony<-factor(custom.md$colony,levels=custom.levels)
 }
 
 ## Plot alpha diversity metrics ####
 if(comparison=="age"){
-  div.plot<-ggplot(all.div[all.div$metric %in%
-                             plot.metrics,],
-                   # aes(x=reorder(class,-value),y=value,fill=class))+
-                   aes(x=factor(all.div$agegroup,
-                                level=custom.levels),y=value,fill=factor(agegroup)))
+  div.plot<-all.div%>%
+    filter(metric%in%plot.metrics)%>%
+    left_join(custom.md)%>%
+    ggplot(aes(x=factor(agegroup, level=custom.levels),
+               y=value,
+               fill=factor(agegroup)))
 }else if (comparison=="sex"){
-  div.plot<-ggplot(all.div[all.div$metric %in%
-                             plot.metrics,],
-                   # aes(x=reorder(class,-value),y=value,fill=class))+
-                   aes(x=factor(all.div$sex,
-                                level=custom.levels),y=value,fill=factor(sex)))
+  div.plot<-all.div%>%
+    filter(metric%in%plot.metrics)%>%
+    left_join(custom.md)%>%
+    ggplot(aes(x=factor(sex, level=custom.levels),
+               y=value,
+               fill=factor(sex)))
 }else if(comparison=="strain"){
-  div.plot<-ggplot(all.div[all.div$metric %in%
-                             plot.metrics,],
-                   # aes(x=reorder(class,-value),y=value,fill=class))+
-                   aes(x=factor(all.div$class,
-                                level=custom.levels),y=value,fill=factor(class)))
+  div.plot<-all.div%>%
+    filter(metric%in%plot.metrics)%>%
+    left_join(custom.md)%>%
+    ggplot(aes(x=factor(class,level=custom.levels),
+               y=value,
+               fill=factor(class)))
 }else if(comparison == "colony"){
-  div.plot<-ggplot(all.div[all.div$metric %in%
-                             plot.metrics,],
-                   aes(x=reorder(colony,-value),y=value,fill=factor(colony)))
-                   # aes(x=factor(all.div$class,
+  div.plot<-all.div%>%
+    filter(metric%in%plot.metrics)%>%
+    left_join(custom.md)%>%
+    ggplot(aes(x=reorder(colony,-value),y=value,fill=factor(colony)))
+                   # aes(x=factor(class,
                    #              level=custom.levels),y=value,fill=factor(colony)))
 }
 
 
 
 div.plot<-div.plot+
-  geom_boxplot(show.legend = FALSE)+
+  geom_boxplot(show.legend = FALSE,outliers = FALSE)+
   facet_wrap(~factor(metric, # reorder facets
                      levels=plot.metrics),
              ncol=length(plot.metrics),
@@ -353,18 +311,24 @@ div.plot<-div.plot+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
 
+div.plot.jitter<-div.plot+
+  geom_jitter(width = 0.1, # jitter spread
+              shape = 1, # empty dots
+              size=3,
+              show.legend = FALSE)
 
-div.plot.with.dots<-div.plot+
+div.plot.dots<-div.plot+
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.6) # add dots
+
 for(image.format in image.formats){
   ggsave(paste0("./images/diversity/alpha/",
                 paste(paste(format(Sys.time(),format="%Y%m%d"),
                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "alpha",
+                      "alpha-jitter",
                       paste(plot.metrics,collapse = "-"),
                       host,comparison,agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
-         plot=div.plot,
+         plot=div.plot.jitter,
          width = 6000,height = 3000,
          units = "px",dpi=300,device = image.format)
   ggsave(paste0("./images/diversity/alpha/",
@@ -374,68 +338,61 @@ for(image.format in image.formats){
                       paste(plot.metrics,collapse = "-"),
                       host,comparison,agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
-         plot=div.plot.with.dots,
+         plot=div.plot.dots,
          width = 6000,height = 3000,
          units = "px",dpi=300,device = image.format)
 }
 
-# Per-sample plot ####
-# We need to invert the custom.levels for the rotated plot
-# Create a vector of sample factors (also inverted within their group)
-# sample.factors<-
-sample.factors<-all.div%>%
-  ungroup()%>%
-  pivot_wider(names_from = "metric",
-              values_from ="value")%>%
-  arrange(fct_rev(agegroup),sobs,shannon,invsimpson)%>%
-  select(Sample)%>%
-  distinct()%>%
-  pull
+# Per-sample plot for ages ####
+## Setup sample levels ####
+if(comparison=="age"){
+  sample.levels<-custom.md%>%
+    ungroup()%>%
+    select(Sample,age)%>%
+    arrange(age)%>%
+    distinct()%>%
+    mutate(NewSample=paste0(Sample," (",age,")"))%>%
+    mutate(Sample=factor(Sample,levels=Sample),
+           NewSample=factor(NewSample,levels=NewSample))
   
-
-# Assign factors to the Sample column
-all.div$Sample<-factor(all.div$Sample,levels=sample.factors)
-# Revert the agegroup order, otherwise the legend will be wrong
-all.div$agegroup<-factor(all.div$agegroup,levels=custom.levels)
-per.sample.div.plot<-ggplot(all.div[all.div$metric %in%
-                 plot.metrics,],
-       aes(x=value,y=Sample,colour=agegroup))+
-  geom_point(size=2,stat = "identity")+
-  facet_wrap(~factor(metric, # reorder facets
-                     levels=plot.metrics),
-             ncol=length(plot.metrics),
-             scales="free_x", # free y axis range
-             labeller = as_labeller(metric.labs))+ # rename facets
-  theme_bw()+ 
-  labs(color=gg.labs.name)+
-  scale_color_manual(values = custom.fill)+
-  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = ggtext::element_markdown(hjust=1,size=18),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size = 20),
-        strip.text.x = element_text(size=20),
-        plot.title = element_text(size = 27),
-        legend.text = element_text(size = 20),
-        legend.title = element_text(size = 25),
-        legend.position = "right")+
-  ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
-                gg.title.taxon))
-
-for(image.format in image.formats){
-  ggsave(paste0("./images/diversity/alpha/",
-                paste(paste(format(Sys.time(),format="%Y%m%d"),
-                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "alpha-per-sample",
-                      paste(plot.metrics,collapse = "-"),
-                      host,comparison,agglom.rank,truncationlvl,
-                      sep = "-"),".",image.format),
-         plot=per.sample.div.plot,
-         width = 6000,height = 3000,
-         units = "px",dpi=300,device = image.format)
+  per.sample.div.plot<-all.div%>%
+    left_join(sample.levels)%>%
+    ggplot(aes(x=NewSample,y=value,colour=age))+
+    geom_point(size=2,stat = "identity")+
+    facet_wrap(~factor(metric, # reorder facets
+                       levels=plot.metrics),
+               nrow=length(plot.metrics),
+               scales="free_y", # free y axis range
+               labeller = as_labeller(metric.labs))+ # rename facets
+    scale_color_viridis_c(option="D")+
+    theme_bw()+
+    theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
+          axis.text.y = element_text(size=20),
+          axis.title = element_text(size = 20),
+          strip.text.x = element_text(size=20),
+          plot.title = element_text(size = 27),
+          legend.text = element_text(size = 20),
+          legend.title = element_text(size = 25),
+          legend.position = "right")+
+    ggtitle(paste("Alpha diversity of the naked mole-rat gut microbiota across age"))
+  
+  for(image.format in image.formats){
+    ggsave(paste0("./images/diversity/alpha/",
+                  paste(paste(format(Sys.time(),format="%Y%m%d"),
+                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                        "alpha-per-sample",
+                        paste(plot.metrics,collapse = "-"),
+                        host,comparison,agglom.rank,truncationlvl,
+                        sep = "-"),".",image.format),
+           plot=per.sample.div.plot,
+           width = 6000,height = 3000,
+           units = "px",dpi=300,device = image.format)
+  }
 }
-
+  
 # Add significance stars if we have significant results ####
 if(length(which(as.vector(w.results)<0.05))>0){
   coord.combs<-combn(seq_along(custom.levels),2)
@@ -549,7 +506,7 @@ if(length(which(as.vector(w.results)<0.05))>0){
 }
 
 
-#############
+
 # Beta diversity ####
 set.seed(1)
 custom.colors<- 
@@ -558,8 +515,6 @@ custom.colors<-
                                "#FF8C00","#5D478B", "#00FFFF"))
 custom.colors<-unname(custom.colors)
 swatch(custom.colors)
-# custom colors for scale_fill_manual (maybe not needed)
-# custom.fill<-c("dodgerblue", "seagreen","indianred")
 
 # Choose distance metric
 dist.metric<-"robust.aitchison"
@@ -574,38 +529,21 @@ if(dist.metric=="bray"){
 
 permut.num<-1000 # number of permutations for PERMANOVA
 
-ps.sampledata<-ps.q.df.preprocessed%>%
-  select(c("Sample","class", "sex","birthday","agegroup","age"))%>%
-  distinct() # metadata
-
-ps.q.df <-ps.q.df.preprocessed%>%
-  select(all_of(c("Sample","OTU","Abundance","class",agglom.rank)))
-
-
 # find the smallest sample size
-min.n_seqs.all<-ps.q.df%>%
-  select(Sample,OTU,Abundance)%>%
+min.n_seqs.all<-ps.q.df.preprocessed%>%
+  select(Sample,Abundance,class,all_of(agglom.rank))%>%
   group_by(Sample)%>%
   summarize(n_seqs=sum(Abundance))%>%
   summarize(min=min(n_seqs))%>%
   pull(min)
 
 # convert the data frame into wide format
-if (agglom.rank=="OTU"){
-  # convert the data frame into wide format
-  ps.q.df.wide<-ps.q.df%>%
-    pivot_wider(names_from = "OTU", # or OTU
-                values_from = "Abundance",
-                values_fill = 0)%>%
-    as.data.frame()
-}else{
-  ps.q.df.wide<-ps.q.df%>%
-    select(-OTU)%>%
-    pivot_wider(names_from = agglom.rank, # or OTU
-                values_from = "Abundance",
-                values_fill = 0)%>%
-    as.data.frame()
-}
+ps.q.df.wide<-ps.q.df.preprocessed%>%
+  select(Sample,Abundance,class,all_of(agglom.rank))%>%
+  pivot_wider(names_from = all_of(agglom.rank), 
+              values_from = "Abundance",
+              values_fill = 0)%>%
+  as.data.frame()
 
 
 # colnames are OTUs and rownames are sample IDs
@@ -650,7 +588,7 @@ dist.df<-cbind(labels(dist),dist.df) # create a column of sample ids
 colnames(dist.df)[1]<-"Sample"
 
 meta.dist<-dist.df%>%
-  inner_join(ps.sampledata,.,by="Sample")%>% # distances with metadata
+  inner_join(custom.md,.,by="Sample")%>% # distances with metadata
   ungroup()
 
 ## PERMANOVA ####
@@ -743,7 +681,7 @@ nmds<-metaMDS(dist, autotransform = FALSE)
 
 nmds.scores<-scores(nmds)%>%
   as_tibble(rownames="Sample")%>% # convert rownames into "Sample" column
-  inner_join(.,ps.sampledata, by="Sample") 
+  inner_join(.,custom.md, by="Sample") 
 
 if(comparison=="age"){
   nmds.plot<-ggplot(nmds.scores,
@@ -827,7 +765,7 @@ percent_exp<-format(round(100* pcoa$eig /
 # first two axes are percent_explained[1:2]
 pcoa.positions<-positions %>% 
   as_tibble(rownames="Sample") %>%
-  inner_join(.,ps.sampledata, by="Sample")  
+  inner_join(.,custom.md, by="Sample")  
 
 if(comparison=="age"){
   pcoa.plot<-ggplot(pcoa.positions,
@@ -905,22 +843,29 @@ ps.q.df.wide.pca<-ps.q.df.preprocessed%>%
 
 # colnames are OTUs and rownames are sample IDs
 rownames(ps.q.df.wide.pca)<-ps.q.df.wide.pca$Sample
-ps.q.df.wide.pca<-ps.q.df.wide.pca[,-1] # prune after this command 
-ps.q.df.wide.pca<-as.matrix(ps.q.df.wide.pca)
-# RCLR: natural log
-ps.q.df.wide.pca<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
-ps.q.df.wide.pca.centered<-scale(ps.q.df.wide.pca,scale=F,center=T)
+ps.q.df.wide.pca<-ps.q.df.wide.pca[,-1] # remove sample names
+ps.q.df.wide.pca<-as.matrix(ps.q.df.wide.pca) # convert to matrix
+# The first crucial step is to transform the compositional data:
+# Use a log-ratio transformation, typically the centered log-ratio (clr)
+# or isometric log-ratio (ilr) transformation.
+# The clr transformation is often preferred for interpretability, 
+# while ilr is used for statistical properties.
+# We will use robust CLR (RCLR) with natural log
+ps.q.df.wide.pca.tfm<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
 
 #### >if you want to exclude specific samples
-# ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("mf_1","MSM343")),]
-ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
+if(host=="NMR"){
+  ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
+}else if(host=="mice"){
+  ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("mf_1","MSM343")),]
+}
+# remove ASVs that are zero because their samples are removed
 ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
-ps.q.df.wide.pca.centered<-scale(ps.q.pruned,scale=F,center=T)
+ps.q.df.wide.pca.tfm<-decostand(ps.q.pruned,method="rclr",logbase = exp)
 ####<
 
-ps.q.df.wide.pca.centered.scaled<-scale(ps.q.df.wide.pca.centered,scale=T,center=F)
 # calculate principal components
-pca.q<-prcomp(ps.q.df.wide.pca.centered.scaled)
+pca.q<-prcomp(ps.q.df.wide.pca.tfm)
 str(pca.q)
 dim(pca.q$x)
 
@@ -946,7 +891,7 @@ pca.q$sdev^2 / sum(pca.q$sdev^2)
 var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
 
 #create scree plot
-qplot(seq_along(1:nrow(ps.q.df.wide.pca.centered.scaled)), var_explained) + 
+qplot(seq_along(1:nrow(ps.q.df.wide.pca.tfm)), var_explained) + 
   geom_line() + 
   xlab("Principal Component") + 
   ylab("Variance Explained") +
@@ -959,39 +904,59 @@ PC1<-pca.q$x[,1]
 PC2<-pca.q$x[,2]
 perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
 
+PC1.df<-as.data.frame(PC1)%>%rownames_to_column("Sample")
+PC2.df<-as.data.frame(PC2)%>%rownames_to_column("Sample")
+
+pca.plot<-PC1.df%>%
+  left_join(PC2.df)%>%
+  left_join(custom.md)
+
+
 if(comparison=="age"){
-  ps.sampledata<-ps.sampledata%>%mutate(new_age=paste(age,"years"))
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
-                   aes(x=PC1,y=PC2,color=agegroup,
-                       fill=agegroup))
+  pca.plot<-pca.plot%>%
+    ggplot(aes(x=PC1,y=PC2,color=age,fill=age))+
+    scale_fill_viridis_c(option = "D")+
+    labs(fill="Age (years)")
 }else if (comparison=="sex"){
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
-                   aes(x=PC1,y=PC2,color=sex,
-                       fill=sex))
+  pca.plot<-pca.plot%>%
+    ggplot(aes(x=PC1,y=PC2,color=sex,fill=sex))+
+    scale_color_manual(breaks = custom.levels,
+                       labels=unname(pretty.level.names),
+                       values = custom.colors)+
+    scale_fill_manual(name=NULL, breaks = custom.levels,
+                      labels=custom.levels,
+                      values = custom.colors)+
+    guides(fill="none")+
+    stat_ellipse(geom = "polygon",
+                 level = 0.8,
+                 alpha=0.2,
+                 show.legend = FALSE)
 }else if(comparison=="strain"){
-  pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%rownames(ps.q.df.wide.pca.centered.scaled),],
-                   aes(x=PC1,y=PC2,color=class,fill=class))
+  pca.plot<-pca.plot%>%
+    ggplot(aes(x=PC1,y=PC2,color=class,fill=class))+
+    scale_color_manual(breaks = custom.levels,
+                       labels=unname(pretty.level.names),
+                       values = custom.colors)+
+    scale_fill_manual(name=NULL, breaks = custom.levels,
+                      labels=custom.levels,
+                      values = custom.colors)+
+    guides(fill="none")+
+    stat_ellipse(geom = "polygon",
+                 level = 0.8,
+                 alpha=0.2,
+                 show.legend = FALSE)
 }
 
-pca.plot<-pca.plot +
-  geom_point(size=2)+ 
-  stat_ellipse(geom = "polygon",
-               level = 0.8,
-               alpha=0.2,
-               show.legend = FALSE)+
+pca.plot<-pca.plot  +
+  geom_point(size=3,pch=21)+
   labs(x=paste0("PC1 (", perc.var[1], "%)"),
        y=paste0("PC2 (", perc.var[2], "%)"),
        color=gg.labs.name)+
-  theme_bw()+
+  theme_classic()+
+  geom_hline(yintercept=0,linetype="dashed", color = "grey")+
+  geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
                 gg.title.taxon))+
-  scale_color_manual(breaks = custom.levels,
-                     labels=unname(pretty.level.names),
-                     values = custom.colors)+
-  scale_fill_manual(name=NULL, breaks = custom.levels,
-                    labels=custom.levels,
-                    values = custom.colors)+
-  guides(fill="none")+
   theme(
     axis.text.x = element_text(angle=0,size=20,hjust=1),
     axis.text.y = element_text(size=20),
@@ -1007,25 +972,27 @@ pca.labeled<-pca.plot+
   ggrepel::geom_text_repel(aes(label=Sample),
                            show.legend = FALSE,size=7) # add labels to samples
 
-pca.labeled<-pca.plot+
-    geom_text_repel(aes(label=new_age),max.overlaps = Inf,
+if(comparison=="age"){
+  pca.labeled<-pca.plot+
+    ggrepel::geom_text_repel(aes(label=paste0(Sample," (",age,")")),max.overlaps = Inf,
                              show.legend = FALSE,size=7) # add labels to samples
+}
 
 for(image.format in image.formats){
-  # ggsave(paste0("./images/diversity/pca/",
-  #               paste(paste(format(Sys.time(),format="%Y%m%d"),
-  #                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #                     "pca",
-  #                     host,
-  #                     comparison,agglom.rank,truncationlvl,
-  #                     sep = "-"),".",image.format),
-  #        plot=pca.plot,
-  #        width = 4500,height = 3000,
-  #        units = "px",dpi=300,device = image.format)
   ggsave(paste0("./images/diversity/pca/",
                 paste(paste(format(Sys.time(),format="%Y%m%d"),
                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "pca-labeled-age",
+                      "pca",
+                      host,
+                      comparison,agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=pca.plot,
+         width = 4500,height = 3000,
+         units = "px",dpi=300,device = image.format)
+  ggsave(paste0("./images/diversity/pca/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "pca-labeled",
                       host,
                       comparison,agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
