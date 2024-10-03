@@ -8,13 +8,37 @@
 # The final workspace contains several objects: ps.q.agg dataframe, 
 # custom.md metadata, agglom.rank, asvlevel, authorname, read.end.type, truncationlvl.
 
-# 1) ps.q.agg is an ASV table with 10-16 columns 
-# (10 if agglomerating at Phylum, 16 if agglomerating at ASV level):  
+# ps.q.agg and custom.md are saved as tsv files and rds files.
+
+# 1) ps.q.agg is an ASV table with 7-13 columns 
+# (7 if agglomerating at Phylum, 13 if agglomerating at ASV level):  
 # 1. `Sample`: samples that were sequenced
 # 2. `Abundance`: Absolute abundance of taxa
 # 3. `class`: short names of animal hosts. The variable is factor with 9 levels 
 # at most (B6mouse, DMR, FVBNmouse, hare, MSMmouse, NMR, pvo, rabbit, spalax)
-# 4. `animal`: full names of animal hosts.  The variable is factor with 9 levels 
+# The next seven columns may not all be in the table. If you agglomerate by 
+# Genus, you don't see the Species column. And if you agglomerate by Family, you 
+# don't see Genus and Species. But these are taxonomic ranks for ASVs that 
+# we got from QIIME2.
+# 4. `Kingdom`
+# 5. `Phylum`
+# 6. `Class`
+# 7. `Order`
+# 8. `Family`
+# 9. `Genus`
+# 10. `Species`
+# 11. `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
+# included if you are not aggomerating by ASVs
+# 12. `RelativeAbundance`: Relative abundance of taxa in each sample. 
+# We calculate it by summing the Abundance of a taxon in each sample
+# and dividing that sum by the sum of reads in that sample.
+# 13. `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
+# calculate it by summing the absolute abundance of a taxon from all samples
+# in a host and dividing by the sum of reads in that host.
+
+# 2) custom.md is a dataframe with metadata. It has 5 variables:
+# 1. `class`: same as in ps.q.agg
+# 2. `animal`: full names of animal hosts.  The variable is factor with 9 levels 
 # at most ("Fukomys Damarensis", "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
 # "naked mole rat", "Nannospalax leucodon", "Oryctolagus cuniculus", 
 # "Pteromys volans orii", "SPF mouse, B6").
@@ -22,35 +46,10 @@
 # "MSM/Ms mouse" is MSMmouse, "naked mole rat" is NMR, 
 # "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is rabbit, 
 # "Pteromys volans orii" is pvo, "SPF mouse, B6" is B6mouse.
-# 5. `sex`: sex of tested samples. Not all samples have it. It is a factor with
-# 4 levels (F, M, NR, -)
-# 6. `birthday`: date of birth of samples. Not all samples have it. It is a 
+# 3. `sex`: sex of tested samples. Not all samples have it. It is a factor with
+# four levels (F, M, NR, -)
+# 4. `birthday`: date of birth of samples. Not all samples have it. It is a 
 # Date format variable.
-# The next seven columns may not all be in the table. If you agglomerate by 
-# Genus, you don't see the Species column. And if you agglomerate by Family, you 
-# don't see Genus and Species. But these are taxonomic ranks for ASVs that 
-# we got from QIIME2.
-# 7. `Kingdom`
-# 8. `Phylum`
-# 9. `Class`
-# 10. `Order`
-# 11. `Family`
-# 12. `Genus`
-# 13. `Species`
-# 14. `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
-# included if you are not aggomerating by ASVs
-# 15. `RelativeAbundance`: Relative abundance of taxa in each sample. 
-# We calculate it by summing the Abundance of a taxon in each sample
-# and dividing that sum by the sum of reads in that sample.
-# 16. `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
-# calculate it by summing the absolute abundance of a taxon from all samples
-# in a host and dividing by the sum of reads in that host.
-
-# 2) custom.md is a dataframe with metadata. It has 5 variables:
-# 1. `class`: same as in ps.q.agg
-# 2. `animal`: same as in ps.q.agg
-# 3. `sex`: same as in ps.q.agg
-# 4. `birhday`: same as in ps.q.agg
 # 5. `Sample`: same as in ps.q.agg
 
 # Other objects characterize the experiment. Almost all variables are characters
@@ -325,18 +324,6 @@ if(asvlevel==TRUE){
 }
 ps.q.agg<-ps.q.agg%>%
   select(-TotalClass,-TotalSample,-TotalAgglomRank)
-
-objects.to.keep<-c("agglom.rank","ps.q.agg","asvlevel","custom.md",
-                   "authorname","truncationlvl","read.end.type")
-objects.to.keep<-which(ls()%in%objects.to.keep)
-rm(list = ls()[-objects.to.keep])
-# Save the workspace ####
-save.image(file.path("./output/rdafiles",paste(
-  paste(format(Sys.time(),format="%Y%m%d"),
-        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  authorname,read.end.type,"qiime2",
-  truncationlvl,agglom.rank,
-  "phyloseq-workspace.RData",sep = "-")))
 
 write.table(ps.q.agg,
         file=file.path("./output/rtables",authorname,paste(
