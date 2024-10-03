@@ -15,33 +15,36 @@ agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-phyloseq.workspace.date_time<-"20240426_21_44_30"
+ps.q.agg.date_time<-"20240620_12_40_41"
+
+ps.q.agg<-readRDS(file=file.path(
+  "./output/rdafiles",
+  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
+        read.end.type, truncationlvl,"table.rds",sep = "-")))
+
+# 20240620_12_38_18 OTU level, all hosts
+# 20240620_12_40_41 genus level, all hosts
+# 20240917_10_54_12 family level, all hosts
+# 20240917_21_29_36 phylum level, all hosts
+
 ps.q.df.preprocessed.date_time<-"20240426_22_00_04"
 image.formats<-c("png","tiff")
 
-load(file.path("./output/rdafiles",paste(
-  phyloseq.workspace.date_time,
-  authorname,read.end.type,"qiime2",
-  truncationlvl,agglom.rank,
-  "phyloseq-workspace.RData",sep = "-")))
+# Import metadata
+custom.md<-readRDS("./output/rdafiles/use/custom.md.rds")
 
-pretty.level.names<-
-  c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-    "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
-    "DMR" = "*Fukomys Damarensis*",
-    "hare" = "*Lepus europaeus*",
-    "rabbit" = "*Oryctolagus cuniculus*",
-    "spalax" = "*Nannospalax leucodon*",
-    "pvo" = "*Pteromys volans orii*",
-    "NMRwt"="Wild *Heterocephalus glaber*"
-  )
+pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+                      "DMR" = "*Fukomys Damarensis*",
+                      "B6mouse" = "B6 mouse",
+                      "MSMmouse" = "MSM/Ms mouse",
+                      "FVBNmouse" = "FVB/N mouse",
+                      "spalax" = "*Nannospalax leucodon*",
+                      "pvo" = "*Pteromys volans orii*",
+                      "hare" = "*Lepus europaeus*",
+                      "rabbit" = "*Oryctolagus cuniculus*")
 
 excluded.samples<-
-  c(#"MSMmouse",
-    #"FVBNmouse",
-    "NMRwt")
+  c("NMRwt")
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 # facet labels
@@ -57,14 +60,23 @@ div.indices<-c("sobs","shannon",# "simpson",
 
 set.seed(1)
 custom.fill<-createPalette(length(custom.levels),
-                           seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
-                                          "#FF8C00","#BF3EFF", "#00FFFF",
-                                          "#FF6EB4","#00EE00","#EEC900",
+                           seedcolors = c("#EE2C2C","#BF3EFF","#5CACEE","#00CD66",
+                                          "#FF8C00","#00EE00","#EEC900", "#00FFFF",
+                                          "#FF6EB4",
                                           "#FFA07A"))
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
-
+mytheme<-theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+               axis.title.x = element_blank(),
+               axis.title.y = element_blank(),
+               axis.text.y = element_text(size=20),
+               axis.title = element_text(size = 20),
+               strip.text.x = element_text(size=20),
+               plot.title = element_text(size = 27),
+               legend.text = element_text(size = 20),
+               legend.title = element_text(size = 25),
+               legend.position = "right")
 
 # filter your data
 if(exists("excluded.samples")){
@@ -91,17 +103,16 @@ ps.q.df.preprocessed<-read.table(
     ".tsv")),
   header = T)
 
-
 # Exclude samples if you need ####
 if(exists("excluded.samples")){
   ps.q.df <-ps.q.df.preprocessed%>%
     filter(class%in%custom.levels,!class%in%excluded.samples,Abundance!=0)%>%
-    select(Sample,Abundance,class,all_of(agglom.rank),sex)
+    select(Sample,Abundance,class,all_of(agglom.rank),)
   custom.fill<-custom.fill[!names(custom.fill)%in%excluded.samples]
 }else{
   ps.q.df <-ps.q.df.preprocessed%>%
     filter(class%in%custom.levels,Abundance!=0)%>%
-    select(Sample,Abundance,class,all_of(agglom.rank),sex)
+    select(Sample,Abundance,class,all_of(agglom.rank),)
   
 }
 
@@ -110,11 +121,11 @@ if(exists("excluded.samples")){
 all.div<-ps.q.df%>%
   group_by(Sample)%>%
   reframe(sobs=specnumber(Abundance), # richness (num of species)
-            shannon=diversity(Abundance,index = "shannon"),
-            # simpson=diversity(Abundance, index="simpson"),
-            invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-            tot=sum(Abundance),
-            class=class)%>%
+          shannon=diversity(Abundance,index = "shannon"),
+          # simpson=diversity(Abundance, index="simpson"),
+          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
+          tot=sum(Abundance),
+          class=class)%>%
   group_by(Sample)%>%
   pivot_longer(cols=c(sobs,shannon,invsimpson),
                names_to="metric")%>%
@@ -185,8 +196,6 @@ max.values<-all.div%>%
   group_by(metric)%>%
   summarise(max_val=max(value))
 
-
-
 all.div$class<-factor(all.div$class,levels=custom.levels)
 
 ## Plot alpha diversity metrics ####
@@ -195,7 +204,7 @@ div.plot<-ggplot(all.div[all.div$metric %in%
                  # aes(x=reorder(class,-value),y=value,fill=class))+
                  aes(x=factor(all.div$class,
                               level=custom.levels),y=value,fill=factor(class)))+
-  geom_boxplot(show.legend = FALSE)+
+  geom_boxplot(show.legend = FALSE,outliers = F)+ # outliers won't be visible anyway
   facet_wrap(~factor(metric, # reorder facets
                      levels=plot.metrics),
              ncol=length(plot.metrics),
@@ -207,20 +216,18 @@ div.plot<-ggplot(all.div[all.div$metric %in%
   scale_x_discrete(labels=pretty.level.names,
                    limits=custom.levels)+ # rename boxplot labels (x axis)
   scale_fill_manual(values = custom.fill)+
-  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size = 20),
-        strip.text.x = element_text(size=20),
-        plot.title = element_text(size = 27),
-        legend.text = element_text(size = 20),
-        legend.title = element_text(size = 25),
+  mytheme + # general theme
+  theme(axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
         legend.position = "none")+
   ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))
 
-div.plot.with.dots<-div.plot+
+div.plot.jitter<-div.plot+
+  geom_jitter(width = 0.1, # jitter spread
+              shape = 1, # empty dots
+              size=3,
+              show.legend = FALSE)
+
+div.plot.dots<-div.plot+
   geom_dotplot(binaxis='y', stackdir='center', dotsize=0.4) # add dots
   
 
@@ -228,12 +235,12 @@ for(image.format in image.formats){
   ggsave(paste0("./images/diversity/alpha/",
                 paste(paste(format(Sys.time(),format="%Y%m%d"),
                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                      "alpha",
+                      "alpha-jitter",
                       paste(plot.metrics,collapse = "-"),
                       paste(custom.levels,collapse = '-'),
                       agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
-         plot=div.plot,
+         plot=div.plot.jitter,
          width = 6000,height = 3000,
          units = "px",dpi=300,device = image.format)
   ggsave(paste0("./images/diversity/alpha/",
@@ -244,7 +251,7 @@ for(image.format in image.formats){
                       paste(custom.levels,collapse = '-'),
                       agglom.rank,truncationlvl,
                       sep = "-"),".",image.format),
-         plot=div.plot.with.dots,
+         plot=div.plot.dots,
          width = 6000,height = 3000,
          units = "px",dpi=300,device = image.format)
 }
@@ -386,3 +393,160 @@ if(table(w.results<0.05)[2]>0){
   }
 }
 
+
+# Per-sample plot ####
+nmr.sample.levels<-custom.md%>%
+  filter(class=="NMR")%>%
+  mutate(age=round(time_length(sampling_date-birthday,unit="years")))%>%
+  select(Sample,age,class)%>%
+  arrange(age)%>%
+  distinct()%>%
+  mutate(NewSample=paste0(Sample," (",age," y)"))%>%
+  mutate(Sample=factor(Sample,levels=Sample),
+         NewSample=factor(NewSample,levels=NewSample))
+
+mouse.sample.levels<-custom.md%>%
+  mutate(age_weeks=case_when(
+    class=="FVBNmouse"|class=="MSMmouse"|class=="B6mouse"~
+      round(time_length(sampling_date-birthday,unit="weeks")),
+    TRUE~NA))%>%
+  filter(class%in%c("B6mouse","FVBNmouse","MSMmouse"))%>%
+  select(Sample,age_weeks,class)%>%
+  # mutate(newclass=ifelse(class=="NMR","NMR","mice"))%>%
+  # arrange(factor(newclass,levels=c("NMR","mice")),age_weeks)%>%
+  arrange(age_weeks)%>%
+  distinct()%>%
+  mutate(NewSample=paste0(Sample," (",age_weeks," wks)"))%>%
+  mutate(Sample=factor(Sample,levels=Sample),
+         NewSample=factor(NewSample,levels=NewSample))
+
+
+nmr.per.sample.div.plot<-all.div%>%
+  filter(class=="NMR",metric%in%plot.metrics)%>%
+  left_join(nmr.sample.levels)%>%
+  ggplot(aes(x=NewSample,y=value,colour=age))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             nrow=length(plot.metrics),
+             scales="free_y", # free y axis range
+             labeller = as_labeller(metric.labs))+ # rename facets
+  scale_color_viridis_c(option="D")+
+  theme_bw()+
+  labs(color="Age (years)")+
+  mytheme + # general theme
+  theme(axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18))+
+  ggtitle(paste0("Alpha diversity of the naked mole-rat gut microbiota across samples\n(",agglom.rank, " level)"))
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-sample",
+                      paste(plot.metrics,collapse = "-"),
+                      "NMR","age",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=nmr.per.sample.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+# Per-age diversity ####
+nmr.age.div.plot<-all.div%>%
+  filter(class=="NMR",metric%in%plot.metrics)%>%
+  left_join(nmr.sample.levels)%>%
+  ggplot(aes(x=age,y=value,colour=age))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             nrow=length(plot.metrics),
+             scales="free_y", # free y axis range
+             labeller = as_labeller(metric.labs))+ # rename facets
+  scale_x_continuous(breaks = round(seq(min(nmr.sample.levels$age), max(nmr.sample.levels$age), by = 1),1)) +
+  scale_color_viridis_c(option="D")+
+  labs(color="Age (years)",
+       x="Age (years)")+
+  theme_bw()+
+  mytheme + # general theme
+  theme(axis.title.x = element_text(size=20),
+        axis.text.x = ggtext::element_markdown(hjust=1,size=18))+
+  ggtitle(paste0("Alpha diversity of the naked mole-rat gut microbiota across age\n(",agglom.rank, " level)"))
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-age",
+                      paste(plot.metrics,collapse = "-"),
+                      "NMR","age",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=nmr.age.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+# Alpha diversity for mice ####
+mouse.per.sample.div.plot<-all.div%>%
+  filter(class%in%c("B6mouse","FVBNmouse","MSMmouse"),
+         metric%in%plot.metrics)%>%
+  left_join(mouse.sample.levels)%>%
+  ggplot(aes(x=NewSample,y=value,colour=age_weeks))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                     levels=plot.metrics),
+             nrow=length(plot.metrics),
+             scales="free_y",
+             labeller = as_labeller(c(mice="Mice","NMR"="Naked mole-rat",metric.labs)))+ # rename facets
+  scale_color_viridis_c(option="D")+
+  labs(color="Age (weeks)",
+       x="Age (weeks)")+
+  theme_bw()+
+  mytheme + # general theme
+  theme(axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18))+
+  ggtitle(paste0("Alpha diversity of mouse gut microbiota across samples\n(",agglom.rank, " level)"))
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-sample",
+                      paste(plot.metrics,collapse = "-"),
+                      "mice","age",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=mouse.per.sample.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
+
+
+
+mouse.age.div.plot<-all.div%>%
+  filter(class%in%c("B6mouse","FVBNmouse","MSMmouse"))%>%
+  left_join(mouse.sample.levels)%>%
+  ggplot(aes(x=age_weeks,y=value,colour=age_weeks))+
+  geom_point(size=2,stat = "identity")+
+  facet_wrap(~factor(metric, # reorder facets
+                             levels=plot.metrics),
+             nrow=length(plot.metrics),
+             scales="free",
+             labeller = as_labeller(c(mice="Mice","NMR"="Naked mole-rat",metric.labs)))+ # rename facets
+  scale_color_viridis_c(option="D")+
+  labs(color="Age (weeks)",
+       x="Age (weeks)")+
+  theme_bw()+
+  mytheme + # general theme
+  theme(axis.title.x = element_text(size=20),
+        axis.text.x = ggtext::element_markdown(hjust=1,size=18))+
+  ggtitle(paste0("Alpha diversity of the mouse gut microbiota across age\n(",agglom.rank, " level)"))
+
+for(image.format in image.formats){
+  ggsave(paste0("./images/diversity/alpha/",
+                paste(paste(format(Sys.time(),format="%Y%m%d"),
+                            format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                      "alpha-per-age",
+                      paste(plot.metrics,collapse = "-"),
+                      "mice","age",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=mouse.age.div.plot,
+         width = 6000,height = 3000,
+         units = "px",dpi=300,device = image.format)
+}
