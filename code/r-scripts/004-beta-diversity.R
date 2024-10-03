@@ -14,30 +14,37 @@ agglom.rank<-"Genus"
 read.end.type<-"single"
 rare.status<-"rare"
 filter.status<-"nonfiltered"
-phyloseq.workspace.date_time<-"20240426_21_44_30"
+# Import abundance table from 001-phyloseq-qiime2.R
+ps.q.agg.date_time<-"20240620_12_40_41"
+
+ps.q.agg<-readRDS(file=file.path(
+  "./output/rdafiles",
+  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
+        read.end.type, truncationlvl,"table.rds",sep = "-")))
+
+# 20240620_12_38_18 ps.q.agg.date_time OTU level, all hosts
+# 20240620_12_40_41 ps.q.agg.date_time genus level, all hosts
+# 20240917_10_54_12 ps.q.agg.date_time family level, all hosts
+# 20240917_21_29_36 ps.q.agg.date_time phylum level, all hosts
+
 ps.q.df.pca.input.date_time<-"20240426_22_00_04"
+# Import metadata
+custom.md<-readRDS("./output/rdafiles/custom.md.rds")
+
 image.formats<-c("png","tiff")
 plot.types<-c("plot"="",
               "plot.with.labels"="-with-labels")
 
-load(file.path("./output/rdafiles",paste(
-  phyloseq.workspace.date_time,
-  authorname,read.end.type,"qiime2",
-  truncationlvl,agglom.rank,
-  "phyloseq-workspace.RData",sep = "-")))
-
-pretty.level.names<-
-  c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-    "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
-    "DMR" = "*Fukomys Damarensis*",
-    "hare" = "*Lepus europaeus*",
-    "rabbit" = "*Oryctolagus cuniculus*",
-    "spalax" = "*Nannospalax leucodon*",
-    "pvo" = "*Pteromys volans orii*",
-    "NMRwt"="Wild *Heterocephalus glaber*"
-)
+pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+                      "NMRwt"="Wild *Heterocephalus glaber*",
+                      "DMR" = "*Fukomys Damarensis*",
+                      "B6mouse" = "B6 mouse",
+                      "MSMmouse" = "MSM/Ms mouse",
+                      "FVBNmouse" = "FVB/N mouse",
+                      "spalax" = "*Nannospalax leucodon*",
+                      "pvo" = "*Pteromys volans orii*",
+                      "hare" = "*Lepus europaeus*",
+                      "rabbit" = "*Oryctolagus cuniculus*")
 
 excluded.samples<-
   c("NMRwt")
@@ -48,12 +55,23 @@ custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 set.seed(1)
 custom.colors<- 
   createPalette(length(custom.levels),
-                seedcolors = c("#B22222", "#0000FF","#006400", 
-                               "#FF8C00","#5D478B", "#00FFFF"))
+                seedcolors = c("#B22222","#5D478B", "#0000FF","#006400", 
+                               "#FF8C00","#00EE00","#EEC900", "#00FFFF","#FF6EB4"))
 # custom.colors<-unname(custom.colors)
 names(custom.colors)<-custom.levels
 swatch(custom.colors)
 
+# Setup general theme for ggplot2. Add more parameters depending on the plot
+mytheme <- theme(plot.title = element_text(size = 27),
+                 axis.text.x = element_text(angle=0,size=20,hjust=1),
+                 axis.text.y = element_text(size=20),
+                 axis.title = element_text(size = 20),
+                 legend.text = ggtext::element_markdown(size = 20),
+                 legend.title = element_text(size = 25),
+                 legend.position = "right",
+                 plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+                 plot.caption.position = "plot"
+)
 # filter your data
 if(exists("excluded.samples")){
   custom.levels<-custom.levels[!custom.levels%in%excluded.samples]
@@ -74,38 +92,27 @@ if(exists("excluded.samples")){
 dist.metric<-"robust.aitchison"
 dist.metric<-"jaccard"
 dist.metric<-"canberra"
-dist.metric<-"uni.unw"
 dist.metric<-"bray"
 if(dist.metric=="bray"){
   beta.label<-"Bray-Curtis dissimilarities"
-}else if(dist.metric=="uni.unw"){
-  beta.label<-"Unweighted UniFrac distances"
 }else { # in case of robust.aitchison, we need to substitute the dot
   beta.label<-paste(str_to_title(gsub("\\.", " ", dist.metric)),"distances")
 }
 
 permut.num<-1000 # number of permutations for PERMANOVA
 
-ps.sampledata<-ps.q.agg%>%
-  ungroup()%>%
-  dplyr::select(c("Sample","class","sex","birthday"))%>%
-  distinct() # metadata
-
-ps.q.df <-ps.q.agg%>%
-  select(Sample,Abundance,class,all_of(agglom.rank))
-
-
 # Beta diversity ####
 # find the smallest sample size
-min.n_seqs.all<-ps.q.df%>%
-  select(Sample,Abundance,all_of(agglom.rank))%>%
+min.n_seqs.all<-ps.q.agg%>%
+  select(Sample,Abundance,class,all_of(agglom.rank))%>%
   group_by(Sample)%>%
   summarize(n_seqs=sum(Abundance))%>%
   summarize(min=min(n_seqs))%>%
   pull(min)
 
 # convert the data frame into wide format
-ps.q.df.wide<-ps.q.df%>%
+ps.q.df.wide<-ps.q.agg%>%
+  select(Sample,Abundance,class,all_of(agglom.rank))%>%
   pivot_wider(names_from = all_of(agglom.rank), # or OTU
               values_from = "Abundance",
               values_fill = 0)%>%
@@ -145,8 +152,6 @@ if(dist.metric=="jaccard"){
                 sample=min.n_seqs.all,
                 iterations = 1000
                 )
-}else if(dist.metric=="uni.unw"){ # TODO: fix unifrac
-  dist<-UniFrac(ps.q, weighted = FALSE)
 }
 
 dist.df<-dist%>% # convert distances into tibble
@@ -155,7 +160,7 @@ dist.df<-dist%>% # convert distances into tibble
 dist.df<-cbind(labels(dist),dist.df) # create a column of sample ids
 colnames(dist.df)[1]<-"Sample"
 
-meta.dist<-dist.df%>%inner_join(ps.sampledata,.,by="Sample") # distances with metadata
+meta.dist<-dist.df%>%inner_join(custom.md,.,by="Sample") # distances with metadata
 
 ## PERMANOVA ####
 # To test whether there were significant differences in beta diversity between 
@@ -220,7 +225,7 @@ nmds<-metaMDS(dist, autotransform = FALSE)
 
 nmds.scores<-scores(nmds)%>%
   as_tibble(rownames="Sample")%>% # convert rownames into "Sample" column
-  inner_join(.,ps.sampledata, by="Sample") 
+  inner_join(.,custom.md, by="Sample") 
 
 
 nmds.plot<-ggplot(nmds.scores,
@@ -242,16 +247,8 @@ nmds.plot<-ggplot(nmds.scores,
                     values = custom.colors)+
   labs(color="Host")+
   ggtitle(paste0("nMDS on ", beta.label, " between different rodents (",agglom.rank, " level)"))+
-  theme(
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    plot.title = element_text(size = 27),
-    legend.text = ggtext::element_markdown(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
+  mytheme # general theme
+
 
 # Depending on the results of PERMANOVA, we should choose an appropriate
 # label
@@ -317,7 +314,7 @@ percent_exp<-format(round(100* pcoa$eig /
 # first two axes are percent_explained[1:2]
 pcoa.positions<-positions %>% 
   as_tibble(rownames="Sample") %>%
-  inner_join(.,ps.sampledata, by="Sample")  
+  inner_join(.,custom.md, by="Sample")  
 
 pcoa.plot<-ggplot(pcoa.positions,
                     aes(x=pcoa1,y=pcoa2,color=class,
@@ -339,15 +336,7 @@ pcoa.plot<-ggplot(pcoa.positions,
        y=paste0("PCo 2 (", percent_exp[2],"%)"),
        color="Host")+
   ggtitle(paste0("PCoA on ", beta.label, " between different rodents (",agglom.rank, " level)"))+
-  theme(plot.title = element_text(size = 27),
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    legend.text = ggtext::element_markdown(size = 20),
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
+  mytheme # general theme
 
 # Depending on the results of PERMANOVA, we should choose an appropriate
 # label
@@ -393,6 +382,7 @@ save.image(file.path("./output/rdafiles",paste(
   authorname,read.end.type,"beta-diversity",
   truncationlvl,agglom.rank,
   "workspace.RData",sep = "-")))
+
 # PCA ####
 # import rarefied dataframe
 ps.q.df.pca.input<-read.table(
@@ -405,7 +395,7 @@ ps.q.df.pca.input<-read.table(
            header = T)
 # Convert into wide format
 ps.q.df.wide.pca<-ps.q.df.pca.input%>%
-  dplyr::select(-class,-sex,-birthday)%>%
+  dplyr::select(all_of(c(agglom.rank,"Sample","Abundance")))%>%
   pivot_wider(names_from = all_of(agglom.rank), 
               values_from = "Abundance",
               values_fill = 0)%>%
@@ -416,20 +406,23 @@ ps.q.df.wide.pca<-ps.q.df.pca.input%>%
 rownames(ps.q.df.wide.pca)<-ps.q.df.wide.pca$Sample
 ps.q.df.wide.pca<-ps.q.df.wide.pca[,-1] # prune after this command 
 ps.q.df.wide.pca<-as.matrix(ps.q.df.wide.pca)
-# RCLR: natural log
-ps.q.df.wide.pca<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
-ps.q.df.wide.pca.centered<-scale(ps.q.df.wide.pca,scale=F,center=T)
+# The first crucial step is to transform the compositional data:
+# Use a log-ratio transformation, typically the centered log-ratio (clr)
+# or isometric log-ratio (ilr) transformation.
+# The clr transformation is often preferred for interpretability, 
+# while ilr is used for statistical properties.
+# We will use robust CLR (RCLR) with natural log
+ps.q.df.wide.pca.tfm<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
 
 #### >if you want to exclude specific samples
 # pruned.samples<-c("PVO_15","PVO_19")
 # ps.q.pruned<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%pruned.samples),]
 # ps.q.pruned<-ps.q.pruned[,which(colSums(ps.q.pruned)!=0)]
-# ps.q.df.wide.pca.centered<-scale(ps.q.pruned,scale=F,center=T)
+# ps.q.df.wide.pca.tfm<-decostand(ps.q.pruned,method="rclr",logbase = exp)
 ####<
 
-ps.q.df.wide.pca.centered.scaled<-scale(ps.q.df.wide.pca.centered,scale=T,center=F)
 # calculate principal components
-pca.q<-prcomp(ps.q.df.wide.pca.centered.scaled)
+pca.q<-prcomp(ps.q.df.wide.pca.tfm)
 str(pca.q)
 dim(pca.q$x)
 
@@ -455,7 +448,7 @@ pca.q$sdev^2 / sum(pca.q$sdev^2)
 var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
 
 #create scree plot
-qplot(seq_along(1:nrow(ps.q.df.wide.pca.centered.scaled)), var_explained) + 
+qplot(seq_along(1:nrow(ps.q.df.wide.pca.tfm)), var_explained) + 
   geom_line() + 
   xlab("Principal Component") + 
   ylab("Variance Explained") +
@@ -468,9 +461,13 @@ PC1<-pca.q$x[,1]
 PC2<-pca.q$x[,2]
 perc.var<-round(100*summary(pca.q)$importance[2,1:2],2)
 
-pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%
-                                 rownames(ps.q.df.wide.pca.centered.scaled),],
-                 aes(x=PC1,y=PC2,color=class,fill=class)) +
+PC1.df<-as.data.frame(PC1)%>%rownames_to_column("Sample")
+PC2.df<-as.data.frame(PC2)%>%rownames_to_column("Sample")
+
+pca.plot<-PC1.df%>%
+  left_join(PC2.df)%>%
+  left_join(custom.md)%>%
+  ggplot(aes(x=PC1,y=PC2,color=class,fill=class)) +
   geom_point(size=2)+ 
   stat_ellipse(geom = "polygon",
                level = 0.8,
@@ -488,16 +485,7 @@ pca.plot<-ggplot(ps.sampledata[ps.sampledata$Sample%in%
                     labels=custom.levels,
                     values = custom.colors)+
   guides(fill="none")+
-  theme(
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    plot.title = element_text(size = 27),
-    legend.text = ggtext::element_markdown(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
+  mytheme # general theme
 
 # Adjust the plot and filename if the data is pruned
 if("pruned.samples"%in%ls()){
