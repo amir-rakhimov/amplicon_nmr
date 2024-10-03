@@ -1,7 +1,6 @@
 # Alpha and beta diversity inside custom host #### 
 library(vegan)
 library(tidyverse)
-# library(phyloseq)
 library(Polychrome)
 # Import data ####
 ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
@@ -13,22 +12,23 @@ truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
 rare.status<-"rare"
+rdafiles.directory<-"./output/rdafiles/use"
+rtables.directory<-file.path("./output/rtables",authorname)
 
 ps.q.agg.date_time<-"20240620_12_38_18"
 ps.q.agg<-readRDS(file=file.path(
-  "./output/rdafiles",
+  rdafiles.directory,
   paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
         read.end.type, truncationlvl,"table.rds",sep = "-")))
 
-# 20240620_12_38_18 OTU level, all hosts
-# 20240620_12_40_41 genus level, all hosts
-# 20240917_10_54_12 family level, all hosts
-# 20240917_21_29_36 phylum level, all hosts
+# 20240620_12_38_18 ps.q.agg.date_time OTU level, all hosts
+# 20240620_12_40_41 ps.q.agg.date_time genus level, all hosts
+# 20240917_10_54_12 ps.q.agg.date_time family level, all hosts
+# 20240917_21_29_36 ps.q.agg.date_time phylum level, all hosts
 # Import metadata
-custom.md<-readRDS("./output/rdafiles/custom.md.rds")
+custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
 image.formats<-c("png","tiff")
 filter.status<-"nonfiltered"
-
 # If you compare NMRs or mice (inside host)
 host<-"NMR"
 # host<-"mice"
@@ -55,7 +55,7 @@ if(host=="NMR"){
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file
 ps.q.df.preprocessed<-read.table(
-  file.path("./output/rtables",authorname,paste0(
+  file.path(rtables.directory,paste0(
     paste(
       ps.q.df.preprocessed.date_time,
       paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
@@ -65,7 +65,7 @@ ps.q.df.preprocessed<-read.table(
 
 if(host=="NMR"){
   # Load a table with ages
-  custom.md<-readRDS("./output/rdafiles/custom.md.ages.rds")
+  custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))
 }else if(host=="mice"){
   # this is an if/else statement to create the agegroup column
   custom.md%>%
@@ -119,10 +119,10 @@ if (comparison=="age"){
 }
 
 
-metric.labs=c('sobs'="Richness \n(Observed species)",
+metric.labs=c('sobs'="Richness (Observed species)",
               'shannon' = "Shannon",
               # 'simpson' = "Simpson",
-              'invsimpson' = "Inverse \nSimpson")
+              'invsimpson' = "Inverse Simpson")
 plot.metrics<-c("sobs","shannon", # "simpson",
                 "invsimpson") # metrics to plot
 div.indices<-c("sobs","shannon",# "simpson",
@@ -136,6 +136,28 @@ custom.fill<-createPalette(length(custom.levels),
 names(custom.fill)<-custom.levels
 swatch(custom.fill)
 
+# Theme for alpha diversity plots
+alpha.plot.theme<-theme(plot.margin=unit(c(1,1,1,2), 'cm'),
+                                      axis.title.x = element_blank(),
+                                      axis.title.y = element_blank(),
+                                      axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
+                                      axis.text.y = element_text(size=20),
+                                      axis.title = element_text(size = 20),
+                                      strip.text.x = element_text(size=20),
+                                      plot.title = element_text(size = 27),
+                                      legend.text = element_text(size = 20),
+                                      legend.title = element_text(size = 25))
+# Theme for scatter plots (PCA, nMDS, PCoA)
+scatter.plot.theme<-theme(
+  axis.text.x = element_text(angle=0,size=20,hjust=1),
+  axis.text.y = element_text(size=20),
+  axis.title = element_text(size = 20),
+  plot.title = element_text(size = 27),
+  legend.text = ggtext::element_markdown(size = 20),
+  legend.title = element_text(size = 25),
+  legend.position = "right",
+  plot.caption = ggtext::element_markdown(hjust = 0, size=20),
+  plot.caption.position = "plot")
 
 # Alpha diversity ####
 ## Compute alpha diversity metrics ####
@@ -297,17 +319,8 @@ div.plot<-div.plot+
   scale_x_discrete(labels=pretty.level.names,
                    limits=custom.levels)+ # rename boxplot labels (x axis)
   scale_fill_manual(values = custom.fill)+
-  theme(plot.margin=unit(c(1,1,1,2), 'cm'),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size = 20),
-        strip.text.x = element_text(size=20),
-        plot.title = element_text(size = 27),
-        legend.text = element_text(size = 20),
-        legend.title = element_text(size = 25),
-        legend.position = "none")+
+  alpha.plot.theme + # theme for alpha diversity plots
+  theme(legend.position = "none")+
   ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
                 gg.title.taxon))
 
@@ -354,30 +367,32 @@ if(comparison=="age"){
     mutate(NewSample=paste0(Sample," (",age,")"))%>%
     mutate(Sample=factor(Sample,levels=Sample),
            NewSample=factor(NewSample,levels=NewSample))
-  
+  # You can plot diversity metrics per sample or average metrics per age.
+  # When plotting average metrics per age, change the x axis text angle from 45 to 0.
   per.sample.div.plot<-all.div%>%
     left_join(sample.levels)%>%
-    ggplot(aes(x=NewSample,y=value,colour=age))+
-    geom_point(size=2,stat = "identity")+
+    group_by(age,metric)%>%
+    mutate(mean_metric=mean(value))%>% 
+    ggplot(aes(x=age,y=mean_metric,colour=age))+ # when plotting average metric per age
+    # ggplot(aes(x=NewSample,y=value,colour=age))+
+    geom_point(size=4,stat = "identity")+
+    # facet_wrap(~factor(metric, # reorder facets
+    #                    levels=plot.metrics),
+    #            nrow=length(plot.metrics),
+    #            scales="free_y", # free y axis range
+    #            labeller = as_labeller(metric.labs))+ # rename facets
+    # Below is facets when we plot average values per age
     facet_wrap(~factor(metric, # reorder facets
                        levels=plot.metrics),
                nrow=length(plot.metrics),
                scales="free_y", # free y axis range
-               labeller = as_labeller(metric.labs))+ # rename facets
+               labeller = as_labeller(sapply(metric.labs, function(x) paste("Average",x))))+ # rename facets
     scale_color_viridis_c(option="D")+
+    scale_x_continuous(breaks = seq(min(sample.levels$age), max(sample.levels$age), by = 1))+
     theme_bw()+
-    theme(plot.margin=unit(c(1,1,1,2), 'cm'),
-          axis.title.x = element_blank(),
-          axis.title.y = element_blank(),
-          axis.text.x = ggtext::element_markdown(angle=45,hjust=1,size=18),
-          axis.text.y = element_text(size=20),
-          axis.title = element_text(size = 20),
-          strip.text.x = element_text(size=20),
-          plot.title = element_text(size = 27),
-          legend.text = element_text(size = 20),
-          legend.title = element_text(size = 25),
-          legend.position = "right")+
-    ggtitle(paste("Alpha diversity of the naked mole-rat gut microbiota across age"))
+    alpha.plot.theme + # theme for alpha diversity plots
+    theme(legend.position = "right")+
+    ggtitle(paste("Alpha diversity of the naked mole-rat gut microbiota across age",gg.title.taxon))
   
   for(image.format in image.formats){
     ggsave(paste0("./images/diversity/alpha/",
@@ -712,16 +727,8 @@ nmds.plot<-nmds.plot+
   labs(color=gg.labs.name)+
   ggtitle(paste("nMDS on", beta.label, "between different",as.character(host.class[host]),gg.title.groups,"\n",
                 gg.title.taxon))+
-  theme(
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    plot.title = element_text(size = 27),
-    legend.text = ggtext::element_markdown(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
+  scatter.plot.theme  # theme for scatter plots (PCA, PCoA, nMDS)
+
 
 
 for(image.format in image.formats){
@@ -803,18 +810,7 @@ pcoa.plot<-pcoa.plot+
   scale_fill_manual(name=NULL, breaks = custom.levels,
                     labels=custom.levels,
                     values = custom.colors)+
-  theme(
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    plot.title = element_text(size = 27),
-    legend.text = ggtext::element_markdown(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
-
-
+  scatter.plot.theme  # theme for scatter plots (PCA, PCoA, nMDS)
 
 for(image.format in image.formats){
   ggsave(paste0("./images/diversity/pcoa/",
@@ -957,16 +953,8 @@ pca.plot<-pca.plot  +
   geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
                 gg.title.taxon))+
-  theme(
-    axis.text.x = element_text(angle=0,size=20,hjust=1),
-    axis.text.y = element_text(size=20),
-    axis.title = element_text(size = 20),
-    plot.title = element_text(size = 27),
-    legend.text = ggtext::element_markdown(size = 20),
-    legend.title = element_text(size = 25),
-    legend.position = "right",
-    plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-    plot.caption.position = "plot")
+  scatter.plot.theme  # theme for scatter plots (PCA, PCoA, nMDS)
+
 library(ggrepel)
 pca.labeled<-pca.plot+
   ggrepel::geom_text_repel(aes(label=Sample),
