@@ -10,7 +10,8 @@ library(Polychrome)
 authorname<-"pooled"
 truncationlvl<-"234"
 agglom.rank<-"Genus"
-
+rdafiles.directory<-"./output/rdafiles"
+rtables.directory<-"./output/rtables"
 # Import data ####
 read.end.type<-"single"
 rare.status<-"rare"
@@ -18,7 +19,7 @@ filter.status<-"nonfiltered"
 ps.q.agg.date_time<-"20240620_12_40_41"
 
 ps.q.agg<-readRDS(file=file.path(
-  "./output/rdafiles",
+  rdafiles.directory,
   paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
         read.end.type, truncationlvl,"table.rds",sep = "-")))
 
@@ -31,7 +32,7 @@ ps.q.df.preprocessed.date_time<-"20240426_22_00_04"
 image.formats<-c("png","tiff")
 
 # Import metadata
-custom.md<-readRDS("./output/rdafiles/use/custom.md.rds")
+custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
 
 pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
                       "DMR" = "*Fukomys Damarensis*",
@@ -95,7 +96,7 @@ if(exists("excluded.samples")){
 
 # load the output of 003-phyloseq-rarefaction-filtering.R file ####
 ps.q.df.preprocessed<-read.table(
-  file.path("./output/rtables",authorname,paste0(
+  file.path(rtables.directory,authorname,paste0(
     paste(
       ps.q.df.preprocessed.date_time,
       "ps.q.df.rare-nonfiltered",agglom.rank,
