@@ -87,13 +87,13 @@ create_barplot_legend<-function(tax.df, # the dataset of abundances
       # mutate(new.colors=Taxon.bp)%>%
       mutate(Taxon.bp=new.colors)%>%
       mutate(new.colors=ifelse(Kingdom=="Bacteria",
-                               paste0("<span style='color: orange'><b>",Taxon.bp,"</b></span>"),
+                               paste0("<span style='color: orange'><b><i>",Taxon.bp,"</i></b></span>"),
                                new.colors),
              new.colors=ifelse(Kingdom=="Eukaryota",
-                               paste0("<span style='color: palegreen4'><b>",Taxon.bp,"</b></span>"),
+                               paste0("<span style='color: palegreen4'><b><i>",Taxon.bp,"</i></b></span>"),
                                new.colors),
              new.colors=ifelse(Kingdom=="Archaea",
-                               paste0("<span style='color: violetred4'><b>",Taxon.bp,"</b></span>"),
+                               paste0("<span style='color: violetred4'><b><i>",Taxon.bp,"</i></b></span>"),
                                new.colors))%>%
       select(Kingdom,Species,Genus,Taxon.bp,new.colors)
     final.legend[1,]<-data.frame(Kingdom="Remainder (Mean relative abundance < 1%)",
@@ -111,10 +111,10 @@ create_barplot_legend<-function(tax.df, # the dataset of abundances
     # If you want to show unique taxa for compared groups
     final.legend<-final.legend%>%
       mutate(new.colors=ifelse(Taxon.bp%in%left.set.uniq.legend,
-                               paste0("<span style='color: firebrick'><b>",Taxon.bp,"</b></span>"),
+                               paste0("<span style='color: firebrick'><b><i>",Taxon.bp,"</i></b></span>"),
                                new.colors),
              new.colors=ifelse(Taxon.bp%in%right.set.uniq.legend&right.group.name!="",
-                               paste0("<span style='color: dodgerblue4'><b>",Taxon.bp,"</b></span>"),
+                               paste0("<span style='color: dodgerblue4'><b><i>",Taxon.bp,"</i></b></span>"),
                                new.colors))
   }
   final.legend<-final.legend%>%

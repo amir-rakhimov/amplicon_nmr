@@ -5,32 +5,30 @@
 # agglomerated tables at phylum, family, genus, and OTU level).
 
 ## 1. Import libraries ####
-# if (!requireNamespace("devtools", quietly = TRUE)){install.packages("devtools")}
-# devtools::install_github("jbisanz/qiime2R")
-# install.packages(
-#   "microViz",
-#   repos = c(davidbarnett = "https://david-barnett.r-universe.dev", getOption("repos"))
-# )
 # install.packages(c("tidyverse","vegan","ggtext","Polychrome","ggrepel"))
-# if(!requireNamespace("BiocManager")){
-#   install.packages("BiocManager")
-# }
-# BiocManager::install("phyloseq")
 library(tidyverse)
 library(vegan)
 library(Polychrome)
 library(ggtext)
 library(ggrepel)
+source("./code/r-scripts/get_dominant_taxa_in_host.R")
+source("./code/r-scripts/create_summary_stats_table.R")
+source("./code/r-scripts/get_n_uniq_taxa_per_host.R")
+source("./code/r-scripts/add_relab_to_tax_df.R")
+source("./code/r-scripts/add_agegroup_to_tax_df.R")
+source("./code/r-scripts/get_unclassified_summary_stats.R")
+source("./code/r-scripts/ggplot_species.R")
+source("./code/r-scripts/add_zero_rows.R")
 
 ## 2. Specifying parameters and directory/file names #### 
+authorname<-"pooled" # name of the folder with QIIME2 output
+# authorname<-"biagi" # name of the folder with QIIME2 output
+
 rdafiles.directory<-"./output/rdafiles"
 rtables.directory<-file.path("./output/rtables",authorname)
 
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 # truncationlvl<-"0" # truncation level that we chose in QIIME2
-
-authorname<-"pooled" # name of the folder with QIIME2 output
-# authorname<-"biagi" # name of the folder with QIIME2 output
 
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
 # Import datasets as rds files
@@ -102,86 +100,18 @@ mytheme<-theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
                legend.title = element_text(size = 25) # size of legend title
 )
 # 6. Check the total number of unique ASV/phyla/families/genera per class ####
-# The function get.n.uniq.taxa.per.host groups the dataframe of abundances
-# by host and taxonomic rank (e.g. Genus), retains unique rows (unique taxa in 
-# each host), then groups by class and counts observations. It returns the
-# number of unique taxa (e.g. genera) per host. Works for any number of hosts.
-get.n.uniq.taxa.per.host<-function(tax.df,tax.rank){
-  n.taxa.per.host<-tax.df%>%
-    group_by_at(c("class",tax.rank))%>%
-    distinct(get(tax.rank))%>%
-    group_by(class)%>%
-    tally
-  return(n.taxa.per.host)
-}
-n.asv.per.host<-get.n.uniq.taxa.per.host(ps.q.agg,"OTU")
-n.phylum.per.host<-get.n.uniq.taxa.per.host(ps.q.agg.phylum,"Phylum")
-n.family.per.host<-get.n.uniq.taxa.per.host(ps.q.agg.family,"Family")
-n.genus.per.host<-get.n.uniq.taxa.per.host(ps.q.agg.genus,"Genus")
+
+n.asv.per.host<-get_n_uniq_taxa_per_host(ps.q.agg,"OTU")
+n.phylum.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.phylum,"Phylum")
+n.family.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.family,"Family")
+n.genus.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.genus,"Genus")
 
 # 7. Summary statistics table ####
-# The function create_summary_stats_table takes a dataframe
-# with ASV abundances (tax.df), groups by class (animal host), and adds a column with 
-# number of samples per host (TotalSamplesPerHost). It uses a dplyr function n_distinct
-# 2. Then, the function adds a column with number of total reads per host (TotalReadsPerHost).
-# It uses a function sum() on Abundance column
-# 3. Then, the function groups by Sample and adds a column with number of total reads 
-# per sample (LibrarySize). It uses sum() on Abundance column
-# 4. Then, the function keeps unique samples with distinct() function
-# 5. Then, the function groups by class and adds a column with average number of reads
-# per sample (MeanLibrarySize). It uses mean() function on LibrarySize.
-# 6. The function also adds a Standard deviation of library size (SDLibrarySize). The 
-# rationale is the same as when calculating MeanLibrarySize, except the function is
-# sd()
-# 7. The function selects columns class, TotalSamplesPerHost, TotalReadsPerHost, 
-# MeanLibrarySize, and SDLibrarySize.
-# 8. The function selects unique rows (distinct() function).
-# 9. The function sorts by class column, then adds several dataframes:
-# 9.1: Dataframe with the number of unique ASVs per host (n.asv.table).
-# It is added as `n` column, but is renamed to ASVPerHost.
-# 9.2: Dataframe with the number of unique phyla per host (n.phyllum.table).
-# It is added as `n` column, but is renamed to PhylaPerHost.
-# 9.3: Dataframe with the number of unique families per host (n.family.table).
-# It is added as `n` column, but is renamed to FamiliesPerHost.
-# 9.4: Dataframe with the number of unique genera per host (n.genus.table).
-# It is added as `n` column, but is renamed to GeneraPerHost.
-create_summary_stats_table<-function(tax.df,
-                                     n.asv.table,
-                                     n.phyllum.table,
-                                     n.family.table,
-                                     n.genus.table){
-  final.summary.stats.table<-tax.df%>%
-    group_by(class)%>%
-    mutate(TotalSamplesPerHost=n_distinct(Sample))%>%
-    mutate(TotalReadsPerHost=sum(Abundance))%>%
-    group_by(Sample)%>%
-    mutate(LibrarySize=sum(Abundance))%>%
-    distinct(Sample,.keep_all = T)%>%
-    group_by(class)%>%
-    mutate(MeanLibrarySize =round(mean(LibrarySize)),
-           SDLibrarySize=round(sd(LibrarySize)))%>%
-    select(class,
-           TotalSamplesPerHost,
-           TotalReadsPerHost,
-           MeanLibrarySize,
-           SDLibrarySize)%>%
-    distinct(class,.keep_all = T)%>%
-    arrange(class)%>%
-    left_join(n.asv.table)%>%
-    rename(ASVPerHost=n)%>%
-    left_join(n.phyllum.table)%>%
-    rename(PhylaPerHost=n)%>%
-    left_join(n.family.table)%>%
-    rename(FamiliesPerHost=n)%>%
-    left_join(n.genus.table)%>%
-    rename(GeneraPerHost=n)
-  return(final.summary.stats.table)
-}
 summary.stats.table<-create_summary_stats_table(ps.q.agg,
-                           n.asv.per.host,
-                           n.phylum.per.host,
-                           n.family.per.host,
-                           n.genus.per.host)
+                                                n.asv.per.host,
+                                                n.phylum.per.host,
+                                                n.family.per.host,
+                                                n.genus.per.host)
 
 # write.table(summary.stats.table,
 #             file=file.path(rtables.directory,authorname,
@@ -190,40 +120,39 @@ summary.stats.table<-create_summary_stats_table(ps.q.agg,
 #                                  "summary-table.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
+# Samples used in whole metagenome sequencing
+nmr.metagenome.samples<-c("2D10","2D14","G14","G18","H15",
+                          "H21","H3","H4","O15","Y51b",
+                          "Y66b")
+# Get the number of ASVs in all NMR samples from 16S (1834)
+get_n_uniq_taxa_per_host(subset(ps.q.agg,class=="NMR"),"OTU")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,class=="NMR"),"Phylum")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,class=="NMR"),"Family")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,class=="NMR"),"Genus")
+# Get the number of ASVs in NMR samples from 16S that were also used in WMS (1175)
+get_n_uniq_taxa_per_host(subset(ps.q.agg,Sample%in%nmr.metagenome.samples),"OTU")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,Sample%in%nmr.metagenome.samples),"Phylum")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,Sample%in%nmr.metagenome.samples),"Family")
+get_n_uniq_taxa_per_host(subset(ps.q.agg,Sample%in%nmr.metagenome.samples),"Genus")
+
+# Import kraken2 table for comparison
+kraken2.table<-readRDS(file="../metagenome/output/rdafiles/20241003_13_52_43-phyloseq-kraken2-Species-table.rds")
+kraken2.table<-kraken2.table%>%
+  filter(Kingdom=="Bacteria")
+kraken2.table%>%
+  distinct(Phylum)
+match(sort(pull(unique(subset(kraken2.table,select=Phylum)))),
+      sort(pull(unique(subset(ps.q.agg,Sample%in%nmr.metagenome.samples,select=Phylum)))))
+intersect(sort(pull(unique(subset(kraken2.table,select=Phylum)))),
+          sort(pull(unique(subset(ps.q.agg,Sample%in%nmr.metagenome.samples,select=Phylum)))))
+# Only bacterial taxa here
+get_n_uniq_taxa_per_host(kraken2.table,"Species")
+get_n_uniq_taxa_per_host(kraken2.table,"Phylum")
+get_n_uniq_taxa_per_host(kraken2.table,"Family")
+get_n_uniq_taxa_per_host(kraken2.table,"Genus")
+
 
 # 8. Add relative abundance and average relative abundance columns ####
-# The function add_relab_to_tax_df: 1. Takes a table with absolute abundances
-# 2. Groups rows by class and samples
-# 3. Then adds a column with total abundance (sum of all reads) per
-# sample (TotalSample, which is a sum of Abundance column per sample per host)
-# 4. Then groups by class, sample, and a the lowest taxonomic rank (tax.rank)
-# 5. Then adds a column with relative abundances, which are absolute abundances
-# of each taxon in a sample divided by the total number of reads in a sample,
-# multiplied by 100.
-# 6. Then, the dataframe is grouped by class 
-# 7. And we add a TotalClass column, which is a sum of reads from all samples
-# belonging to a class.
-# 8. Then, we group by class and the lowest taxonomic rank (tax.rank).
-# 9. We add a TotalAgglomRank column, which is a sum of all reads of each 
-# tax.rank in each sample.
-# 8. Finally, the MeanRelativeAbundance column is the total number of reads
-# belonging to a certain taxon in a host divided by the total number of reads
-# from that host, multiplied by 100.
-# (MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
-add_relab_to_tax_df<-function(tax.df,tax.rank){
-  tax.df<-tax.df%>%
-    group_by(class,Sample)%>%
-    mutate(TotalSample=sum(Abundance))%>%
-    group_by_at(c("class","Sample",tax.rank))%>%
-    mutate(RelativeAbundance=Abundance/TotalSample*100)%>%
-    group_by(class)%>% # group by class (animal host),
-    mutate(TotalClass=sum(Abundance))%>%
-    group_by_at(c("class",tax.rank))%>%
-    mutate(TotalAgglomRank=sum(Abundance))%>%
-    mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
-  return(tax.df)
-}
-
 ps.q.agg.phylum.relab<-add_relab_to_tax_df(ps.q.agg.phylum,"Phylum")
 ps.q.agg.family.relab<-add_relab_to_tax_df(ps.q.agg.family,"Family")
 ps.q.agg.genus.relab<-add_relab_to_tax_df(ps.q.agg.genus,"Genus")
@@ -232,26 +161,6 @@ ps.q.agg.relab<-add_relab_to_tax_df(ps.q.agg,"OTU")
 # 9. Add agegroup (Must run for plotting) ####
 custom.md.ages<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))
 # we create these new levels for plots
-# The function add_agegroup_to_tax_df takes a dataframe of abundances,
-# the lowest taxonomic rank in the dataframe (e.g. genus), and a metadata with
-# age groups as input. It joins the dataframe with metadata, groups by age 
-# groups from the metadata, then sums the abundances from each age group.
-# These sums are added as a column TotalAgegroup. Then, the function 
-# groups by age group and the lowest taxonomic rank, and sums abundances for each
-# taxonomic rank in each age group (TotalAgglomRankAge column). Finally,
-# the function calculates the average relative abundance of each taxonomic rank
-# inside each age group.
-add_agegroup_to_tax_df<-function(tax.df,tax.rank,metadata.df){
-  tax.df<-tax.df%>%
-    left_join(metadata.df[,c("Sample","agegroup","old_agegroup")],by="Sample")%>%
-    group_by(agegroup)%>% # group by class (animal host),
-    mutate(TotalAgegroup=sum(Abundance))%>%
-    group_by_at(c("agegroup",tax.rank))%>%
-    mutate(TotalAgglomRankAge=sum(Abundance))%>%
-    mutate(MeanRelativeAbundanceAgegroup=TotalAgglomRankAge/TotalAgegroup*100)%>%
-    ungroup()%>%
-    select(-TotalAgegroup,-TotalAgglomRankAge)
-}
 
 
 ps.q.agg.family.relab.nmr<-ps.q.agg.family.relab%>%
@@ -262,64 +171,18 @@ ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
   filter(class=="NMR")
 
 ps.q.agg.family.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.family.relab.nmr,"Family",
-                                              custom.md.ages)
+                                                  custom.md.ages)
 ps.q.agg.genus.relab<-add_agegroup_to_tax_df(ps.q.agg.genus.relab,"Genus",
                                              custom.md.ages)
 ps.q.agg.relab<-add_agegroup_to_tax_df(ps.q.agg.relab,"OTU",
                                        custom.md.ages)
-# 10. Check the percentage of unclassified taxa in each animal ####
+# 10. Calculate summary stats of unclassified genera in each animal (unrarefied) ####
 # Here, we are interested in unclassified genera, but you can also try Families,
 # Orders, Classes, etc.
 all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
 agglom.rank<-"Genus"
-# In filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank], collapse='|'),get(agglom.rank))),
-# we are searching agglom.rank column for taxa that have a higher rank
-# in their name. For example, Bacteria Kingdom is unclassified, and if it's in
-# the agglom.rank column, we find the word "Bacteria" which makes it an 
-# unclassified taxon.
-# In summarise(TotalUnclassifiedPercent=sum(RelativeAbundance)), we sum the 
-# relative abundance of all taxa that were unclassified in a given sample
-# from a given host (because we group by sample and class).
-# We calculate Mean, SD, min, max, and median of unclassified percentages.
-# After that, there is no need for the TotalUnclassifiedPercent column because 
-# the summary statistics are calculated for every host. So, we keep unique rows
-# Note: stats are the same for rarefied and non-rarefied data
-unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(Sample,class)%>%
-  summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
-  group_by(class)%>%
-  mutate(MeanTotalUnclassifiedPercent=round(mean(TotalUnclassifiedPercent)),
-         SDTotalUnclassifiedPercent=round(sd(TotalUnclassifiedPercent)),
-         minTotalUnclassifiedPercent=round(min(TotalUnclassifiedPercent)),
-         maxTotalUnclassifiedPercent=round(max(TotalUnclassifiedPercent)),
-         MedianTotalUnclassifiedPercent=round(median(TotalUnclassifiedPercent)))%>%
-  select(-Sample,-TotalUnclassifiedPercent)%>%
-  distinct(class,.keep_all = T)%>%
-  arrange(-MeanTotalUnclassifiedPercent)
-### Get the number of unclassified genera in each host ####
-unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(class)%>%
-  distinct(Genus,.keep_all = T)%>%
-  tally()%>%
-  arrange(-n)%>%
-  rename(NumUnclassifiedGenera=n)%>%
-  left_join(unclassified.genus.summary.stats.table)
-### Sanity check: get the number of classified genera in each host (unrarefied) ####
-unclassified.genus.summary.stats.table<-ps.q.agg.genus.relab%>%
-  # filter(class=="NMR")%>%
-  filter(!grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(class)%>%
-  distinct(Genus,.keep_all = T)%>%
-  tally()%>%
-  arrange(-n)%>%
-  rename(NumClassifiedGenera=n)%>%
-  left_join(unclassified.genus.summary.stats.table)
-
+unclassified.genus.summary.stats.table<-get_unclassified_summary_stats(ps.q.agg.genus.relab,
+                                                                       "Genus")
 # write.table(unclassified.genus.summary.stats.table,
 #             file=file.path(rtables.directory,
 #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -454,44 +317,9 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 #        width = 4500,height = 3000,
 #        units = "px",dpi=300,device = "png")
 
-### 11.3 Calculate summary stats of unclassified taxa for rarefied data ####
-unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(Sample,class)%>%
-  summarise(TotalUnclassifiedPercent=sum(RelativeAbundance))%>%
-  group_by(class)%>%
-  mutate(MeanTotalUnclassifiedPercent=round(mean(TotalUnclassifiedPercent)),
-         SDTotalUnclassifiedPercent=round(sd(TotalUnclassifiedPercent)),
-         minTotalUnclassifiedPercent=round(min(TotalUnclassifiedPercent)),
-         maxTotalUnclassifiedPercent=round(max(TotalUnclassifiedPercent)),
-         MedianTotalUnclassifiedPercent=round(median(TotalUnclassifiedPercent)))%>%
-  select(-Sample,-TotalUnclassifiedPercent)%>%
-  distinct(class,.keep_all = T)%>%
-  arrange(-MeanTotalUnclassifiedPercent)
-### 11.4 Get the number of unclassified genera for rarefied data ####
-unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
-  filter(grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                     collapse='|'),get(agglom.rank)))%>%
-  group_by(class)%>%
-  distinct(Genus,.keep_all = T)%>%
-  tally()%>%
-  arrange(-n)%>%
-  rename(NumUnclassifiedGenera=n)%>%
-  left_join(unclassified.genus.summary.stats.table.rare)
-
-### Sanity check: get the number of classified genera in rarefied data ####
-unclassified.genus.summary.stats.table.rare<-ps.q.agg.genus.rare.relab%>%
-  # filter(class=="NMR")%>%
-  filter(!grepl(paste(all.ranks[! all.ranks %in% agglom.rank],
-                      collapse='|'),get(agglom.rank)))%>%
-  group_by(class)%>%
-  distinct(Genus,.keep_all = T)%>%
-  tally()%>%
-  arrange(-n)%>%
-  rename(NumClassifiedGenera=n)%>%
-  left_join(unclassified.genus.summary.stats.table.rare)
-
+### 11.3 Calculate summary stats of unclassified genera in rarefied data ####
+unclassified.genus.summary.stats.table.rare<-get_unclassified_summary_stats(ps.q.agg.genus.rare.relab,
+                                                                            "Genus")
 # write.table(unclassified.genus.summary.stats.table.rare,
 #             file=file.path(rtables.directory,
 #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -579,7 +407,7 @@ ps.q.agg.genus.relab%>%
   mytheme + 
   theme(axis.text.x = element_markdown(angle=45,size=20,hjust=1) # rotate 
         # the x-axis labels by 45 degrees and shift to the right
-        )
+  )
 # for(image.format in image.formats){
 #   ggsave(paste0(boxplot.directory,
 #                 paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -604,53 +432,6 @@ ps.q.agg.genus.relab%>%
   summarise(sumab=sum(RelativeAbundance))
 
 # 12. Check the most abundant phyla, families, genera in NMR ####
-# The function get_dominant_taxa_in_host uses a dataframe with abundances, 
-# the taxonomic rank for which you want to find dominant taxa (e.g. dominant genera), 
-# and the host name/names.
-# If there is on host, the function filters the dataframe, adds a column
-# with the total abundance (sum of all reads in the host), then groups
-# by taxonomic rank (e.g. genus) and calculates the total abundance of each taxon.
-# After that, the function adds a column with average relative abundance 
-# of each taxon.
-# If there are two or more hosts, the procedure is the same, except we 
-# group by class before counting total abundance and group by both class and 
-# taxonomic rank before calculating total abundance of each taxon.
-# The function selects the necessary columns like Phylum or Family, sorts
-# by average relative abundance and returns a filtered dataframe.
-get_dominant_taxa_in_host<-function(tax.df,tax.rank,host){
-  if(length(host)==1){
-    tax.df<-tax.df%>%
-      ungroup()%>%
-      filter(class==host)%>%
-      mutate(TotalClass=sum(Abundance))%>%
-      group_by_at(c(tax.rank))%>%
-      mutate(TotalAgglomRank=sum(Abundance))%>%
-      mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
-    
-  }else if (length(host)>1){
-    tax.df<-tax.df%>%
-      filter(class%in%host)%>%
-      group_by(class)%>%
-      mutate(TotalClass=sum(Abundance))%>%
-      group_by_at(c("class",tax.rank))%>%
-      mutate(TotalAgglomRank=sum(Abundance))%>%
-      mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)
-  }
-  if(tax.rank=="Phylum"){
-    tax.df<-tax.df%>%
-      select(all_of(c(tax.rank,"MeanRelativeAbundance")))
-  }else if(tax.rank=="Family"){
-    tax.df<-tax.df%>%
-      select(Phylum,Family,MeanRelativeAbundance)
-  }else if (tax.rank=="Genus"){
-    tax.df<-tax.df%>%
-      select(Phylum,Family,Genus,MeanRelativeAbundance)
-  }
-  tax.df<-tax.df%>%
-    distinct()%>%
-    arrange(-MeanRelativeAbundance)
-  return(tax.df)
-}
 
 
 ps.q.agg.dominant.phyla.nmr<-get_dominant_taxa_in_host(ps.q.agg.phylum,
@@ -694,10 +475,10 @@ ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
 #   "workspace.RData",sep = "-")))
 # 
 # ### 13.1 Total number of unique ASV/phyla/families/genera per class in Debebe ####
-# n.asv.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.biagi,"OTU")
-# n.phylum.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.phylum.biagi,"Phylum")
-# n.family.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.family.biagi,"Family")
-# n.genus.per.host.biagi<-get.n.uniq.taxa.per.host(ps.q.agg.genus.biagi,"Genus")
+# n.asv.per.host.biagi<-get_n_uniq_taxa_per_host(ps.q.agg.biagi,"OTU")
+# n.phylum.per.host.biagi<-get_n_uniq_taxa_per_host(ps.q.agg.phylum.biagi,"Phylum")
+# n.family.per.host.biagi<-get_n_uniq_taxa_per_host(ps.q.agg.family.biagi,"Family")
+# n.genus.per.host.biagi<-get_n_uniq_taxa_per_host(ps.q.agg.genus.biagi,"Genus")
 # 
 # ### 13.2 Summary statistics table from Debebe ####
 # summary.stats.table.biagi<-create_summary_stats_table(ps.q.agg.genus.biagi,
@@ -834,9 +615,9 @@ ps.q.agg.dominant.genera.nmr<-get_dominant_taxa_in_host(ps.q.agg.genus,
 
 # 14. Compare dominant phyla, and genera in NMR vs mice ####
 ps.q.agg.dominant.phyla.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.phylum,
-                                                               "Phylum",c("NMR","B6mouse"))
+                                                               "Phylum",c("NMR","B6mouse"),nonbacterial.table = F)
 ps.q.agg.dominant.families.nmr_b6mouse<-get_dominant_taxa_in_host(ps.q.agg.family,
-                                                                  "Family",c("NMR","B6mouse"))
+                                                                  "Family",c("NMR","B6mouse"),nonbacterial.table = F)
 
 # 15. Check how much Bacteroidaceae are in NMR  ####
 bacteroidaceae.nmr<-ps.q.agg.family.relab%>%
@@ -873,10 +654,10 @@ bacteroidota.nmr<-ps.q.agg.family.relab%>%
 spirochaetaceae.nmr<-ps.q.agg.family.relab%>%
   filter(Family=="Spirochaetaceae",class=="NMR")%>%
   mutate(min=min(RelativeAbundance),
-            max=max(RelativeAbundance),
-            mean=TotalAgglomRank/TotalClass*100,
-            sd=sd(RelativeAbundance),
-            n=n())%>%
+         max=max(RelativeAbundance),
+         mean=TotalAgglomRank/TotalClass*100,
+         sd=sd(RelativeAbundance),
+         n=n())%>%
   select(Family,min,max,mean,sd,n)%>%
   distinct()
 spirochaetota.nmr<-ps.q.agg.phylum.relab%>%
@@ -1028,7 +809,7 @@ ps.q.agg.genus.relab%>%
   # So, we use rev() to address the flipping VVV
   scale_x_discrete(labels=rev(pretty.level.names), # new labels (named vector) on the axis
                    limits=rev(custom.levels) # limits adjust which levels (and in what order) are displayed
-                   )+ # rename boxplot labels 
+  )+ # rename boxplot labels 
   scale_fill_manual(values = rev(custom.fill))+ # use custom color for boxplots (values matches data to the named vector)
   theme(plot.margin=unit(c(1,1,1,2), 'cm'),
         axis.title.y = element_blank(),
@@ -1105,155 +886,7 @@ group2.unhealthy.families%in%ps.q.agg.family.relab.nmr$Family
 group3.genera%in%ps.q.agg.genus.relab.nmr$Genus
 group3.families%in%ps.q.agg.family.relab.nmr$Family
 
-# The function ggplot.species creates a faceted barplot of abundance for each
-# taxon per sample (only NMR). It uses a vector with names of taxa, a dataframe with
-# abundances, and a taxonomic rank (e.g. Genus). It creates age groups for the 
-# barplot and creates levels for the color palette.
-# The function keeps only taxa that are found in the taxa.to.plot. vector using
-# filter(get(tax.rank)%in%taxa.to.plot). It doesn't matter if we plot only
-# one taxon or multiple. Taxonomic rank also doesn't matter.
-# The barplot is faceted by taxon and bars are colored by age group. The
-# palette is created with Polychrome library. The function returns a ggplot object.
-ggplot.species<-function(taxa.to.plot,
-                         tax.df,
-                         tax.rank){ 
-  gg.labs.name<-"Age group"
-  pretty.agegroup.names<-c("Young","Old")
-  # add names to age groups to match the dataframe
-  names(pretty.agegroup.names)<-tax.df%>%
-    ungroup()%>%
-    select(agegroup)%>%
-    distinct(agegroup)%>%
-    arrange(agegroup)%>%
-    pull
-  agegroup.levels<-names(pretty.agegroup.names)
-  set.seed(1)
-  agegroup.fill<-createPalette(length(agegroup.levels),
-                               seedcolors = c("#EE2C2C","#5CACEE","#00CD66",
-                                              "#FF8C00","#BF3EFF", "#00FFFF",
-                                              "#FF6EB4","#00EE00","#EEC900",
-                                              "#FFA07A"))
-  names(agegroup.fill)<-agegroup.levels
-  
-  ggplot.object<-tax.df%>%
-    filter(get(tax.rank)%in%taxa.to.plot)
-  
-  # order the plot by species vector
-  taxa.to.plot<-gsub("_"," ",taxa.to.plot)
-  taxa.to.plot<-paste0("<i>",taxa.to.plot,"</i>")
-  # create a dataframe of samples in each age group
-  sample.levels<-tax.df%>%
-    ungroup()%>%
-    filter(class=="NMR")%>%
-    select(Sample,age)%>%
-    arrange(age,Sample)%>%
-    distinct()
-  # convert samples to factors
-  sample.levels$Sample<-factor(sample.levels$Sample,
-                               levels=unique(sample.levels$Sample))
-  # !!tax.rank:= taxa (bang bang) evaluates the tax.rank before the rest is evaluated
-  # to substitute an environment-variable (created with <-) with a data-variable (inside a data frame).
-  # https://rlang.r-lib.org/reference/topic-inject.html
-  ggplot.object<-ggplot.object%>%
-    mutate(!!tax.rank:=gsub("_"," ",get(tax.rank)),# remove underscores
-           !!tax.rank:=paste0("<i>",get(tax.rank),"</i>"), # convert into italic
-           !!tax.rank:=factor(get(tax.rank),levels=taxa.to.plot))%>% # taxa as factors
-    mutate(Sample=factor(Sample,levels=sample.levels$Sample))%>% # samples as factors
-    group_by_at(c("class",tax.rank))%>%
-    ggplot(aes(x=Sample,
-               y=RelativeAbundance,
-               fill=factor(agegroup)))+
-    geom_bar(stat="identity")+
-    facet_wrap(~get(tax.rank), # faceted barplot
-               scales = "free",
-               ncol = 2)+
-    theme_bw()+
-    labs(x="",
-         y="Relative abundance (%)",
-         fill=gg.labs.name)+
-    scale_color_manual(breaks = unname(pretty.agegroup.names),
-                       labels=unname(pretty.agegroup.names))+
-    scale_x_discrete(labels=pretty.agegroup.names,
-                     limits=sample.levels$Sample)+
-    scale_fill_manual(values = agegroup.fill,
-                      labels=pretty.agegroup.names)+
-    theme(axis.title.y = element_text(size = 25),
-          axis.title = element_text(size = 20),
-          axis.text.y = ggtext::element_markdown(size=18),
-          axis.text.x = element_text(size=20),
-          strip.text.x = ggtext::element_markdown(size=20),
-          plot.title = element_text(size = 27),
-          legend.text = element_text(size = 20),
-          legend.title = element_text(size = 25),
-          legend.position = "right")
-  return(ggplot.object)
-}
 
-# The function add_zero_rows adds rows with Abundance = 0 to a dataframe tax.df
-# based on a vector taxa.vector in the taxonomic rank tax.rank. When we create
-# a barplot using the ggplot.species function, we want to show all bars, even 
-# those with 0 value. So, we use the function add_zero_rows for adding empty bars.
-# 1. The function loops through each sample in the dataframe: for (sample.name in unique(tax.df$Sample)).
-# 2. The function creates a missing_taxa vector: setdiff(taxa.vector, tax.df[[tax.rank]][tax.df$Sample == sample.name]).
-# The rationale is this: find which rows belong to a sample sample.name: tax.df$Sample == sample.name.
-# The result is a vector of TRUE/FALSE values.
-# Then, extract all rows with taxa at the tax.rank column as a vector: tax.df[[tax.rank]].
-# Then, keep only those taxa that are found in the sample.name sample (if
-# tax.df$Sample == sample.name is TRUE, then we keep tax.df[[tax.rank]] ).
-# Finally, the function checks if the taxa in the taxa.vector are found in the filtered vector.
-# If some taxon isn't found, the function will add a row with 0 Abundance. This
-# taxon will be in the missing_taxa vector
-# 3. Once the function creates the missing_taxa vector, it checks its length.
-# If the length >0, the function will proceed to creation of zero rows: if (length(missing_taxa) > 0) 
-# 4. While looping through each taxon in the missing_taxa vector, the function
-# creates a new row as a tibble with 5 columns: Sample is the sample.name that 
-# it's looping through in step 1. 
-# The Abundance and RelativeAbundance columns will have a 0 value.
-# If the tax.rank is Species, the next column is "Species", and the value is 
-# the missing taxon. Otherwise, the function creates a column according to tax.rank.
-# If the tax.rank is Species, the Genus column will have a value from the tax.df
-# (tax.df is filtered by Species column and Genus is kep, then pooled): 
-# unique(pull(tax.df[which(tax.df$Species==taxa),"Genus"])))
-# 5. The new_row is added to the tax.df using the add_row function at the end 
-# of the dataframe. !!! is a splicing operator that injects a list of 
-# arguments: tax.df %>% add_row(.before = nrow(df), !!!new_row)
-# https://rlang.r-lib.org/reference/splice-operator.html
-# https://rlang.r-lib.org/reference/topic-inject.html
-# !!! is not the same as !!
-# 6. The columns that have NA value after injection will be filled by the 
-# corresponding value from the same sample. So, if "age" column is empty in the
-# 2D10 sample, dplyr will take the value from the other row that is not empty.
-add_zero_rows<-function(taxa.vector,tax.df,tax.rank){
-  tax.df<-tax.df%>%ungroup() # just in case
-  for (sample.name in unique(tax.df$Sample)) {
-    missing_taxa <- setdiff(taxa.vector, tax.df[[tax.rank]][tax.df$Sample == sample.name])
-    if (length(missing_taxa) > 0) {
-      for (taxa in missing_taxa) {
-        if(tax.rank=="Species"){
-          new_row <- tibble(Sample = sample.name, 
-                            Species= taxa, 
-                            Abundance = 0,
-                            RelativeAbundance=0,
-                            Genus=unique(pull(tax.df[which(tax.df$Species==taxa),"Genus"])))
-        }else{
-          new_row <- tibble(Sample = sample.name, 
-                            !!tax.rank:= taxa, 
-                            Abundance = 0,
-                            RelativeAbundance=0)
-        }
-        # !!! injects a list of arguments
-        tax.df <- tax.df %>% add_row(.before = nrow(df), !!!new_row)
-      }
-    }
-  }
-  # To fill the NA values in the empty columns based on non-empty rows in the Sample column 
-  tax.df<- tax.df %>%
-    group_by(Sample) %>%
-    fill(age, .direction = "down")%>%
-    fill(agegroup, .direction = "down")%>%
-    fill(old_agegroup, .direction = "down")
-  
-}
 # 1. The function show.mean.abundances.and.plot filters the dataframe with 
 # absolute abundances (tax.df) to retain ones specified in the taxa.to.plot vector.
 # It groups the dataframe by taxonomic rank column (e.g. genera) and age groups,
@@ -1531,9 +1164,9 @@ ps.q.agg.relab.nmr%>%
   filter(OTU%in%subset(shared.otu.genera,Genus%in%unique(shared.otu.genera$Genus)[1:5])$OTU)%>%
   ggplot(aes(x=NewSample,y=RelativeAbundance,fill=Genus))+
   geom_bar(stat="identity")
-  # facet_grid(~agegroup,
-  #            space = "free", # bars will have same widths
-  #            scales="free")
+# facet_grid(~agegroup,
+#            space = "free", # bars will have same widths
+#            scales="free")
 
 # Finished up to this line ^^^^ ################################################ 
 # Which shared ASVs are the most abundant? ####
@@ -1595,7 +1228,7 @@ ps.q.agg.relab.nmr%>%
 top10.asv.union<-sort(union(top10.asv.young$OTU[1:10],top10.asv.old$OTU[1:10]))
 set.seed(1)
 otu.fill<-createPalette(length(top10.asv.union),
-                             seedcolors = c("#FF0000", "#00FF00", "#0000FF"),
+                        seedcolors = c("#FF0000", "#00FF00", "#0000FF"),
                         range=c(30, 80))
 names(otu.fill)<-top10.asv.union
 
@@ -1644,8 +1277,8 @@ m40.asvs<-ps.q.agg.relab.nmr%>%
 
 set.seed(1)
 m40.otu.fill<-createPalette(length(m40.asvs$OTU),
-                        seedcolors = c("#FF0000", "#00FF00", "#0000FF"),
-                        range=c(30, 80))
+                            seedcolors = c("#FF0000", "#00FF00", "#0000FF"),
+                            range=c(30, 80))
 names(m40.otu.fill)<-sort(m40.asvs$OTU)
 
 ps.q.agg.relab.nmr%>%
@@ -1716,12 +1349,12 @@ young.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
 old.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
   filter(agegroup=="agegroup10_16")%>%
   arrange(-MeanRelativeAbundanceAgegroup)
-  
+
 
 
 all.div.filtered<-ps.q.agg.relab.nmr%>%
   filter(OTU%in%intersect(young.ps.q.agg.relab.nmr$OTU,
-                   old.ps.q.agg.relab.nmr$OTU))%>%
+                          old.ps.q.agg.relab.nmr$OTU))%>%
   group_by(Sample)%>%
   reframe(sobs=specnumber(Abundance), # richness (num of species)
           shannon=diversity(Abundance,index = "shannon"),
@@ -1737,7 +1370,7 @@ all.div.filtered<-ps.q.agg.relab.nmr%>%
 
 # There are still differences
 ggplot(all.div.filtered[all.div.filtered$metric %in%
-                 plot.metrics,],
+                          plot.metrics,],
        # aes(x=reorder(class,-value),y=value,fill=class))+
        aes(x=factor(all.div.filtered$agegroup,
                     level=custom.levels),y=value,fill=factor(agegroup)))+
@@ -1900,7 +1533,7 @@ ps.q.agg.genus.nmr.meanrelab.wide<-ps.q.agg.genus.nmr.meanrelab.full%>%
          agegroup10_16=round(agegroup10_16,digits = 4),
          MeanRelativeAbundance=round(MeanRelativeAbundance,digits=4),
          young_vs_old=round(young_vs_old,digits=4))
-  
+
 
 ps.q.agg.genus.nmr.meanrelab.wide<-ps.q.agg.genus.relab.nmr%>%
   group_by(Genus)%>%
@@ -1909,7 +1542,7 @@ ps.q.agg.genus.nmr.meanrelab.wide<-ps.q.agg.genus.relab.nmr%>%
   ungroup()%>%
   distinct(Genus,.keep_all = T)%>%
   right_join(ps.q.agg.genus.nmr.meanrelab.wide)
-  
+
 nmr.genera.selected<-ps.q.agg.genus.nmr.meanrelab.wide%>%
   filter(abs(young_vs_old)>1)
 
@@ -1998,7 +1631,7 @@ filtered.df<-ps.q.agg.genus.relab.nmr%>%
   mutate(MeanRelativeAbundanceAgegroup=TotalAgglomRankAge/TotalAgegroup*100)%>%
   ungroup()%>%
   select(-TotalAgegroup,-TotalAgglomRankAge)
-  
+
 
 ######### After filtering ############
 filtered.dominant.genera.agegroup0_10<-filtered.df%>%
