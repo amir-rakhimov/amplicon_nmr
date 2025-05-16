@@ -10,18 +10,16 @@ filter.status<-"nonfiltered"
 ps.q.df.preprocessed.date_time<-"20240426_22_00_04" # all hosts, genus level
 image.formats<-c("png","tiff")
 
-pretty.level.names<-
-  c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-    "B6mouse" = "B6 mouse",
-    "MSMmouse" = "MSM/Ms mouse",
-    "FVBNmouse" = "FVB/N mouse",
-    "DMR" = "*Fukomys Damarensis*",
-    "hare" = "*Lepus europaeus*",
-    "rabbit" = "*Oryctolagus cuniculus*",
-    "spalax" = "*Nannospalax leucodon*",
-    "pvo" = "*Pteromys volans orii*",
-    "NMRwt"="Wild *Heterocephalus glaber*"
-  )
+pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
+                      "NMRwt"="Wild *Heterocephalus glaber*",
+                      "DMR" = "*Fukomys Damarensis*",
+                      "B6mouse" = "B6 mouse",
+                      "MSMmouse" = "MSM/Ms mouse",
+                      "FVBNmouse" = "FVB/N mouse",
+                      "spalax" = "*Nannospalax leucodon*",
+                      "pvo" = "*Pteromys volans orii*",
+                      "hare" = "*Lepus europaeus*",
+                      "rabbit" = "*Oryctolagus cuniculus*")
 
 excluded.samples<-
   c(#"MSMmouse",
