@@ -507,7 +507,7 @@ desulfobacterota.all.sd<-ps.q.agg.genus.relab%>%
               values_fill = 0)
 colnames(desulfobacterota.all.sd)[which(colnames(desulfobacterota.all.sd)!="class")]<-
   paste0("SD",colnames(desulfobacterota.all.sd)[which(colnames(desulfobacterota.all.sd)!="class")])
-desulfobacterota.all.mean%>%left_join(desulfobacterota.all.sd)%>%View
+desulfobacterota.all.mean%>%left_join(desulfobacterota.all.sd)
 
 ### 14.1 Total Desulfobacterota in NMR ####
 ps.q.agg.phylum.relab%>%
@@ -584,7 +584,7 @@ ps.q.agg.genus.relab%>%
 # }
 
 
-# Not in the paper ####
+# vvvvv Not in the paper vvvvv ####
 # Bar plot of the total number of unique genera per host ####
 summary.stats.table%>%
   ggplot(aes(x=reorder(class,-GeneraPerHost),y=GeneraPerHost))+
