@@ -199,7 +199,7 @@ unclassified.genus.summary.stats.table<-
 #                                  "unclassified-genus-summary-table.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 
-# 8. Rarefy the table and check the percentage of unclassified taxa (Table 3) ####
+# 8. Rarefy the table and check the percentage of unclassified taxa (Table 2) ####
 # Convert the data frame into wide format: rows are samples and columns
 # are taxa
 get_rarefied_table<-function(tax.df,tax.rank,host.classes){
