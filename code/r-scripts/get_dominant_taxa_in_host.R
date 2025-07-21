@@ -11,7 +11,7 @@
 # taxonomic rank before calculating total abundance of each taxon.
 # The function selects the necessary columns like Phylum or Family, sorts
 # by average relative abundance and returns a filtered dataframe.
-get_dominant_taxa_in_host<-function(tax.df,tax.rank,host,nonbacterial.table){
+get_dominant_taxa_in_host<-function(tax.df,tax.rank,host,nonbacterial.table=FALSE){
   if(length(host)==1){
     dominant_taxa_table<-tax.df%>%
       ungroup()%>%
