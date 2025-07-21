@@ -12,7 +12,7 @@ truncationlvl<-"234"
 agglom.rank<-"OTU"
 read.end.type<-"single"
 rare.status<-"rare"
-rdafiles.directory<-"./output/rdafiles/use"
+rdafiles.directory<-"./output/rdafiles"
 rtables.directory<-file.path("./output/rtables",authorname)
 
 ps.q.agg.date_time<-"20240620_12_38_18"
@@ -53,7 +53,7 @@ if(host=="NMR"){
 }
 
 
-# load the output of 003-phyloseq-rarefaction-filtering.R file
+# load the rarefied dataframe
 ps.q.df.preprocessed<-read.table(
   file.path(rtables.directory,paste0(
     paste(

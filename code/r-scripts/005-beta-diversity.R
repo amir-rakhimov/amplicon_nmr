@@ -1,3 +1,6 @@
+# This script performs beta-diversity tests like PERMANOVA or PCA
+# to see how similar our samples are, then plot the results using
+# nMDS, PCoA, and PCA biplot. In the final publication, we use only PCA
 # if(!requireNamespace("BiocManager")){
 #   install.packages("BiocManager")
 # }
@@ -32,6 +35,8 @@ ps.q.df.pca.input.date_time<-"20240426_22_00_04"
 custom.md<-readRDS("./output/rdafiles/custom.md.rds")
 
 image.formats<-c("png","tiff")
+
+# For filenames
 plot.types<-c("plot"="",
               "plot.with.labels"="-with-labels")
 
@@ -90,9 +95,9 @@ if(exists("excluded.samples")){
 }
 # Choose distance metric
 dist.metric<-"robust.aitchison"
-dist.metric<-"jaccard"
-dist.metric<-"canberra"
-dist.metric<-"bray"
+# dist.metric<-"jaccard"
+# dist.metric<-"canberra"
+# dist.metric<-"bray"
 if(dist.metric=="bray"){
   beta.label<-"Bray-Curtis dissimilarities"
 }else { # in case of robust.aitchison, we need to substitute the dot
@@ -127,7 +132,8 @@ ps.q.df.wide<-as.matrix(ps.q.df.wide)
 
 
 # Calculate distances ####
-# Bray is meaningful only for integers (counts)
+# Bray is meaningful only for integers (counts). It's also not a distance metric,
+# so we shouldn't use it. We use robust Aitchison distance.
 set.seed(1)
 # Rarefaction is done by avgdist
 # computes the dissimilarity matrix of a dataset MULTIPLE times using vegdist

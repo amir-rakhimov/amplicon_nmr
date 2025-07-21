@@ -1,3 +1,7 @@
+# This script will analyse alpha diversity within hosts. We compare the 
+# number of observed species, Shannon diversity, and inverse Simpson.
+# We also plot diversity within NMR and mouse samples across age and samples.
+
 # if(!requireNamespace("BiocManager")){
 #   install.packages("BiocManager")
 # }
@@ -395,7 +399,7 @@ if(table(w.results<0.05)[2]>0){
 }
 
 
-# Per-sample plot ####
+# Per-sample plot for NMR ####
 nmr.sample.levels<-custom.md%>%
   filter(class=="NMR")%>%
   mutate(age=round(time_length(sampling_date-birthday,unit="years")))%>%
