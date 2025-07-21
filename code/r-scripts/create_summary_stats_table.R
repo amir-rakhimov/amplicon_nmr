@@ -1,5 +1,5 @@
 # The function create_summary_stats_table takes a dataframe
-# with ASV abundances (tax.df), groups by class (animal host), and adds a column with 
+# with ASV abundances (tax.df), groups it by class (animal host), and adds a column with 
 # number of samples per host (TotalSamplesPerHost). It uses a dplyr function n_distinct
 # 2. Then, the function adds a column with number of total reads per host (TotalReadsPerHost).
 # It uses a function sum() on Abundance column
@@ -28,16 +28,16 @@ create_summary_stats_table<-function(tax.df,
                                      n.phylum.table,
                                      n.family.table,
                                      n.genus.table){
-  final.summary.stats.table<-tax.df%>%
+  final.summary.stats.table<-tax.df%>% # take the whole dataframe
     group_by(class)%>%
-    mutate(TotalSamplesPerHost=n_distinct(Sample))%>%
-    mutate(TotalReadsPerHost=sum(Abundance))%>%
+    mutate(TotalSamplesPerHost=n_distinct(Sample))%>% # add column with Num of samples
+    mutate(TotalReadsPerHost=sum(Abundance))%>% # add column with total abundance per host
     group_by(Sample)%>%
-    mutate(LibrarySize=sum(Abundance))%>%
-    distinct(Sample,.keep_all = T)%>%
+    mutate(LibrarySize=sum(Abundance))%>% # add column with abundance per sample
+    distinct(Sample,.keep_all = T)%>% # keep unique rows
     group_by(class)%>%
-    mutate(MeanLibrarySize =round(mean(LibrarySize)),
-           SDLibrarySize=round(sd(LibrarySize)))%>%
+    mutate(MeanLibrarySize =round(mean(LibrarySize)), # mean library size
+           SDLibrarySize=round(sd(LibrarySize)))%>% # sd library size
     select(class,
            TotalSamplesPerHost,
            TotalReadsPerHost,
