@@ -1,5 +1,5 @@
 #' ---
-#' title: "Beta diversity analysis"
+#' title: "Principal component analysis of QIIME2 output"
 #' output: 
 #'   html_document:
 #'      toc: true
