@@ -7,14 +7,16 @@
 #' ---
 
 
-#' ```{r, setup phyloseq-qiime2.R, include=FALSE}
+#' ```{r, setup 001-phyloseq-qiime2.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
 #' ```{r, echo = FALSE}
 #' # For showing images, tables, etc: Use global path
 #' #knitr::spin("code/r-scripts/001-phyloseq-qiime2.R", knit = FALSE)
-#' #file.rename("code/r-scripts/001-phyloseq-qiime2.Rmd", "markdown/001-phyloseq-qiime2.Rmd")
-#' #rmarkdown::render('./markdown/001-phyloseq-qiime2.Rmd', 'html_document',
+#' #file.rename("code/r-scripts/001-phyloseq-qiime2.Rmd", 
+#' # "markdown/001-phyloseq-qiime2.Rmd")
+#' #rmarkdown::render('./markdown/001-phyloseq-qiime2.Rmd',
+#' # 'html_document',
 #' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
 #' ```
 #'  
@@ -22,25 +24,27 @@
 ## Introduction ####
 #'
 #' ## Introduction
-#' Once you produce the feature table, taxonomic classification, and the 
-#' phylogenetic tree in QIIME2, it's time to perform downstream processing
-#' in R. First, we need to import the QZA files using `qiime2R` package.
-#' We convert the QZA files directly into phyloseq objects.
+#' Once you produce the feature table, taxonomic classification, 
+#' and the phylogenetic tree in QIIME2, it's time to perform 
+#' downstream processing in R. First, we need to import the 
+#' QZA files using `qiime2R` package.
+#' We will convert the QZA files directly into phyloseq objects.
 #'
-#' The final output is the dataframe ps.q.agg custom.md metadata.
-#'
+#' The final output is the dataframe ps.q.agg and metadata custom.md.
 #' ps.q.agg and custom.md are saved as tsv files and rds files.
 #'
 #' 1) ps.q.agg is an ASV table with 7-13 columns   
 #' (7 if agglomerating at Phylum, 13 if agglomerating at ASV level):  
 #' * `Sample`: samples that were sequenced.   
 #' * `Abundance`: Absolute abundance of taxa.   
-#' * `class`: short names of animal hosts. The variable is factor with 9 levels 
-#' at most (B6mouse, DMR, FVBNmouse, hare, MSMmouse, NMR, pvo, rabbit, spalax).   
-#' The next seven columns may not all be in the table. If you agglomerate by 
-#' Genus, you don't see the Species column. And if you agglomerate by Family, you 
-#' don't see Genus and Species. But these are taxonomic ranks for ASVs that 
-#' we got from QIIME2.  
+#' * `class`: short names of animal hosts. The variable is factor 
+#' with 9 levels at most (B6mouse, DMR, FVBNmouse, hare, 
+#' MSMmouse, NMR, pvo, rabbit, spalax).   
+#' The next seven columns may not all be in the table. 
+#' If you agglomerate by Genus, you don't see the Species column. 
+#' And if you agglomerate by Family, you don't see Genus and 
+#' Species. But these are taxonomic ranks for ASVs that we got 
+#' from QIIME2.  
 #' * `Kingdom`  
 #' * `Phylum`  
 #' * `Class`  
@@ -48,43 +52,38 @@
 #' * `Family`  
 #' * `Genus`  
 #' * `Species`  
-#' * `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it as it is. Not
-#' included if you are not aggomerating by ASVs  
+#' * `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it 
+#' as it is. Not included if you are not aggomerating by ASVs.  
 #' * `RelativeAbundance`: Relative abundance of taxa in each sample.
 #' We calculate it by summing the Abundance of a taxon in each sample
 #' and dividing that sum by the sum of reads in that sample.  
-#' * `MeanRelativeAbundance`: Average relative abundance of a taxon in each host. We 
-#' calculate it by summing the absolute abundance of a taxon from all samples
-#' in a host and dividing by the sum of reads in that host.  
+#' * `MeanRelativeAbundance`: Average relative abundance of a taxon 
+#' in each host. We calculate it by summing the absolute 
+#' abundance of a taxon from all samples in a host and 
+#' dividing by the sum of reads in that host.  
 #'
 #' 2) custom.md is a dataframe with metadata. It has 5 variables:  
 #' * `class`: same as in ps.q.agg  
-#' * `animal`: full names of animal hosts.  The variable is factor with 9 levels 
-#' at most ("Fukomys Damarensis", "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
+#' * `animal`: full names of animal hosts.  The variable is 
+#' factor with 9 levels at most ("Fukomys Damarensis", 
+#' "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
 #' "naked mole rat", "Nannospalax leucodon", "Oryctolagus cuniculus", 
 #' "Pteromys volans orii", "SPF mouse, B6").
 #' "Fukomys Damarensis" is DMR, "FVB/N mouse" is FVBNmouse, "Lepus europaeus" is hare, 
 #' "MSM/Ms mouse" is MSMmouse, "naked mole rat" is NMR, 
-#' "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is rabbit, 
-#' "Pteromys volans orii" is pvo, "SPF mouse, B6" is B6mouse.  
+#' "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is 
+#' rabbit, "Pteromys volans orii" is pvo, "SPF mouse, B6" 
+#' is B6mouse.  
 #' * `sex`: sex of tested samples. Not all samples have it. It is a factor with
 #' four levels (F, M, NR, -)  
-#' * `birthday`: date of birth of samples. Not all samples have it. It is a 
-#' Date format variable.  
+#' * `birthday`: date of birth of samples. Not all samples have it. 
+#' It is a Date format variable.  
 #' * `Sample`: same as in ps.q.agg  
 #'
-#' Other objects characterize the experiment. Almost all variables are characters:  
-#' 
-#' 3) `agglom.rank` is the taxonomic rank by which we summarize the phyloseq table.  
-#' 4) `asvlevel` tells if output is summarized or not. If TRUE, the phyloseq table.
-#' was not agglomerated. If FALSE, it was summarized by agglom.rank.  
-#' 5) `read.end.type`: tells if we use single-end or paired-end data.  
-#' 6) `truncationlvl`: tells the truncation length used in QIIME2.
-#'
 #+ echo=FALSE
-## Load necessary libraries. ####
+## 1. Load necessary libraries. ####
 #'
-#' ## Load necessary libraries.
+#' ## 1. Load necessary libraries.
 # if (!requireNamespace("devtools", quietly = TRUE)){install.packages("devtools")}
 # devtools::install_github("jbisanz/qiime2R")
 # install.packages(
@@ -102,9 +101,9 @@ library(tidyverse)
 library(microViz)
 
 #+ echo=FALSE
-# ## Import data from QIIME2. #### 
+## 2. Import data from QIIME2. #### 
 #'
-#' ## Import data from QIIME2.  
+#' ## 2. Import data from QIIME2.  
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 authorname<-"pooled" # name of the folder with QIIME2 output
 # qza_file_date_time<-"20240425_02_57_13"
@@ -119,33 +118,38 @@ metadatadir<-file.path("./data/metadata",
 #' Specify the name of your metadata file.
 metadata.filename<-file.path(metadatadir,
                           paste("filenames",read.end.type,
-                                authorname,"raw-supercomp.tsv", sep = "-"))
+                                authorname,"raw-supercomp.tsv", 
+                                sep = "-"))
 biosample.md<-read.table("./data/metadata/pooled-metadata/biosample_metadata_for_ncbi.tsv",
                          sep = "\t", header= T)
 
-#' ## Import qza files and convert them into a phyloseq object.
-## Import qza files and convert them into a phyloseq object. ####
-# ps.q<-qza_to_phyloseq(
-#   features = file.path(qiimedir, paste0(paste(authorname,read.end.type,
-#                                               "filtered-table-trimmed-dada2",
-#                     truncationlvl,sep="-"),".qza")), # feature table
-#   taxonomy = file.path(qiimedir,paste0(paste(authorname,read.end.type,
-#                                              "filtered-taxonomy-trimmed-dada2",
-#                     truncationlvl,sep="-"),".qza")), # taxonomy
-#   tree = file.path(qiimedir,paste0(paste(authorname,read.end.type,
-#                                          "rooted-tree-trimmed-dada2",
-#                 truncationlvl,sep="-"),".qza")) # rooted tree
-# )
+#+ echo=FALSE
+## 3. Import qza files and convert them into a phyloseq object. ####
+#'
+#' ## 3. Import qza files and convert them into a phyloseq object.
 ps.q<-qza_to_phyloseq(
-  features = file.path(qiimedir, paste0(paste(qza_file_date_time,authorname,read.end.type,
+  features = file.path(qiimedir, paste0(paste(qza_file_date_time,
+                                              authorname,
+                                              read.end.type,
                                               "trimmed-dada2-table",
-                                              truncationlvl,"filtered",sep="-"),".qza")), # feature table
-  taxonomy = file.path(qiimedir,paste0(paste(qza_file_date_time,authorname,read.end.type,
+                                              truncationlvl,
+                                              "filtered",
+                                              sep="-"),".qza")), # feature table
+  taxonomy = file.path(qiimedir,paste0(paste(qza_file_date_time,
+                                             authorname,
+                                             read.end.type,
                                              "trimmed-dada2",
-                                             truncationlvl,"filtered-taxonomy",sep="-"),".qza")), # taxonomy
-  tree = file.path(qiimedir,paste0(paste(qza_file_date_time,authorname,read.end.type,
+                                             truncationlvl,
+                                             "filtered-taxonomy",
+                                             sep="-"),".qza")), # taxonomy
+  tree = file.path(qiimedir,paste0(paste(qza_file_date_time,
+                                         authorname,
+                                         read.end.type,
                                          "trimmed-dada2",
-                                         truncationlvl,"filtered-rooted-tree",sep="-"),".qza")) # rooted tree
+                                         truncationlvl,
+                                         "filtered-rooted-tree",
+                                         sep="-"),
+                                   ".qza")) # rooted tree
 )
 
 #' Change the name d__Kingdom to Kingdom.
@@ -156,13 +160,13 @@ tax_table(ps.q)<-as.matrix(ps.q.taxtab)
 rm(ps.q.taxtab)
 
 #+ echo=FALSE
-## Add custom metadata. ####
+## 4. Add custom metadata. ####
 #'
-#' ## Add custom metadata. 
+#' ## 4. Add custom metadata. 
 custom.md<-read.table(metadata.filename, header = T)
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
-#' Convert the Sample column into row names because phyloseq needs samples
-#' as rownames
+#' Convert the Sample column into row names because phyloseq 
+#' needs samples as rownames.
 #' 
 #' Remove absolute.filepath column.
 custom.md<-custom.md%>%
@@ -178,9 +182,9 @@ rownames(custom.md)<-custom.md$Sample
 sample_data(ps.q)<-custom.md
 
 #+ echo=FALSE
-### For NMR, we create a separate metadata object with age groups. ####
+### 4.1 For NMR, we create a separate metadata object with age groups. ####
 #'
-#' ### For NMR, we create a separate metadata object with age groups. ####
+#' ### 4.1 For NMR, we create a separate metadata object with age groups. ####
 custom.md.ages<-custom.md%>%
   select(Sample,class)%>%
   filter(class=="NMR")%>%
@@ -232,9 +236,9 @@ custom.md<-custom.md[!rownames(custom.md) %in%
 #             row.names = F,sep = "\t")
 
 #+ echo=FALSE
-### Construct the phyloseq object directly from QIIME2 output. ####
+### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
 #'
-#' ## Construct the phyloseq object directly from QIIME2 output. ####
+#' ### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
 #' We combine the phyloseq object with new metadata (if we excluded samples).
 ps.foo <- phyloseq(otu_table(ps.q),
                    sample_data(custom.md),
@@ -261,9 +265,9 @@ ps.q<-ps.q %>%
   subset_taxa(!Family %in% "Mitochondria")
 
 #+ echo=FALSE
-### Fix empty taxa with higher rank taxon. ####
+### 4.3 Fix empty taxa with higher rank taxon. ####
 #'
-#' ### Fix empty taxa with higher rank taxon. ####
+#' ### 4.3 Fix empty taxa with higher rank taxon. ####
 #' Because we want to remove NA values and make ambiguous "uncultured" or 
 #' "unclassified" taxa more understandable.
 ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
@@ -272,10 +276,9 @@ ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
                                 "wallaby_gut","uncultured_soil", 
                                 "uncultured_organism","uncultured_prokaryote"))
 #+ echo=FALSE
-## Convert the phyloseq object into a dataframe. ####
+## 5. Convert the phyloseq object into a dataframe. ####
 #'
-#' ## Convert the phyloseq object into a dataframe. ####
-
+#' ## 5. Convert the phyloseq object into a dataframe.
 ps.q.agg<-ps.q %>%
   psmelt() 
 ps.q.agg.phylum<-ps.q %>%
@@ -287,12 +290,10 @@ ps.q.agg.family<-ps.q %>%
 ps.q.agg.genus<-ps.q %>%
   tax_glom("Genus",NArm = FALSE) %>% # agglomerate by agglom.rank
   psmelt()  # transform the phyloseq object into an R dataframe
-
 ps.list <- list("OTU" = ps.q.agg, 
                "Phylum" = ps.q.agg.phylum,
                "Family" = ps.q.agg.family, 
                "Genus" = ps.q.agg.genus)
-
 for (ps.df.index in names(ps.list)){
   ps.df <- ps.list[[ps.df.index]]
   print(paste("Parsing data from the", ps.df.index, "table"))
@@ -305,28 +306,24 @@ for (ps.df.index in names(ps.list)){
     select(-sample_Sample)%>% # remove the duplicate column
     select(-sex,-birthday,-animal)
   print(paste("Number of rows in the filtered dataset:",nrow(ps.df)))
-  
-  # Number of samples in the filtered dataset. ####
+  ### 5.1 Number of samples in the filtered dataset. ####
   print(paste("Number of samples in the filtered dataset:"))
   ps.df%>%
     distinct(Sample)%>%
     tally()%>%
     print()
-  
-  # Number of features in the filtered dataset. ####
+  ### 5.2 Number of features in the filtered dataset. ####
   print(paste("Number of features in the filtered dataset:"))
   ps.df%>%
     distinct(OTU)%>%
     tally()%>%
     print()
-  
-  # Total frequency in the filtered dataset. ####
+  ### 5.3 Total frequency in the filtered dataset. ####
   print(paste("Total frequency in the filtered dataset:"))
   ps.df%>%
     summarise(TotalAbundance=sum(Abundance))%>%
     print()
-  
-  # Summary statistics (min, median, max, quartiles) of the filtered dataset. ####
+  ### 5.4 Summary statistics (min, median, max, quartiles) of the filtered dataset. ####
   print(paste("Summary statistics (min, median, max, quartiles) of the filtered dataset:"))
   ps.df%>%
     select(Sample,Abundance)%>%
@@ -336,7 +333,7 @@ for (ps.df.index in names(ps.list)){
     summary()%>%
     print()
   
-  # Add relative abundance column: Abundance divided by total abundance in a sample. ####
+  ## 6. Add relative abundance column: Abundance divided by total abundance in a sample. ####
   ps.df<-ps.df%>%
     group_by(class,Sample)%>%
     mutate(TotalSample=sum(Abundance))%>%
@@ -363,7 +360,7 @@ for (ps.df.index in names(ps.list)){
     geom_bar(stat="identity")+
     coord_flip()
   print(last_plot())
-  ## Add mean relative abundance data. ####
+  ### 6.1 Add mean relative abundance data. ####
   # We will group the dataset by three columns: class (animal host), 
   # two taxonomic ranks (e.g Genus, Family), and maybe OTU (actually ASV)
   # if we agglomerate at ASV level.
