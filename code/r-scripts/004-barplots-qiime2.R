@@ -1,9 +1,7 @@
 #' ---
-#' title: "Taxonomic barplot of QIIME2 output"
 #' output: 
-#'   html_document:
+#'   bookdown::html_document2:
 #'      toc: true
-#'      toc-location: left
 #' ---
 
 #' ```{r, setup 004-barplots-qiime2.R, include=FALSE}
@@ -16,7 +14,10 @@
 #' #rmarkdown::render('./markdown/004-barplots-qiime2.Rmd', 'html_document',
 #' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
 #' ```
-
+#+ echo=FALSE
+# Barplots ####
+#' # Barplots
+#'
 #+ echo=FALSE
 ## Introduction ####
 #'
@@ -30,7 +31,7 @@
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
 #'
-#' ## 1. Load necessary libraries.
+#' ## Load necessary libraries.
 # install.packages(c("tidyverse","ggtext","Polychrome"))
 library(tidyverse)
 library(Polychrome)
@@ -38,7 +39,7 @@ library(ggtext)
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
 #'
-#' ## 2. Specifying parameters and directory/file names. 
+#' ## Specifying parameters and directory/file names. 
 #' Name of the folder with QIIME2 output:
 authorname<-"pooled" 
 #' The taxonomic rank that was used for agglomeration:
@@ -53,7 +54,7 @@ rdafiles.directory<-"./output/rdafiles"
 #' Path for custom metadata:
 metadata.directory<-"./output/rdafiles" 
 image.formats<-c("png","tiff")
-#' Import the abundance table from 001-phyloseq-qiime2.R as rds file:
+#' Import abundance table as an rds file (NOT rarefied): 
 ps.q.agg.date_time<-"20260211_17_01_10"
 ps.q.agg<-readRDS(file=file.path(
   rdafiles.directory,
@@ -83,9 +84,9 @@ pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for fac
                       "rabbit" = "*Oryctolagus cuniculus*")
 
 #+ echo=FALSE
-## 4. Set up the barplot. ####
+## 3. Set up the barplot. ####
 #'
-#' ## 4. Set up the barplot.
+#' ## Set up the barplot.
 #' First, find where the agglom.rank column is located (what number the
 #' `Genus` columns is located at, for example). In case of ASV table, the 
 #' column is actually called `OTU`.  
@@ -111,9 +112,9 @@ if(agglom.rank%in%custom_order){
 }
 #'
 #+ echo=FALSE
-### 4.1 Tidy up the taxonomic names. ####
+### 3.1 Tidy up the taxonomic names. ####
 #'
-#' ### 4.1 Tidy up the taxonomic names. ####
+#' ### Tidy up the taxonomic names. ####
 #' First, merge the taxonomic columns into the "taxon" column to find 
 #' unclassified taxa.
 #' If a taxon has "Kingdom", "Phylum", "Class", "Order", etc. in one of those 
@@ -174,9 +175,9 @@ plot.cols<-c("#C1CDCD",plot.cols[1:length(plot.cols)-1])
 col.vec<-setNames(plot.cols,levels(new.df$taxon))
 
 #+ echo=FALSE
-## 5. Plot the barplot. ####
+## 4. Plot the barplot. ####
 #'
-#' ## 5. Plot the barplot.
+#' ## Plot the barplot.
 #' We will concatenate the sample name on the x-axis with the 
 #' number of reads in that sample. It will look like "Sample 1 (n = 25000)". 
 #' Actually, this kind of string will be stored in a new column 
@@ -259,3 +260,6 @@ print(barplot.all+
 #          # units = "px",
 #          dpi=800,device = image.format)
 # }
+sessionInfo()
+rm(list = ls(all=TRUE))
+gc()
