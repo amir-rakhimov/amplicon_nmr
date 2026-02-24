@@ -22,30 +22,50 @@ authorname<-"pooled" # name of the folder with QIIME2 output
 
 rtables.directory<-file.path("./output/rtables",authorname)
 read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+mytheme<-theme(plot.margin=unit(c(1,1,1,1.5), 'cm'),
+               strip.text.x = ggtext::element_markdown(size = 20),# the name of 
+               # each facet will be recognised as a markdown object, so we can
+               # add line breaks (cause host names are too long)
+               axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate 
+               # the x-axis labels by 45 degrees and shift to the right
+               axis.text.y = element_text(size=20), # size of y axis ticks
+               axis.title = element_text(size = 20), # size of axis names
+               plot.caption = element_text(size=23), # size of plot caption
+               panel.grid.minor = element_blank(),
+               panel.grid.major = element_blank(),
+               legend.title = element_text(size = 25) # size of legend title
+)
 # Import datasets as rds files
 ps.q.agg<-readRDS(file=file.path(
   rdafiles.directory,
-  paste("20240620_12_38_18","phyloseq-qiime",authorname,"OTU",read.end.type,
+  paste(
+    "20260211_17_01_07",
+    # "20240620_12_38_18",
+        "phyloseq-qiime",authorname,"OTU",read.end.type,
         truncationlvl,"table.rds",sep = "-")))
 ps.q.agg.genus<-readRDS(file=file.path(
   rdafiles.directory,
-  paste("20240620_12_40_41","phyloseq-qiime",authorname,"Genus",read.end.type,
+  # paste("20240620_12_40_41",
+  paste("20260211_17_01_10",
+        "phyloseq-qiime",authorname,"Genus",read.end.type,
         truncationlvl,"table.rds",sep = "-")))
 
 ps.q.agg.family<-readRDS(file=file.path(
   rdafiles.directory,
-  paste("20240917_10_54_12-phyloseq-qiime",authorname,"Family",read.end.type,
+  paste("20260211_17_01_09-phyloseq-qiime",authorname,"Family",read.end.type,
+  # paste("20240917_10_54_12-phyloseq-qiime",authorname,"Family",read.end.type,
         truncationlvl,"table.rds",sep = "-")))
 ps.q.agg.phylum<-readRDS(file=file.path(
   rdafiles.directory,
-  paste("20240917_21_29_36-phyloseq-qiime",authorname,"Phylum",read.end.type,
+  paste("20260211_17_01_08-phyloseq-qiime",authorname,"Phylum",read.end.type,
+  # paste("20240917_21_29_36-phyloseq-qiime",authorname,"Phylum",read.end.type,
         truncationlvl,"table.rds",sep = "-")))
 # Import metadata
 custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
 
 
 # Re-analyse the DMR dataset ####
-dmr.asvs <- read_tsv("./FreezeDriedVSFrozen-main/data/asv_table_FreezedriedVsFrozen.tsv", 
+dmr.asvs <- read_tsv("./data/dmr-original-data/asv_table_FreezedriedVsFrozen.tsv", 
                      col_types =cols(asv = col_character(),
                                      sample = col_character(),
                                      count = col_double(),
@@ -115,6 +135,9 @@ dmr.taxonomy.frozen<-dmr.taxonomy%>%
 ## Compare numbers of phyla, families, genera, and asv between datasets ####
 get_n_uniq_taxa_per_host(tax.df = dmr.asv.tax.df.frozen,tax.rank = "Phylum")
 get_n_uniq_taxa_per_host(tax.df = dmr.asv.tax.df,tax.rank = "Phylum")
+
+get_n_uniq_taxa_per_host(tax.df = ps.q.agg.phylum,tax.rank = "Phylum")
+
 
 get_n_uniq_taxa_per_host(tax.df = dmr.asv.tax.df.frozen,tax.rank = "Family")
 get_n_uniq_taxa_per_host(tax.df = dmr.asv.tax.df,tax.rank = "Family")
@@ -422,71 +445,117 @@ get_dominant_taxa_in_host(ps.q.agg.family,
 # 
 # 
 # #### 13.4.1 Bar plot of dominant families reported in the paper ####
-# wild.nmr.families<-data.frame(
-#   Family=c("Lachnospiraceae",
-#            "Prevotellaceae",
-#            "Paraprevotellaceae",
-#            "Bacteroidales Order",
-#            "Clostridiales Order",
-#            "Oscillospiraceae",
-#            "Veillonellaceae",
-#            "Clostridiaceae",
-#            "Muribaculaceae",
-#            "Porphyromonadaceae"),
-#   MeanRelativeAbundance=c(17.6,
-#                           11,
-#                           8.8,
-#                           6.2,
-#                           6.1,
-#                           5.7,
-#                           4.7,
-#                           4.1,
-#                           4,
-#                           3)
-# )
-# # Add a column if the family was reported as dominant or not
-# ps.q.agg.dominant.families.nmr.with_domin<-ps.q.agg.dominant.families.nmr%>%
-#   ungroup()%>%
-#   mutate(row.index=as.numeric(rownames(ps.q.agg.dominant.families.nmr)),
-#          dominant=ifelse(row.index<=10,"dominant","not_dominant"))
-# 
-# ps.q.agg.dominant.families.nmr.with_domin%>%
-#   select(Family,MeanRelativeAbundance,dominant)%>%
-#   distinct(Family,.keep_all = T)%>%
-#   filter(Family%in%wild.nmr.families$Family)%>%
-#   full_join(ps.q.agg.dominant.families.nmr.with_domin[1:10,c("Family","MeanRelativeAbundance","dominant")])%>%
-#   full_join(wild.nmr.families[,c("Family","MeanRelativeAbundance")],
-#             by="Family")%>%
-#   rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
-#   pivot_longer(cols = c("NMR","NMRwt"),
-#                names_to = "class",
-#                values_to = "MeanRelativeAbundance")%>%
-#   arrange(-MeanRelativeAbundance)%>%
-#   # head(n=30)%>%
-#   mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
-#   replace_na(replace =list( MeanRelativeAbundance=0))%>%
-#   ggplot(aes(x=reorder(Family,desc(MeanRelativeAbundance)),
-#              y=MeanRelativeAbundance,
-#              fill=animal))+
-#   geom_bar(stat = "identity",position = position_dodge2())+
-#   theme_bw()+
-#   labs(x="",
-#        y="Average relative abundance (%)")+
-#   labs(fill="")+
-#   coord_cartesian(expand = FALSE)+
-#   mytheme + # general ggplot theme
-#   theme(axis.text.x = element_text(angle=45,size=20,hjust=1),# rotate
-#         # the x-axis labels by 45 degrees and shift to the right
-#         legend.position = "inside",
-#         legend.position.inside = c(0.9,0.8))
-# # ggsave(file.path("./images/barplots",
-# #                  paste(paste(format(Sys.time(),format="%Y%m%d"),
-# #                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-# #                        "barplot-wild-vs-lab-nmr-from-paper.png")),
-# #        plot=last_plot(),
-# #        width = 5000,height = 4000,
-# #        units = "px",dpi=300,device = "png")  
+wild.nmr.families<-data.frame(
+  Family=c("Lachnospiraceae",
+           "Prevotellaceae",
+           "Paraprevotellaceae",
+           "Bacteroidales Order",
+           "Clostridiales Order",
+           "Oscillospiraceae",
+           "Veillonellaceae",
+           "Clostridiaceae",
+           "Muribaculaceae",
+           "Porphyromonadaceae",
+           "Spirochaetaceae"),
+  MeanRelativeAbundance=c(17.6,
+                          11,
+                          8.8,
+                          6.2,
+                          6.1,
+                          5.7,
+                          4.7,
+                          4.1,
+                          4,
+                          3,
+                          10.9)
+)
+
+ps.q.agg.family.relab<-add_relab_to_tax_df(ps.q.agg.family,"Family")
+ps.q.agg.dominant.families.all_hosts<-ps.q.agg.family.relab%>%
+  group_by(class)%>%
+  distinct(class,Phylum,Family, MeanRelativeAbundance,sdRelativeAbundance)%>%
+  group_by(class,Phylum,Family)%>%
+  arrange(class,desc(MeanRelativeAbundance))%>%
+  ungroup()
+
+ps.q.agg.dominant.families.nmr<-ps.q.agg.dominant.families.all_hosts%>%
+  filter(class=="NMR")
+
+
+# Add a column if the family was reported as dominant or not
+ps.q.agg.dominant.families.nmr.with_domin<-ps.q.agg.dominant.families.nmr%>%
+  mutate(row.index=as.numeric(rownames(ps.q.agg.dominant.families.nmr)),
+         dominant=ifelse(row.index<=10,"dominant","not_dominant"))
+
+debebe.comparison.plot<-ps.q.agg.dominant.families.nmr.with_domin%>%
+  select(Family,MeanRelativeAbundance,dominant)%>%
+  distinct(Family,.keep_all = T)%>%
+  filter(Family%in%wild.nmr.families$Family)%>%
+  full_join(ps.q.agg.dominant.families.nmr.with_domin[1:10,c("Family","MeanRelativeAbundance","dominant")])%>%
+  full_join(wild.nmr.families[,c("Family","MeanRelativeAbundance")],
+            by="Family")%>%
+  rename(NMR=MeanRelativeAbundance.x,NMRwt=MeanRelativeAbundance.y)%>%
+  pivot_longer(cols = c("NMR","NMRwt"),
+               names_to = "class",
+               values_to = "MeanRelativeAbundance")%>%
+  arrange(-MeanRelativeAbundance)%>%
+  mutate(Family=factor(Family,levels=unique(Family)))%>%
+  group_by(Family)%>%
+  mutate(Family_id=cur_group_id(),
+         Family_id=factor(Family_id,levels=unique(sort(Family_id))))%>%
+  ungroup%>%
+  mutate(animal=ifelse(class=="NMR","Lab-bred naked mole-rats","Wild naked mole-rats"))%>%
+  replace_na(replace =list( MeanRelativeAbundance=0))%>%
+  mutate(Family=gsub("_", " ", Family),
+         Family = stringr::str_wrap(Family,width=30),
+         Family=paste(Family_id,Family,sep = ": "),
+         Family=factor(Family, levels=unique(Family)))%>%
+  arrange(animal,desc(MeanRelativeAbundance))%>%
+  ggplot(aes(x=Family_id,
+             y=MeanRelativeAbundance,
+             fill=Family))+
+  geom_bar(stat = "identity",
+           position = position_dodge2(),
+           width=0.8 # distance between bars
+           )+
+  theme_bw()+
+  facet_grid(~animal,
+             scales="free_x",  # each species will have its own bars inside
+             # facet (instead of all bars)
+             space = "free_x")+
+  labs(x="",
+       y="Average relative abundance (%)")+
+  coord_cartesian(expand = c("bottom"=FALSE))+
+  # mytheme + # general ggplot theme
+  scale_fill_viridis_d(option = "C")+
+  theme(axis.text.x = element_text(angle=0,size=11,hjust=0.5,colour = "black"),# shift 
+        # the x-axis labels to the right
+        # legend.position = "inside",
+        axis.title = element_text(size = 15), # size of axis names
+        axis.text.y = element_text(size=11,color="black"),
+        strip.text.x = ggtext::element_markdown(size = 14),# the name of 
+        # each facet will be recognised as a markdown object, so we can
+        # add line breaks (cause host names are too long)
+        legend.position.inside = c(0.9,0.8),
+        legend.text = element_text(size=13),
+        legend.title = element_text(size = 16), # size of legend title
+        plot.caption = element_text(size=15), # size of plot caption
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()
+        )
+for(image.format in c("png","tiff")){
+  ggsave(file.path("./images/barplots",
+                 paste0(paste(format(Sys.time(),format="%Y%m%d"),
+                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                       "-barplot-wild-vs-lab-nmr-from-paper.",image.format)),
+       plot=debebe.comparison.plot,
+       width=11, height=6,units="in",
+       # width = 5700,height =2800, units = "px",
+       dpi=300,device = image.format)
+}
 
 
 
-
+sessionInfo()
+rm(list = ls(all=TRUE))
+gc()
