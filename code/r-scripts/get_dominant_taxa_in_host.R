@@ -1,7 +1,7 @@
 # The function get_dominant_taxa_in_host uses a dataframe with abundances, 
 # the taxonomic rank for which you want to find dominant taxa (e.g. dominant genera), 
 # and the host name/names.
-# If there is on host, the function filters the dataframe, adds a column
+# If there is one host, the function filters the dataframe, adds a column
 # with the total abundance (sum of all reads in the host), then groups
 # by taxonomic rank (e.g. genus) and calculates the total abundance of each taxon.
 # After that, the function adds a column with average relative abundance 

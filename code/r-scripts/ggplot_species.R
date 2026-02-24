@@ -18,8 +18,7 @@ ggplot_species<-function(taxa.to.plot,
                          group.names,
                          grouping.variable,
                          metadata.df,
-                         ggplot.fill.name,
-                         ggplot.fill.vector){
+                         ggplot.fill.name){
   ggplot.object<-tax.df%>%
     filter(get(tax.rank)%in%taxa.to.plot)
   
@@ -51,8 +50,8 @@ ggplot_species<-function(taxa.to.plot,
                        labels=unname(group.names))+
     scale_x_discrete(labels=sample.order$Sample,
                      limits=sample.order$Sample)+
-    scale_fill_manual(values = ggplot.fill.vector,
-                      labels=group.names)+
+    coord_cartesian(expand = c("bottom" = F))+
+    scale_fill_viridis_d(option = "C")+
     theme(axis.title.y = element_text(size = 25),
           axis.title = element_text(size = 20),
           axis.text.y = ggtext::element_markdown(size=18),
@@ -61,6 +60,8 @@ ggplot_species<-function(taxa.to.plot,
           plot.title = element_text(size = 27),
           legend.text = element_text(size = 20),
           legend.title = element_text(size = 25),
-          legend.position = "right")
+          legend.position = "right",
+          panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank())
   return(ggplot.object)
 }
