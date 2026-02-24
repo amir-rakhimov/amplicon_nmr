@@ -1,9 +1,7 @@
 #' ---
-#' title: "Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank"
 #' output: 
-#'   html_document:
+#'   bookdown::html_document2:
 #'      toc: true
-#'      toc-location: left
 #' ---
 
 
@@ -19,6 +17,10 @@
 #' # 'html_document',
 #' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
 #' ```
+#' 
+#+ echo=FALSE
+# Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank ####
+#' # Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank
 #'  
 #+ echo=FALSE
 ## Introduction ####
@@ -83,7 +85,7 @@
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
 #'
-#' ## 1. Load necessary libraries.
+#' ## Load necessary libraries.
 # if (!requireNamespace("devtools", quietly = TRUE)){install.packages("devtools")}
 # devtools::install_github("jbisanz/qiime2R")
 # install.packages(
@@ -103,7 +105,7 @@ library(microViz)
 #+ echo=FALSE
 ## 2. Import data from QIIME2. #### 
 #'
-#' ## 2. Import data from QIIME2.  
+#' ## Import data from QIIME2.  
 truncationlvl<-"234" # truncation level that we chose in QIIME2
 authorname<-"pooled" # name of the folder with QIIME2 output
 # qza_file_date_time<-"20240425_02_57_13"
@@ -126,7 +128,7 @@ biosample.md<-read.table("./data/metadata/pooled-metadata/biosample_metadata_for
 #+ echo=FALSE
 ## 3. Import qza files and convert them into a phyloseq object. ####
 #'
-#' ## 3. Import qza files and convert them into a phyloseq object.
+#' ## Import qza files and convert them into a phyloseq object.
 ps.q<-qza_to_phyloseq(
   features = file.path(qiimedir, paste0(paste(qza_file_date_time,
                                               authorname,
@@ -162,7 +164,7 @@ rm(ps.q.taxtab)
 #+ echo=FALSE
 ## 4. Add custom metadata. ####
 #'
-#' ## 4. Add custom metadata. 
+#' ## Add custom metadata. 
 custom.md<-read.table(metadata.filename, header = T)
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 #' Convert the Sample column into row names because phyloseq 
@@ -170,7 +172,7 @@ colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 #' 
 #' Remove absolute.filepath column.
 custom.md<-custom.md%>%
-  select(-absolute.filepath)%>%
+  dplyr::select(-absolute.filepath)%>%
   mutate(class= as.factor(class),
          sex = as.factor(sex),
          birthday = as.Date(birthday),
@@ -184,14 +186,14 @@ sample_data(ps.q)<-custom.md
 #+ echo=FALSE
 ### 4.1 For NMR, we create a separate metadata object with age groups. ####
 #'
-#' ### 4.1 For NMR, we create a separate metadata object with age groups. ####
+#' ### For NMR, we create a separate metadata object with age groups. ####
 custom.md.ages<-custom.md%>%
-  select(Sample,class)%>%
+  dplyr::select(Sample,class)%>%
   filter(class=="NMR")%>%
   left_join(biosample.md,by = join_by("Sample" =="host_subject_id"))%>%
   rename("sex"= host_sex,
          "age" = host_age)%>%
-  select(-organism,-env_broad_scale,
+  dplyr::select(-organism,-env_broad_scale,
          -env_local_scale, -env_medium,
          -geo_loc_name, -lat_lon,
          -host)%>%
@@ -238,7 +240,7 @@ custom.md<-custom.md[!rownames(custom.md) %in%
 #+ echo=FALSE
 ### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
 #'
-#' ### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
+#' ### Construct the phyloseq object directly from QIIME2 output. ####
 #' We combine the phyloseq object with new metadata (if we excluded samples).
 ps.foo <- phyloseq(otu_table(ps.q),
                    sample_data(custom.md),
@@ -267,7 +269,7 @@ ps.q<-ps.q %>%
 #+ echo=FALSE
 ### 4.3 Fix empty taxa with higher rank taxon. ####
 #'
-#' ### 4.3 Fix empty taxa with higher rank taxon. ####
+#' ### Fix empty taxa with higher rank taxon. ####
 #' Because we want to remove NA values and make ambiguous "uncultured" or 
 #' "unclassified" taxa more understandable.
 ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
@@ -278,7 +280,7 @@ ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
 #+ echo=FALSE
 ## 5. Convert the phyloseq object into a dataframe. ####
 #'
-#' ## 5. Convert the phyloseq object into a dataframe.
+#' ## Convert the phyloseq object into a dataframe.
 ps.q.agg<-ps.q %>%
   psmelt() 
 ps.q.agg.phylum<-ps.q %>%
@@ -303,8 +305,8 @@ for (ps.df.index in names(ps.list)){
   print("Removing rows with zero Abundance")
   ps.df <- ps.df %>%
     filter(Abundance!=0)%>%
-    select(-sample_Sample)%>% # remove the duplicate column
-    select(-sex,-birthday,-animal)
+    dplyr::select(-sample_Sample)%>% # remove the duplicate column
+    dplyr::select(-sex,-birthday,-animal)
   print(paste("Number of rows in the filtered dataset:",nrow(ps.df)))
   ### 5.1 Number of samples in the filtered dataset. ####
   print(paste("Number of samples in the filtered dataset:"))
@@ -326,10 +328,10 @@ for (ps.df.index in names(ps.list)){
   ### 5.4 Summary statistics (min, median, max, quartiles) of the filtered dataset. ####
   print(paste("Summary statistics (min, median, max, quartiles) of the filtered dataset:"))
   ps.df%>%
-    select(Sample,Abundance)%>%
+    dplyr::select(Sample,Abundance)%>%
     group_by(Sample)%>%
     summarise(FrequencyPerSample=sum(Abundance))%>%
-    select(FrequencyPerSample)%>%
+    dplyr::select(FrequencyPerSample)%>%
     summary()%>%
     print()
   
@@ -380,25 +382,25 @@ for (ps.df.index in names(ps.list)){
   
   if(ps.df.index != "OTU"){
     ps.df<-ps.df%>%
-      select(-OTU)
+      dplyr::select(-OTU)
   }
   ps.df<-ps.df%>%
     ungroup()%>%
-    select(-TotalClass,-TotalSample,-TotalAgglomRank)
+    dplyr::select(-TotalClass,-TotalSample,-TotalAgglomRank)
   # Save the tables in TSV format and as an RDS object
-  write.table(ps.df,
-              file=file.path("./output/rtables",authorname,paste(
-                paste(format(Sys.time(),format="%Y%m%d"),
-                      format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-                "table.tsv",sep="-")),
-              row.names = F,sep = "\t")
-  saveRDS(ps.df,
-          file=file.path("./output/rdafiles",paste(
-            paste(format(Sys.time(),format="%Y%m%d"),
-                  format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-            "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-            "table.rds",sep="-")))
+  # write.table(ps.df,
+  #             file=file.path("./output/rtables",authorname,paste(
+  #               paste(format(Sys.time(),format="%Y%m%d"),
+  #                     format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  #               "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
+  #               "table.tsv",sep="-")),
+  #             row.names = F,sep = "\t")
+  # saveRDS(ps.df,
+  #         file=file.path("./output/rdafiles",paste(
+  #           paste(format(Sys.time(),format="%Y%m%d"),
+  #                 format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+  #           "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
+  #           "table.rds",sep="-")))
   
 }
 
