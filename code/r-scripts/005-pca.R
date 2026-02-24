@@ -1,21 +1,22 @@
 #' ---
-#' title: "Principal component analysis of QIIME2 output"
 #' output: 
-#'   html_document:
+#'   bookdown::html_document2:
 #'      toc: true
-#'      toc-location: left
 #' ---
 #' 
-#' ```{r, setup 005-beta-diversity.R, include=FALSE}
+#' ```{r, setup 005-pca.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
 #' ```{r, echo = FALSE}
 #' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/005-beta-diversity.R", knit = FALSE)
-#' #file.rename("code/r-scripts/005-beta-diversity.Rmd", "markdown/005-beta-diversity.Rmd")
-#' #rmarkdown::render('./markdown/005-beta-diversity.Rmd', 'html_document',
+#' #knitr::spin("code/r-scripts/005-pca.R", knit = FALSE)
+#' #file.rename("code/r-scripts/005-pca.Rmd", "markdown/005-pca.Rmd")
+#' #rmarkdown::render('./markdown/005-pca.Rmd', 'html_document',
 #' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
 #' ```
+#+ echo=FALSE
+# PCA ####
+#' # PCA
 #' 
 #+ echo=FALSE
 ## Introduction ####
@@ -27,7 +28,7 @@
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
 #'
-#' ## 1. Load necessary libraries and scripts.
+#' ## Load necessary libraries.
 # if(!requireNamespace("BiocManager")){
 #   install.packages("BiocManager")
 # }
@@ -38,7 +39,7 @@ library(vegan) # Need v2.6-4 instead of current (2.7-1)
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
 #'
-#' ## 2. Specifying parameters and directory/file names. 
+#' ## Specifying parameters and directory/file names. 
 #' Name of the folder with QIIME2 output:
 authorname<-"pooled"
 #' Specify paths and image formats:
@@ -49,10 +50,9 @@ image.formats<-c("png","tiff")
 truncationlvl<-"234"
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"Genus"
-#' Truncation level that we chose in QIIME2:
+#' Single reads or paired reads (decided in QIIME2):
 read.end.type<-"single"
-#' Import abundance table from 001-phyloseq-qiime2.R as rds file
-#' (NOT rarefied):
+#' Import abundance table as an rds file (NOT rarefied): 
 ps.q.agg.date_time<-"20260211_17_01_10"
 ps.q.agg<-readRDS(file=file.path(
   "./output/rdafiles",
@@ -64,8 +64,7 @@ ps.q.agg<-readRDS(file=file.path(
 # 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
 #'
 #' Import the rarefied abundance table:
-# ps.q.df.pca.input.date_time<-"20240426_22_00_04"
-ps.q.df.pca.input.date_time<-"20260211_17_14_18"
+ps.q.df.pca.input.date_time<-"20260211_17_14_19"
 #' Import metadata:
 custom.md<-readRDS("./output/rdafiles/custom.md.rds")
 #' This is for plot filenames:
@@ -102,16 +101,15 @@ ps.q.agg<-ps.q.agg%>%
 #+ echo=FALSE
 ## 3. PCA ####
 #'
-#' ## 3. PCA ####
+#' ## PCA ####
 #' Import rarefied dataframe.
-ps.q.df.pca.input<-read.table(
-  file.path("./output/rtables",authorname,paste0(
+ps.q.df.pca.input<-readRDS(
+  file.path(rdafiles.directory,paste0(
     paste(
       ps.q.df.pca.input.date_time,
       "ps.q.df.rare-nonfiltered",agglom.rank,
       paste(custom.levels,collapse = '-'),sep = "-"),
-    ".tsv")),
-           header = T)
+    ".rds")))
 #' Convert into wide format.
 ps.q.df.wide.pca<-ps.q.df.pca.input%>%
   dplyr::select(all_of(c(agglom.rank,"Sample","Abundance")))%>%
@@ -146,7 +144,7 @@ dim(pca.q$x)
 #+ echo=FALSE
 ### 3.1 Scree plot. ####
 #'
-#'### 3.1 Scree plot. 
+#'### Scree plot. 
 plot(pca.q)
 #' Calculate total variance explained by each principal component. 
 pca.q$sdev^2 / sum(pca.q$sdev^2)
@@ -162,7 +160,7 @@ qplot(seq_along(1:nrow(ps.q.df.wide.pca.tfm)), var_explained) +
 #+ echo=FALSE
 ### 3.2 Loading plot. #### 
 #' 
-#' ### 3.2 Loading plot. #### 
+#' ### Loading plot. #### 
 par(mar = c(10, 4, 2, 2) + 0.2) #
 barplot(pca.q$rotation[1:10,1],las=2)
 #' Display principal components (loadings):
@@ -173,7 +171,7 @@ head(pca.q$x[,1:10])
 #+ echo=FALSE
 ## 4. PCA Plot. ####
 #' 
-#' ## 4. PCA Plot. ####
+#' ## PCA Plot. ####
 PC1<-pca.q$x[,1]
 PC2<-pca.q$x[,2]
 #' Check how much variance is explained by the first two principal
@@ -253,7 +251,7 @@ print(pca.plot.with.labels +
 #+ echo=FALSE
 ## 5. Find ASVs that contribute to PCs. ####
 #' 
-#' ## 5. Find ASVs that contribute to PCs. ####
+#' ## Find ASVs that contribute to PCs. ####
 aload<-abs(pca.q$rotation)
 #' Below, 2 means columns; sweep divides each column of loadings and 
 #' divides by the column sum.
@@ -284,7 +282,7 @@ pc2.loadings$Genus
 
 loadings.df<-pc1.loadings%>%
   rbind(pc2.loadings)%>%
-  select(-PC1,-PC2)%>%
+  dplyr::select(-PC1,-PC2)%>%
   add_count(Genus)%>%
   mutate(PC_num=ifelse(n==2,"PC1_and_PC2",PC_num))%>%
   distinct(Genus,PC_num)
@@ -301,3 +299,7 @@ ps.q.agg.pc_loadings<-add_relab_to_tax_df(ps.q.agg,"Genus")%>%
 #                                  "pca-loadings-mean_relative_abundance.tsv",sep="-")),
 #             row.names = F,sep = "\t")
 ps.q.agg.pc_loadings
+
+sessionInfo()
+rm(list = ls(all=TRUE))
+gc()
