@@ -1,11 +1,8 @@
 #' ---
-#' title: "Analysing phyloseq data"
 #' output: 
-#'   html_document:
+#'   bookdown::html_document2:
 #'      toc: true
-#'      toc-location: left
 #' ---
-#' 
 #' 
 #' ```{r, setup 002-summary-stats-qiime2.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
@@ -17,6 +14,11 @@
 #' #rmarkdown::render('./markdown/002-summary-stats-qiime2.Rmd', 'html_document',
 #' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
 #' ```
+#' 
+#+ echo=FALSE
+# Analysing phyloseq data ####
+#' # Analysing phyloseq data
+#' 
 #+ echo=FALSE
 ## Introduction ####
 #'
@@ -32,7 +34,7 @@
 #+ echo=FALSE
 ## 1. Load necessary libraries and scripts. ####
 #'
-#' ## 1. Load necessary libraries and scripts.
+#' ## Load necessary libraries and scripts.
 # install.packages(c("tidyverse","vegan","ggtext","Polychrome","ggrepel"))
 library(tidyverse)
 library(vegan)
@@ -52,7 +54,7 @@ source("./code/r-scripts/add_zero_rows.R")
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
 #'
-#' ## 2. Specifying parameters and directory/file names. 
+#' ## Specifying parameters and directory/file names. 
 #' Name of the folder with QIIME2 output:
 authorname<-"pooled"
 #' Directories with input files:
@@ -98,7 +100,7 @@ image.formats<-c("png","tiff")
 #+ echo=FALSE
 ## 3. Setup plots. ####
 #'
-#' ## 3. Setup plots.
+#' ## Setup plots.
 pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
                       "DMR" = "*Fukomys damarensis*",
                       "B6mouse" = "B6 mouse",
@@ -124,12 +126,12 @@ mytheme<-theme(axis.text.y = element_text(size=10), # size of y axis ticks
 #+ echo=FALSE
 ## 4. Calculating summary statistics. ####
 #'
-#' ## 4. Calculating summary statistics.
+#' ## Calculating summary statistics.
 #' 
 #+ echo=FALSE
 ### 4.1 Check the total number of unique ASV/phyla/families/genera per class. ####
 #' 
-#' ### 4.1 Check the total number of unique ASV/phyla/families/genera per class. ####
+#' ### Check the total number of unique ASV/phyla/families/genera per class.
 #' We will use it for the summary table in the next section.
 n.asv.per.host<-get_n_uniq_taxa_per_host(ps.q.agg,"OTU")
 n.phylum.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.phylum,"Phylum")
@@ -139,7 +141,7 @@ n.genus.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.genus,"Genus")
 #+ echo=FALSE
 ### 4.2 Create a summary table. ####
 #'
-#' ### 4.2 Create a summary table.
+#' ### Create a summary table.
 #' The columns are:  
 #' * Total reads  
 #' * Library size (mean Abundance ± SD)  
@@ -163,7 +165,7 @@ summary.stats.table
 #+ echo=FALSE
 ## 5. Add relative abundance and average relative abundance columns. ####
 #'
-#' ## 5. Add relative abundance and average relative abundance columns.
+#' ## Add relative abundance and average relative abundance columns.
 ps.q.agg.phylum.relab<-add_relab_to_tax_df(ps.q.agg.phylum,"Phylum")
 ps.q.agg.family.relab<-add_relab_to_tax_df(ps.q.agg.family,"Family")
 ps.q.agg.genus.relab<-add_relab_to_tax_df(ps.q.agg.genus,"Genus")
@@ -174,9 +176,9 @@ head(ps.q.agg.genus.relab)
 head(ps.q.agg.relab)
 
 #+ echo=FALSE
-# 6. Add agegroup variable to NMR data (must run for plotting). ####
+## 6. Add agegroup variable to NMR data (must run for plotting). ####
 #'
-#' ## 6. Add agegroup variable to NMR data (must run for plotting).
+#' ## Add agegroup variable to NMR data (must run for plotting).
 custom.md.ages<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))%>%
   filter(sequencing_type == "Naked mole-rat 16S rRNA gene sequencing")
 
@@ -197,7 +199,7 @@ head(ps.q.agg.relab.nmr)
 #+ echo=FALSE
 ## 7. Calculate summary stats of unclassified genera in each animal (unrarefied). ####
 #'
-#' ## 7. Calculate summary stats of unclassified genera in each animal (unrarefied). ####
+#' ## Calculate summary stats of unclassified genera in each animal (unrarefied). ####
 #' Here, we are interested in unclassified genera, but you can also try Families,
 #' Orders, Classes, etc.
 all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
@@ -216,24 +218,24 @@ unclassified.genus.summary.stats.table
 #+ echo=FALSE
 ## 8. Rarefy the table and check the percentage of unclassified taxa. ####
 #'
-#' ## 8. Rarefy the table and check the percentage of unclassified taxa. ####
+#' ## Rarefy the table and check the percentage of unclassified taxa. ####
 #' Convert the data frame into wide format: rows are samples and columns
 #' are taxa
 get_rarefied_table<-function(tax.df,tax.rank,host.classes){
   tax.df.wide<-tax.df%>%
     filter(class %in% host.classes,Abundance!=0)%>%
-    select(Sample,Abundance,class,all_of(tax.rank))%>%
+    dplyr::select(Sample,Abundance,class,all_of(tax.rank))%>%
     filter(Abundance!=0)%>%
     pivot_wider(names_from = all_of(tax.rank),
                 values_from = "Abundance",
                 values_fill = 0)%>%
     as.data.frame()%>%
     column_to_rownames("Sample")%>% # Set sample names as row names
-    select(-class)
+    dplyr::select(-class)
   # Find the smallest sample size
   min.n_seqs.all<-tax.df%>%
     filter(class %in% host.classes,Abundance!=0)%>%
-    select(Sample,all_of(tax.rank),Abundance)%>%
+    dplyr::select(Sample,all_of(tax.rank),Abundance)%>%
     group_by(Sample)%>%
     summarize(n_seqs=sum(Abundance))%>%
     summarize(min=min(n_seqs))%>%
@@ -257,7 +259,7 @@ get_rarefied_table<-function(tax.df,tax.rank,host.classes){
     # rename the 'name' column corresponding to the tax.rank
     tax.df.rare[,paste(tax.rank)]<-tax.df.rare$name
     tax.df.rare<-tax.df.rare%>%
-      select(-name)%>%
+      dplyr::select(-name)%>%
       rename(Abundance=value)%>%
       filter(Abundance!=0)
   }
@@ -292,7 +294,7 @@ head(ps.q.agg.nmr.rare)
 #+ echo=FALSE
 ### 8.1 Add relative abundances and taxonomic information to the rarefied dataframe. ####
 #' 
-#' ### 8.1 Add relative abundances and taxonomic information to the rarefied dataframe. 
+#' ### Add relative abundances and taxonomic information to the rarefied dataframe. 
 #' All hosts (genus)
 ps.q.agg.genus.rare.relab<-add_relab_to_tax_df(ps.q.agg.genus.rare,"Genus")
 head(ps.q.agg.genus.rare.relab)
@@ -311,14 +313,14 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 # ps.q.mat<-as(t(otu_table(ps.q)),"matrix") # from phyloseq
 # ps.q.genus.mat<-ps.q.agg.genus%>%
 #   filter(class %in% custom.levels,Abundance!=0)%>%
-#   select(Sample,Abundance,class,all_of(agglom.rank))%>%
+#   dplyr::select(Sample,Abundance,class,all_of(agglom.rank))%>%
 #   filter(Abundance!=0)%>%
 #   pivot_wider(names_from = all_of(agglom.rank),
 #               values_from = "Abundance",
 #               values_fill = 0)%>%
 #   as.data.frame()%>%
 #   column_to_rownames("Sample")%>% # Set sample names as row names
-#   select(-class)%>%
+#   dplyr::select(-class)%>%
 #   as.matrix() # convert to matrix
 # set.seed(1)
 # rare.df<-rarecurve(ps.q.genus.mat,step = 100,sample=min(rowSums(ps.q.genus.mat)),tidy = TRUE)
@@ -356,7 +358,7 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 #+ echo=FALSE
 ## 9. Calculate summary stats of unclassified genera in rarefied data. ####
 #' 
-#' ## 9. Calculate summary stats of unclassified genera in rarefied data.
+#' ## Calculate summary stats of unclassified genera in rarefied data.
 unclassified.genus.summary.stats.table.rare<-get_unclassified_summary_stats(ps.q.agg.genus.rare.relab,
                                                                             "Genus")
 unclassified.genus.summary.stats.table.rare
@@ -370,7 +372,7 @@ unclassified.genus.summary.stats.table.rare
 #+ echo=FALSE
 ## 10. Check the most abundant phyla, families, genera in NMR and other hosts. ####
 #'
-#' ## 10. Check the most abundant phyla, families, genera in NMR and other hosts.
+#' ## Check the most abundant phyla, families, genera in NMR and other hosts.
 #' Phyla:
 ps.q.agg.dominant.phyla.all_hosts<-ps.q.agg.phylum.relab%>%
   group_by(class,Phylum)%>%
@@ -470,7 +472,7 @@ head(ps.q.agg.dominant.genera.nmr)
 #+ echo=FALSE
 ## 11. Check how much Bacteroidaceae are in NMR.  ####
 #'
-#' ## 11. Check how much Bacteroidaceae are in NMR.
+#' ## Check how much Bacteroidaceae are in NMR.
 bacteroidaceae.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Family=="Bacteroidaceae")
 bacteroidaceae.nmr
@@ -484,7 +486,7 @@ bacteroidaceae.nmr
 #+ echo=FALSE
 ### 11.1 Check the most dominant Bacteroidota families in NMR. ####
 #'
-#'### 11.1 Check the most dominant Bacteroidota families in NMR.
+#'### Check the most dominant Bacteroidota families in NMR.
 bacteroidota.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Phylum=="Bacteroidota")
 head(bacteroidota.nmr)
@@ -498,7 +500,7 @@ head(bacteroidota.nmr)
 #+ echo=FALSE
 ## 12. Check Spirochaetaceae, Spirochaetota, and Treponema in NMR. ####
 #'
-#' ## 12. Check Spirochaetaceae, Spirochaetota, and Treponema in NMR. 
+#' ## Check Spirochaetaceae, Spirochaetota, and Treponema in NMR. 
 spirochaetaceae.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Family=="Spirochaetaceae",class=="NMR")
 spirochaetaceae.nmr
@@ -526,7 +528,7 @@ treponema.nmr
 #+ echo=FALSE
 ### 12.1 Check the number of ASVs in Treponema from NMR. ####
 #' 
-#' ### 12.1 Check the number of ASVs in Treponema from NMR.
+#' ### Check the number of ASVs in Treponema from NMR.
 ps.q.agg%>%
   filter(Genus=="Treponema",class=="NMR")%>%
   distinct(OTU)%>%
@@ -535,7 +537,7 @@ ps.q.agg%>%
 #+ echo=FALSE
 ## 13. Check Mogibacteriaceae (renamed to Anaerovoracaceae) in all hosts. ####
 #' 
-#' ## 13. Check Mogibacteriaceae (renamed to Anaerovoracaceae) in all hosts.
+#' ## Check Mogibacteriaceae (renamed to Anaerovoracaceae) in all hosts.
 mogibacteriaceae_anaerovoracaceae.all<-ps.q.agg.dominant.families.all_hosts%>%
   filter(Family=="Anaerovoracaceae")
 head(mogibacteriaceae_anaerovoracaceae.all)
@@ -549,7 +551,7 @@ head(mogibacteriaceae_anaerovoracaceae.all)
 #+ echo=FALSE
 ## 14. Analyse sulfur-metabolising bacteria in NMR. ####
 #'
-#' ## 14. Analyse sulfur-metabolising bacteria in NMR. 
+#' ## Analyse sulfur-metabolising bacteria in NMR. 
 desulfobacterota.nmr<-ps.q.agg.dominant.genera.nmr%>%
   filter(Phylum=="Desulfobacterota",class=="NMR")
 head(desulfobacterota.nmr)
@@ -562,7 +564,7 @@ head(desulfobacterota.all)
 #+ echo=FALSE
 ### 14.1 Total Desulfobacterota in NMR. ####
 #' 
-#' ### 14.1 Total Desulfobacterota in NMR.
+#' ### Total Desulfobacterota in NMR.
 ps.q.agg.dominant.phyla.nmr%>%
   filter(Phylum=="Desulfobacterota")
 # write.table(desulfobacterota.nmr,
@@ -581,7 +583,7 @@ ps.q.agg.dominant.phyla.nmr%>%
 #+ echo=FALSE
 ### 14.2 Plot Desulfobacterota. ####
 #'
-#' ### 14.2 Plot Desulfobacterota.
+#' ### Plot Desulfobacterota.
 # It's a flipped plot
 desulfobacterota.plot<-ps.q.agg.genus.relab%>%
   mutate(class=factor(class,levels=custom.levels))%>%
@@ -647,7 +649,7 @@ print(desulfobacterota.plot +
 #+ echo=FALSE
 ## 15. Plot Treponema and other Spirochaetota. ####
 #'
-#' ## 15. Plot Treponema and other Spirochaetota.
+#' ## Plot Treponema and other Spirochaetota.
 spirochaetota.plot<-ps.q.agg.genus.relab%>%
   mutate(class=factor(class,levels=custom.levels))%>%
   filter(Phylum=="Spirochaetota")%>%
@@ -711,10 +713,10 @@ print(spirochaetota.plot +
 #+ echo=FALSE
 ## 16. Analysis of naked mole-rat data ASVs. ####
 #' 
-#' ## 16. Analysis of naked mole-rat data ASVs.
+#' ## Analysis of naked mole-rat data ASVs.
 #' Give ASVs shorter names: Genus, "ASV", OTU, OTU number. For example, Allobaculum_ASV_22.
 nmr.asv.names<-ps.q.agg.relab.nmr%>%
-  select(OTU,Genus)%>%
+  dplyr::select(OTU,Genus)%>%
   group_by(Genus)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(Genus,OTU)%>%
@@ -738,13 +740,13 @@ otu.young<-ps.q.agg.relab.nmr%>%
   filter(agegroup=="agegroup0_10",Abundance!=0)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
-  select(OTU,agegroup,MeanRelativeAbundanceAgegroup, sdRelativeAbundance)
+  dplyr::select(OTU,agegroup,MeanRelativeAbundanceAgegroup, sdRelativeAbundance)
 #' Next, find ASVs in old samples
 otu.old<-ps.q.agg.relab.nmr%>%
   filter(agegroup=="agegroup10_16",Abundance!=0)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
-  select(OTU,agegroup,MeanRelativeAbundanceAgegroup)
+  dplyr::select(OTU,agegroup,MeanRelativeAbundanceAgegroup)
 
 #' 1745 ASVs in young individuals:
 nrow(otu.young) 
@@ -769,14 +771,14 @@ ps.q.agg.relab.nmr%>%
          !OTU %in% shared.otu)%>%
   filter(n_samples >= 3)%>% 
   arrange(desc(MeanRelativeAbundanceAgegroup))%>%
-  select(OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
+  dplyr::select(OTU,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)
 #' No ASVs with at least 3 samples! The 103 ASVs are individual-specific.
 
 #' Which genera do the 103 old-specific ASVs belong to?
 ps.q.agg.relab.nmr%>%
   filter(OTU %in% otu.old$OTU, # ASV in old but not shared vector
          !OTU %in% shared.otu)%>%
-  select(OTU,Family,Genus, MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
+  dplyr::select(OTU,Family,Genus, MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
   group_by(Family, Genus)%>%
   summarise(n=n_distinct(OTU))%>%
   arrange(desc(n))%>%
@@ -785,7 +787,7 @@ ps.q.agg.relab.nmr%>%
 #+ echo=FALSE
 ### 16.3 How much % do shared ASVs take on average? ####
 #' 
-#' ### 16.3 How much % do shared ASVs take on average?
+#' ### How much % do shared ASVs take on average?
 ps.q.agg.relab.nmr%>%
   # no separation by age
   filter(OTU%in%shared.otu)%>%
@@ -798,7 +800,7 @@ ps.q.agg.relab.nmr%>%
 #+ echo=FALSE
 ### 16.4 How much % do shared ASVs take in each age group? ####
 #'
-#'### 16.4 How much % do shared ASVs take in each age group?
+#'### How much % do shared ASVs take in each age group?
 ps.q.agg.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   # separation by age
@@ -813,7 +815,7 @@ ps.q.agg.relab.nmr%>%
 #+ echo=FALSE
 ### 16.5 Are the shared ASVs enriched in certain genera? ####
 #'
-#' ### 16.5 Are the shared ASVs enriched in certain genera? 
+#' ### Are the shared ASVs enriched in certain genera? 
 #' First, get the table of shared ASVs and their genera.
 shared.otu.genera<-ps.q.agg.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
@@ -839,7 +841,7 @@ head(shared.otu.genera.cumsum)
 #+ echo=FALSE
 ### 16.6 How many ASVs of the top 5 genera in shared.otu.genera are actually found there? ####
 #'
-#' ### 16.6 How many ASVs of the top 5 genera in shared.otu.genera are actually found there?
+#' ### How many ASVs of the top 5 genera in shared.otu.genera are actually found there?
 #' The five most common genera according to the shared.otu.genera dataframe are 
 #' Lachnospiraceae Family (55 ASVs), Muribaculaceae (54 ASVS), 
 #' Treponema (42 ASVs), Bacteria Kingdom (30 ASVs), and
@@ -881,11 +883,11 @@ ps.q.agg.relab.nmr%>%
 #+ echo=FALSE
 ## 17. Plot ASVs in NMR. ####
 #' 
-#' ## 17. Plot ASVs in NMR. 
+#' ## Plot ASVs in NMR. 
 #' Setup sample levels for NMR for barplots.
 sample.levels<-custom.md.ages%>%
   ungroup()%>%
-  select(Sample,age)%>%
+  dplyr::select(Sample,age)%>%
   arrange(age)%>%
   distinct()%>%
   mutate(NewSample=paste0(Sample," (",age,")"))%>%
@@ -909,14 +911,14 @@ ps.q.agg.relab.nmr%>%
 #+ echo=FALSE
 ### 17.1 10 most abundant shared ASVs on average account for 30-40% of samples (barplot). ####
 #'
-#' ### 17.1 10 most abundant shared ASVs on average account for 30-40% of samples (barplot).
+#' ### 10 most abundant shared ASVs on average account for 30-40% of samples (barplot).
 #' Find the most abundant ASVs on average.
 top10.asv.average<-ps.q.agg.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   group_by(OTU)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundance)%>%
-  select(Genus,OTU,MeanRelativeAbundance)%>%
+  dplyr::select(Genus,OTU,MeanRelativeAbundance)%>%
   head(n=10)
 top10.asv.average%>%
   arrange(Genus)
@@ -937,13 +939,13 @@ ps.q.agg.relab.nmr%>%
 
 ### 17.2 Most abundant shared ASVs in each age group. ####
 #'
-#' ### 17.2 Most abundant shared ASVs in each age group.
+#' ### Most abundant shared ASVs in each age group.
 top.shared.asvs.by_age<-ps.q.agg.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   group_by(OTU,agegroup)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundance)%>%
-  select(Genus,OTU,agegroup,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
+  dplyr::select(Genus,OTU,agegroup,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
   ungroup()
 head(top.shared.asvs.by_age)
 
@@ -993,7 +995,7 @@ names(otu.fill)<-top10.shared.asv.union$new_OTU
 #+ echo=FALSE
 ### 17.3 Barplot of the most abundant ASVs. ####
 #' 
-#' ### 17.3 Barplot of the most abundant ASVs.
+#' ### Barplot of the most abundant ASVs.
 top10.shared.asv.plot<-ps.q.agg.relab.nmr%>%
   left_join(custom.md.ages)%>%
   filter(OTU%in%top10.shared.asv.union$OTU) %>%
@@ -1049,10 +1051,10 @@ print(top10.shared.asv.plot+
 #+ echo=FALSE
 ### 17.4 M40 sample is very different. #### 
 #' 
-#' ### 17.4 M40 sample is very different. 
+#' ### M40 sample is very different. 
 m40.asvs<-ps.q.agg.relab.nmr%>% 
   filter(Sample=="M40")%>%
-  select(OTU,Genus,RelativeAbundance,MeanRelativeAbundance,
+  dplyr::select(OTU,Genus,RelativeAbundance,MeanRelativeAbundance,
          MeanRelativeAbundanceAgegroup)%>%
   arrange(-RelativeAbundance)%>%
   head(n=10)
@@ -1107,7 +1109,7 @@ print(m40.asv.plot)
 #+ echo=FALSE
 ## 18. Import the rarefied dataframe ####
 #'
-#' ## 18. Import the rarefied dataframe 
+#' ## Import the rarefied dataframe 
 # Between NMR (ASV level)
 # ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
 ps.q.df.preprocessed.date_time<-"20260211_17_14_21"
@@ -1134,7 +1136,7 @@ ps.q.df.preprocessed<-read.table(
 #+ echo=FALSE
 ### 18.1 Let's find which major ASVs are specific to one age group ####
 #' 
-#' ### 18.1 Let's find which major ASVs are specific to one age group ####
+#' ### Let's find which major ASVs are specific to one age group ####
 young.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
   filter(agegroup=="agegroup0_10")%>%
   arrange(-MeanRelativeAbundanceAgegroup)
@@ -1149,7 +1151,7 @@ length(unique(old.ps.q.agg.relab.nmr$OTU))
 #+ echo=FALSE
 ### 18.2 How many genera are shared between two age groups ####
 #' 
-#' ### 18.2 How many genera are shared between two age groups ####
+#' ### How many genera are shared between two age groups ####
 genera.young<-ps.q.agg.genus.relab.nmr%>%
   # add_agegroup_to_tax_df(.,"Genus",custom.md.ages)%>%
   # left_join(custom.md.ages)%>%
@@ -1171,12 +1173,12 @@ length(shared.genera)
 #+ echo=FALSE
 ### 18.3 Show 5 genera found in old but not young NMR ####
 #' 
-#' ### 18.3 Show 5 genera found in old but not young NMR ####
+#' ### Show 5 genera found in old but not young NMR ####
 unique.to_old.genera<-setdiff(genera.old$Genus,genera.young$Genus)
 ps.q.agg.genus.relab.nmr%>%
   # add_agegroup_to_tax_df(.,"Genus",custom.md.ages)%>%
   filter(Genus %in% unique.to_old.genera)%>%
-  select(Sample,Family,Genus,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup )
+  dplyr::select(Sample,Family,Genus,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup )
 
 # How much % do common genera take in each age group on average?
 ps.q.agg.relab.nmr%>%
@@ -1186,3 +1188,6 @@ ps.q.agg.relab.nmr%>%
   arrange(agegroup)%>%
   group_by(agegroup)%>%
   summarise(MeanRelAbCommonASVTotalAge=mean(SumRelAbCommonASV))
+sessionInfo()
+rm(list = ls(all=TRUE))
+gc()
