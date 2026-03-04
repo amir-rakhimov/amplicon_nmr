@@ -41,7 +41,6 @@ source("./code/r-scripts/add_agegroup_to_tax_df.R")
 source("./code/r-scripts/get_unclassified_summary_stats.R")
 source("./code/r-scripts/get_dominant_taxa_in_host.R")
 source("./code/r-scripts/ggplot_species.R")
-source("./code/r-scripts/add_zero_rows.R")
 
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
