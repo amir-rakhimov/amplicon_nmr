@@ -52,14 +52,14 @@ ggplot_species<-function(taxa.to.plot,
                      limits=sample.order$Sample)+
     coord_cartesian(expand = c("bottom" = F))+
     scale_fill_viridis_d(option = "C")+
-    theme(axis.title.y = element_text(size = 25),
-          axis.title = element_text(size = 20),
-          axis.text.y = ggtext::element_markdown(size=18),
-          axis.text.x = element_text(size=20),
-          strip.text.x = ggtext::element_markdown(size=20),
-          plot.title = element_text(size = 27),
-          legend.text = element_text(size = 20),
-          legend.title = element_text(size = 25),
+    theme(axis.title.y = element_text(size = 15),
+          axis.title = element_text(size = 10),
+          axis.text.y = ggtext::element_markdown(size=10),
+          axis.text.x = element_text(size=8),
+          strip.text.x = ggtext::element_markdown(size=10),
+          plot.title = element_text(size = 17),
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size = 15),
           legend.position = "right",
           panel.grid.minor = element_blank(),
           panel.grid.major = element_blank())
