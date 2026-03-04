@@ -1,6 +1,27 @@
-# Compare our data with results from the original papers ####
+#' ---
+#' output: 
+#'   bookdown::html_document2:
+#'      toc: true
+#' ---
+#' 
+#' ```{r, setup 003-compare, include=FALSE}
+#' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
+#' ```
+#+ echo=FALSE
+# Compare our data with results from the original papers. ####
+#' # Compare our data with results from the original papers.
+#' 
+#+ echo=FALSE
+## Introduction ####
+#'
+#' ## Introduction
+#' In this script, we will explore the imported dataset from QIIME2 using qiime2R
+#' and phyloseq.
+#' 
+#  ####
 library(tidyverse)
 library(phyloseq)
+library(ggtext)
 # library(DT)
 source("./code/r-scripts/get_dominant_taxa_in_host.R")
 source("./code/r-scripts/create_summary_stats_table.R")
@@ -9,7 +30,6 @@ source("./code/r-scripts/add_relab_to_tax_df.R")
 source("./code/r-scripts/add_agegroup_to_tax_df.R")
 source("./code/r-scripts/get_unclassified_summary_stats.R")
 source("./code/r-scripts/ggplot_species.R")
-source("./code/r-scripts/add_zero_rows.R")
 # Import my dataset ####
 ## 2. Specifying parameters and directory/file names #### 
 rdafiles.directory<-"./output/rdafiles"
@@ -499,6 +519,14 @@ debebe.comparison.plot<-ps.q.agg.dominant.families.nmr.with_domin%>%
                names_to = "class",
                values_to = "MeanRelativeAbundance")%>%
   arrange(-MeanRelativeAbundance)%>%
+  mutate(Family = ifelse(!grepl(" ",Family),
+                         paste0("<i>",Family,"</i>"),
+                         Family),
+         Family = gsub ("Bacteroidales Order", "<i>Bacteroidales Order</i>", Family),
+         Family = gsub ("Clostridiales Order", "<i>Clostridiales Order</i>", Family)
+         
+         
+         )%>%
   mutate(Family=factor(Family,levels=unique(Family)))%>%
   group_by(Family)%>%
   mutate(Family_id=cur_group_id(),
@@ -508,6 +536,7 @@ debebe.comparison.plot<-ps.q.agg.dominant.families.nmr.with_domin%>%
   replace_na(replace =list( MeanRelativeAbundance=0))%>%
   mutate(Family=gsub("_", " ", Family),
          Family = stringr::str_wrap(Family,width=30),
+         Family = stringr::str_replace_all(Family, "\n", "<br>"),
          Family=paste(Family_id,Family,sep = ": "),
          Family=factor(Family, levels=unique(Family)))%>%
   arrange(animal,desc(MeanRelativeAbundance))%>%
@@ -537,7 +566,7 @@ debebe.comparison.plot<-ps.q.agg.dominant.families.nmr.with_domin%>%
         # each facet will be recognised as a markdown object, so we can
         # add line breaks (cause host names are too long)
         legend.position.inside = c(0.9,0.8),
-        legend.text = element_text(size=13),
+        legend.text = ggtext::element_markdown(size=13),
         legend.title = element_text(size = 16), # size of legend title
         plot.caption = element_text(size=15), # size of plot caption
         panel.grid.minor = element_blank(),
