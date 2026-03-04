@@ -7,13 +7,6 @@
 #' ```{r, setup 005-pca.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/005-pca.R", knit = FALSE)
-#' #file.rename("code/r-scripts/005-pca.Rmd", "markdown/005-pca.Rmd")
-#' #rmarkdown::render('./markdown/005-pca.Rmd', 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
 #+ echo=FALSE
 # PCA ####
 #' # PCA

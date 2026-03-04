@@ -7,13 +7,6 @@
 #' ```{r, setup 006-alpha-diversity.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/006-alpha-diversity.R", knit = FALSE)
-#' #file.rename("code/r-scripts/006-alpha-diversity.Rmd", "markdown/006-alpha-diversity.Rmd")
-#' #rmarkdown::render('./markdown/006-alpha-diversity.Rmd', 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
 #+ echo=FALSE
 # Alpha diversity analysis of QIIME2 output ####
 #' # Alpha diversity analysis of QIIME2 output

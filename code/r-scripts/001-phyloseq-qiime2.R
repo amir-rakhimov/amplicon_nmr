@@ -3,21 +3,9 @@
 #'   bookdown::html_document2:
 #'      toc: true
 #' ---
-
-
 #' ```{r, setup 001-phyloseq-qiime2.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/001-phyloseq-qiime2.R", knit = FALSE)
-#' #file.rename("code/r-scripts/001-phyloseq-qiime2.Rmd", 
-#' # "markdown/001-phyloseq-qiime2.Rmd")
-#' #rmarkdown::render('./markdown/001-phyloseq-qiime2.Rmd',
-#' # 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
-#' 
 #+ echo=FALSE
 # Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank ####
 #' # Processing QIIME2 output into phyloseq format, agglomeration by taxonomic rank
@@ -284,13 +272,13 @@ ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
 ps.q.agg<-ps.q %>%
   psmelt() 
 ps.q.agg.phylum<-ps.q %>%
-  tax_glom("Phylum",NArm = FALSE) %>% # agglomerate by agglom.rank
+  tax_glom("Phylum",NArm = FALSE) %>% # agglomerate by phylum
   psmelt()  # transform the phyloseq object into an R dataframe
 ps.q.agg.family<-ps.q %>%
-  tax_glom("Family",NArm = FALSE) %>% # agglomerate by agglom.rank
+  tax_glom("Family",NArm = FALSE) %>% # agglomerate by family
   psmelt()  # transform the phyloseq object into an R dataframe
 ps.q.agg.genus<-ps.q %>%
-  tax_glom("Genus",NArm = FALSE) %>% # agglomerate by agglom.rank
+  tax_glom("Genus",NArm = FALSE) %>% # agglomerate by genus
   psmelt()  # transform the phyloseq object into an R dataframe
 ps.list <- list("OTU" = ps.q.agg, 
                "Phylum" = ps.q.agg.phylum,

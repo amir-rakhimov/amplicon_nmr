@@ -7,24 +7,16 @@
 #' ```{r, setup 002-summary-stats-qiime2.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/002-summary-stats-qiime2.R", knit = FALSE)
-#' #file.rename("code/r-scripts/002-summary-stats-qiime2.Rmd", "markdown/002-summary-stats-qiime2.Rmd")
-#' #rmarkdown::render('./markdown/002-summary-stats-qiime2.Rmd', 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
-#' 
 #+ echo=FALSE
-# Analysing phyloseq data ####
-#' # Analysing phyloseq data
+# Analysing QIIME2 data with phyloseq. ####
+#' # Analysing QIIME2 data with phyloseq.
 #' 
 #+ echo=FALSE
 ## Introduction ####
 #'
 #' ## Introduction
-#' In this script, we will explore the imported dataset from QIIME2 (using qiime2R
-#' and phyloseq).
+#' In this script, we will explore the imported dataset from QIIME2 using qiime2R
+#' and phyloseq.
 #' 
 #' We will also rarefy the data for future analyses.
 #' 
@@ -143,18 +135,18 @@ n.genus.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.genus,"Genus")
 #'
 #' ### Create a summary table.
 #' The columns are:  
-#' * Total reads  
-#' * Library size (mean Abundance ± SD)  
-#' * Num of ASV per host  
-#' * Num of phyla per host  
-#' * Num of families per host  
-#' * Num of genera per host  
+#' - Total reads  
+#' - Library size (mean Abundance ± SD)  
+#' - Number of ASV per host  
+#' - Number of phyla per host  
+#' - Number of families per host  
+#' - Number of genera per host  
 summary.stats.table<-create_summary_stats_table(ps.q.agg,
                                                 n.asv.per.host,
                                                 n.phylum.per.host,
                                                 n.family.per.host,
                                                 n.genus.per.host)
-summary.stats.table
+print(summary.stats.table)
 # write.table(summary.stats.table,
 #             file=file.path(rtables.directory,
 #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -173,7 +165,7 @@ ps.q.agg.relab<-add_relab_to_tax_df(ps.q.agg,"OTU")
 head(ps.q.agg.phylum.relab)
 head(ps.q.agg.family.relab)
 head(ps.q.agg.genus.relab)
-head(ps.q.agg.relab)
+print(head(ps.q.agg.relab))
 
 #+ echo=FALSE
 ## 6. Add agegroup variable to NMR data (must run for plotting). ####
@@ -193,8 +185,8 @@ ps.q.agg.genus.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.genus.relab.nmr,"Genus
                                              custom.md.ages)
 ps.q.agg.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.relab.nmr,"OTU",
                                        custom.md.ages)
-head(ps.q.agg.genus.relab.nmr)
-head(ps.q.agg.relab.nmr)
+print(head(ps.q.agg.genus.relab.nmr))
+print(head(ps.q.agg.relab.nmr))
 
 #+ echo=FALSE
 ## 7. Calculate summary stats of unclassified genera in each animal (unrarefied). ####
@@ -206,7 +198,7 @@ all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
 agglom.rank<-"Genus"
 unclassified.genus.summary.stats.table<-
   get_unclassified_summary_stats(ps.q.agg.genus.relab,"Genus")
-unclassified.genus.summary.stats.table
+print(unclassified.genus.summary.stats.table)
 
 # write.table(unclassified.genus.summary.stats.table,
 #             file=file.path(rtables.directory,
@@ -284,6 +276,9 @@ get_rarefied_table<-function(tax.df,tax.rank,host.classes){
   return(tax.df.rare)
 }
 
+ps.q.agg.rare<-get_rarefied_table(ps.q.agg,"OTU",custom.levels)
+ps.q.agg.phylum.rare<-get_rarefied_table(ps.q.agg.phylum,"Phylum",custom.levels)
+ps.q.agg.family.rare<-get_rarefied_table(ps.q.agg.family,"Family",custom.levels)
 ps.q.agg.genus.rare<-get_rarefied_table(ps.q.agg.genus,"Genus",custom.levels)
 ps.q.agg.genus.nmr.rare<-get_rarefied_table(ps.q.agg.genus.relab.nmr,"Genus","NMR")
 ps.q.agg.nmr.rare<-get_rarefied_table(ps.q.agg.relab.nmr,"OTU","NMR")
@@ -355,13 +350,30 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 #        width = 4500,height = 3000,
 #        units = "px",dpi=300,device = "png")
 
+
+#+ echo=FALSE
+### 8.3 Create a summary stats table for the rarefied dataframe. ####
+#' 
+#' ### Create a summary stats table for the rarefied dataframe.
+n.asv.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.rare,"OTU")
+n.phylum.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.phylum.rare,"Phylum")
+n.family.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.family.rare,"Family")
+n.genus.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.genus.rare,"Genus")
+
+summary.stats.table.rare<-create_summary_stats_table(ps.q.agg.rare,
+                                                n.asv.per.host.rare,
+                                                n.phylum.per.host.rare,
+                                                n.family.per.host.rare,
+                                                n.genus.per.host.rare)
+summary.stats.table.rare
+
 #+ echo=FALSE
 ## 9. Calculate summary stats of unclassified genera in rarefied data. ####
 #' 
 #' ## Calculate summary stats of unclassified genera in rarefied data.
 unclassified.genus.summary.stats.table.rare<-get_unclassified_summary_stats(ps.q.agg.genus.rare.relab,
                                                                             "Genus")
-unclassified.genus.summary.stats.table.rare
+print(unclassified.genus.summary.stats.table.rare)
 # write.table(unclassified.genus.summary.stats.table.rare,
 #             file=file.path(rtables.directory,
 #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
@@ -390,7 +402,7 @@ ps.q.agg.dominant.phyla.nmr<-ps.q.agg.dominant.phyla.all_hosts%>%
   filter(class=="NMR")
 head(ps.q.agg.dominant.phyla.nmr)
 
-#' Families
+#' Families:
 ps.q.agg.dominant.families.all_hosts<-ps.q.agg.family.relab%>%
   group_by(class,Family)%>%
   mutate(min=min(RelativeAbundance),

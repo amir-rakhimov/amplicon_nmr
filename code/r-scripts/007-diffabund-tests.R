@@ -7,13 +7,6 @@
 #' ```{r, setup 007-diffabund-tests.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/007-diffabund-tests.R", knit = FALSE)
-#' #file.rename("code/r-scripts/007-diffabund-tests.Rmd", "markdown/007-diffabund-tests.Rmd")
-#' #rmarkdown::render('./markdown/007-diffabund-tests.Rmd', 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
 #+ echo=FALSE
 # Differential microbial abundance tests with MaAsLin2, ALDEx2, and ANCOM-BC ####
 #' # Differential microbial abundance tests with MaAsLin2, ALDEx2, and ANCOM-BC
@@ -71,6 +64,7 @@ filter.status<-"nonfiltered"
 #' call the function and change the parameters.
 prepare_data <- function(agglom.rank, comparison, 
                          ref.level, inside.host){
+  rdafiles.directory<-"./output/rdafiles"
   rare.status<-"rare"
   filter.status<-"nonfiltered"
   print(paste("Performing differential microbial abundance tests on", comparison, "variable at", agglom.rank, "level.",
@@ -252,7 +246,7 @@ process_maaslin2_output<-function(agglom.rank,
   }else{
     maaslin.signif.features<-maaslin.fit_data$results%>%
       arrange(qval)%>%
-      head(n = 100) # if no significant results found
+      head(n = 15) # if no significant results found
   }
   
   #' Make features pretty. We have to make this exchange because maaslin 
@@ -420,7 +414,8 @@ analyse_test_output <-function(agglom.rank,
                                ancombc.signif.features = NULL,
                                ancombc.signif.decreased = NULL){
   image.formats<-c("png","tiff")
-
+  rtables.directory<-file.path("./output/rtables",authorname)
+  
   if(inside.host==FALSE){
     #' Find common significant features between three tools.
     print(Reduce(intersect,list(maaslin.signif.features$feature,
@@ -506,7 +501,7 @@ analyse_test_output <-function(agglom.rank,
     axis.text.y = ggtext::element_markdown(size=5),
     # axis.text.y = element_text(size=5),
     axis.text.x = element_text(size=5),
-    strip.text.x = element_text(size=5),
+    strip.text.x = ggtext::element_markdown(size=5),
     plot.title = element_text(size =5),
     legend.text = element_text(size = 5),
     legend.title = element_text(size = 5),
@@ -554,7 +549,9 @@ analyse_test_output <-function(agglom.rank,
       scale_x_discrete(labels=pretty.level.names,
                        limits=ggplot.levels)+ # rename boxplot labels (x axis)
       # scale_fill_manual(values = custom.fill)+
-      scale_fill_viridis_d(direction = (-1))+
+      scale_fill_viridis_d(direction = (-1),
+                           end = 0.9,
+                           alpha = 0.5)+
       # ggtitle(paste0("Relative abundance of differentially abundant ASVs \nin different naked mole-rat groups"))+
       plot.theme
     
@@ -607,7 +604,6 @@ analyse_test_output <-function(agglom.rank,
     # }
     
   }
-  #+ fig.width=8, fig.height=11
   print(feature.plot)
   
   
@@ -650,7 +646,7 @@ maaslin.fit_data.host<-
 #                            paste(format(Sys.time(),format="%Y%m%d"),
 #                                  format(Sys.time(),format = "%H_%M_%S"),
 #                                  sep = "_"),"maaslin.fit_data.host",
-#                            output.filename,".rds",sep = "-")))
+#                            host.data.for_test$output.filename,".rds",sep = "-")))
 
 #' Process the output 
 # "20260213_12_20_50" for signif.tsv
@@ -860,6 +856,7 @@ head(ancombc.signif.decreased)
 ### 4.4 Downstream analysis and plotting of differentially abundant features. ####
 #' 
 #' ### Downstream analysis and plotting of differentially abundant features. 
+#+ fig.width=11, fig.height=8
 analyse_test_output(agglom.rank = agglom.rank,
                     inside.host = inside.host, 
                     comparison = comparison, 
@@ -885,6 +882,7 @@ comparison<-"age"
 #' Choose the reference level:
 ref.level<-"agegroup0_10" 
 agglom.rank<-"OTU"
+inside.host=TRUE
 #' Prepare the data for testing.
 nmr.age.data.for_test<-prepare_data(agglom.rank = agglom.rank, 
              comparison = comparison, 
@@ -903,13 +901,14 @@ maaslin.fit_data.age<-
 
 #' Save the fit data object as an rds file.
 # 20260224_21_19_15
-saveRDS(maaslin.fit_data.age,
-        file = file.path("output/rdafiles",
-                         paste(
-                           paste(format(Sys.time(),format="%Y%m%d"),
-                                 format(Sys.time(),format = "%H_%M_%S"),
-                                 sep = "_"),"maaslin.fit_data.age",
-                           output.filename,".rds",sep = "-")))
+# saveRDS(maaslin.fit_data.age,
+#         file = file.path("output/rdafiles",
+#                          paste(
+#                            paste(format(Sys.time(),format="%Y%m%d"),
+#                                  format(Sys.time(),format = "%H_%M_%S"),
+#                                  sep = "_"),"maaslin.fit_data.age",
+#                            nmr.age.data.for_test$output.filename,
+#                            ".rds",sep = "-")))
 # "20260213_14_39_57" for both signif and signif.decreased tsv
 maaslin.processed_output.age <- 
   process_maaslin2_output(agglom.rank = agglom.rank,
@@ -918,6 +917,7 @@ maaslin.processed_output.age <-
                           sample.groups = nmr.age.data.for_test$sample.groups)
 
 #' Downstream analysis and plotting of differentially abundant features.
+#+ fig.width=8, fig.height=6
 analyse_test_output(agglom.rank = agglom.rank,
                     inside.host = inside.host, 
                     comparison = comparison, 
@@ -943,6 +943,7 @@ comparison<-"sex"
 agglom.rank<-"OTU"
 #' Choose the reference level:
 ref.level<-"female"
+inside.host = TRUE
 #' Prepare the data for testing.
 nmr.sex.data.for_test<-prepare_data(agglom.rank = agglom.rank, 
              comparison = comparison, 
@@ -961,13 +962,13 @@ maaslin.fit_data.sex<-
 
 #' Save the fit data object as an rds file.
 # 20260224_21_21_02
-saveRDS(maaslin.fit_data.sex,
-        file = file.path("output/rdafiles",
-                         paste(
-                           paste(format(Sys.time(),format="%Y%m%d"),
-                                 format(Sys.time(),format = "%H_%M_%S"),
-                                 sep = "_"),"maaslin.fit_data.sex",
-                           output.filename,".rds",sep = "-")))
+# saveRDS(maaslin.fit_data.sex,
+#         file = file.path("output/rdafiles",
+#                          paste(
+#                            paste(format(Sys.time(),format="%Y%m%d"),
+#                                  format(Sys.time(),format = "%H_%M_%S"),
+#                                  sep = "_"),"maaslin.fit_data.sex",
+#                            nmr.sex.data.for_test$output.filename,".rds",sep = "-")))
 # "20260215_19_30_37" for both signif and signif.decreased tsv
 maaslin.processed_output.sex <-
   process_maaslin2_output(agglom.rank = agglom.rank,
@@ -975,6 +976,7 @@ maaslin.processed_output.sex <-
                           ps.q.agg = nmr.sex.data.for_test$ps.q.agg,
                           sample.groups = nmr.sex.data.for_test$sample.groups)
 #' Downstream analysis and plotting of differentially abundant features. 
+#+ fig.width=8, fig.height=20
 analyse_test_output(agglom.rank = agglom.rank,
                     inside.host = inside.host, 
                     comparison = comparison, 

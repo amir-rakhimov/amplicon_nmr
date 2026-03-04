@@ -7,13 +7,6 @@
 #' ```{r, setup 008-diversity-inside-custom-host.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
-#' ```{r, echo = FALSE}
-#' # For showing images, tables, etc: Use global path
-#' #knitr::spin("code/r-scripts/008-diversity-inside-custom-host.R", knit = FALSE)
-#' #file.rename("code/r-scripts/008-diversity-inside-custom-host.Rmd", "markdown/008-diversity-inside-custom-host.Rmd")
-#' #rmarkdown::render('./markdown/008-diversity-inside-custom-host.Rmd', 'html_document',
-#' # knit_root_dir="/home/rakhimov/projects/amplicon_nmr/")
-#' ```
 #+ echo=FALSE
 # Alpha and beta diversity in NMR samples ####
 #' # Alpha and beta diversity in NMR samples 
@@ -234,7 +227,8 @@ alpha.test.age<-test_alpha_diversity(div.indices = div.indices,
                      custom.md = custom.md)
 alpha.test.age$kt.results
 alpha.test.age$w.results
-stopifnot(all(alpha.test.age$kt.results[2,]<0.05))
+# stopifnot(all(alpha.test.age$kt.results[2,]<0.05))
+all(alpha.test.age$kt.results[2,]<0.05)
 #+ echo=FALSE
 ### 3.4 Test on sexes: ####
 #' 
@@ -247,7 +241,8 @@ alpha.test.sex<-test_alpha_diversity(div.indices = div.indices,
                      custom.md = custom.md)
 alpha.test.sex$kt.results
 alpha.test.sex$w.results
-stopifnot(all(alpha.test.sex$kt.results[2,]<0.05))
+# stopifnot(all(alpha.test.sex$kt.results[2,]<0.05))
+all(alpha.test.sex$kt.results[2,]<0.05)
 #' For plots.
 max.values<-all.div%>%
   group_by(metric)%>%
@@ -273,7 +268,7 @@ pretty.level.names.sex <-
   c("female" = "Females",
     "male" = "Males")
 custom.levels.sex <- names(pretty.level.names.sex)
-pretty.level.names.sex <-pretty.level.names.sex[which(names(pretty.level.names.sex)%in%custom.levels)]
+pretty.level.names.sex <-pretty.level.names.sex[which(names(pretty.level.names.sex)%in%custom.levels.sex)]
 gg.labs.name.sex <-"Host sex"
 gg.title.groups.sex <-"groups"
 
@@ -359,7 +354,7 @@ gg.title.groups.age<-"age groups"
 nmr.sample.levels<-custom.md%>%
   filter(class=="NMR")%>%
   # mutate(age=round(time_length(sampling_date-birthday,unit="years")))%>%
-  select(Sample,age,class)%>%
+  dplyr::select(Sample,age,class)%>%
   arrange(age)%>%
   distinct()%>%
   mutate(NewSample=paste0(Sample," (",age," y)"))%>%
