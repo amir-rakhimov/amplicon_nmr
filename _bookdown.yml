@@ -1,0 +1,12 @@
+book_filename: "amplicon_nmr"
+rmd_subdir: "markdown"
+new_session: yes
+rmd_files:
+  - markdown/index.Rmd
+  - markdown/001-phyloseq-qiime2.Rmd
+  - markdown/002-summary-stats-qiime2.Rmd
+  - markdown/004-barplots-qiime2.Rmd
+  - markdown/005-pca.Rmd
+  - markdown/006-alpha-diversity.Rmd
+  - markdown/007-diffabund-tests.Rmd
+  - markdown/008-diversity-inside-custom-host.Rmd
