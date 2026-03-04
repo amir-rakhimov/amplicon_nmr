@@ -7,3 +7,6 @@ images/
 output/
 data/
 code/r-scripts/*tutorial.R
+markdown/*.png
+markdown/*_files
+markdown/16S_bind
