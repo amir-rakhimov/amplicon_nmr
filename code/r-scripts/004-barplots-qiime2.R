@@ -29,52 +29,8 @@
 library(tidyverse)
 library(Polychrome)
 library(ggtext)
-#+ echo=FALSE
-## 2. Specifying parameters and directory/file names. #### 
-#'
-#' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled" 
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"Genus"
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234" 
-#' Single reads or paired reads: decided in QIIME2.
-read.end.type<-"single"
-#' Specify paths and image formats:
-barplot.directory<-"./images/barplots/" 
-rdafiles.directory<-"./output/rdafiles"
-#' Path for custom metadata:
-metadata.directory<-"./output/rdafiles" 
-image.formats<-c("png","tiff")
-#' Import abundance table as an rds file (NOT rarefied): 
-ps.q.agg.date_time<-"20260211_17_01_10"
-ps.q.agg<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
-        read.end.type, truncationlvl,"table.rds",sep = "-")))
-
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-#' Import metadata:
-custom.md<-readRDS(file.path(metadata.directory,"custom.md.rds"))
-custom.levels<-c("NMR","B6mouse","MSMmouse","FVBNmouse",
-                 "DMR","hare","rabbit","spalax","pvo")
-#' Set "pretty" labels for barplot facets that correspond to animal hosts. 
-#' Here, the left side of the vector (values) is taken from the metadata, 
-#' while the right side (names) are the pretty labels that will be shown on 
-#' the final barplot.
-pretty.level.names<-c("NMR" = "*Heterocephalus glaber*", # better labels for facets
-                      "DMR" = "*Fukomys damarensis*",
-                      "B6mouse" = "B6 mouse",
-                      "MSMmouse" = "MSM/Ms mouse",
-                      "FVBNmouse" = "FVB/N<br>mouse",
-                      "spalax" = "*Nannospalax leucodon*",
-                      "pvo" = "*Pteromys volans orii*",
-                      "hare" = "*Lepus europaeus*",
-                      "rabbit" = "*Oryctolagus cuniculus*")
 
 #+ echo=FALSE
 ## 3. Set up the barplot. ####

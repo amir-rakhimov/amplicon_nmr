@@ -38,42 +38,6 @@ source("./code/r-scripts/get_n_uniq_taxa_per_host.R")
 ## 2. Specifying parameters and directory/file names. #### 
 #'
 #' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled" 
-#' Name of the folder with QIIME2 output:
-rdafiles.directory<-"./output/rdafiles"
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234" 
-#' Single reads or paired reads: decided in QIIME2.
-read.end.type<-"single"
-
-#+ echo=FALSE
-## 3. Import datasets. #### 
-#'
-#' ## Import datasets.
-#' Import datasets as rds files.
-ps.q.agg<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste(
-    "20260211_17_01_07",
-        "phyloseq-qiime",authorname,"OTU",read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
-ps.q.agg.genus<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste("20260211_17_01_10",
-        "phyloseq-qiime",authorname,"Genus",read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
-
-ps.q.agg.family<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste("20260211_17_01_09-phyloseq-qiime",authorname,"Family",read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
-ps.q.agg.phylum<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste("20260211_17_01_08-phyloseq-qiime",authorname,"Phylum",read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
-#' Import metadata:
-custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
 
 #+ echo=FALSE
 ## 4. Re-analysis of the DMR dataset. ####
@@ -490,21 +454,50 @@ debebe.comparison.plot<-ps.q.agg.dominant.families.nmr.with_domin%>%
        y="Average relative abundance (%)")+
   coord_cartesian(expand = c("bottom"=FALSE))+
   scale_fill_viridis_d(option = "C")+
-  theme(axis.text.x = element_text(angle=0,size=11,hjust=0.5,colour = "black"),# shift 
+  theme(axis.text.x = element_text(angle=0,size=7,
+                                   hjust=0.5,colour = "black"),# shift 
+        axis.title.x=element_blank(),
         # the x-axis labels to the right
         # legend.position = "inside",
-        axis.title = element_text(size = 15), # size of axis names
-        axis.text.y = element_text(size=11,color="black"),
-        strip.text.x = ggtext::element_markdown(size = 14),# the name of 
+        axis.title.y = element_text(size = 10), # size of axis names
+        axis.text.y = element_text(size=10,color="black"),
+        strip.text.x = ggtext::element_markdown(size = 11),# the name of 
         # each facet will be recognised as a markdown object, so we can
         # add line breaks (cause host names are too long)
-        legend.position.inside = c(0.9,0.8),
-        legend.text = ggtext::element_markdown(size=13),
-        legend.title = element_text(size = 16), # size of legend title
-        plot.caption = element_text(size=15), # size of plot caption
+        # legend.position.inside = c(0.9,0.8),
+        legend.text = ggtext::element_markdown(size=9,margin = margin(l=0.02,
+                                                                      unit="cm")),
+        legend.title = element_text(size = 12), # size of legend title
+        legend.key.size = unit(0.3, 'cm'), #change legend key size
+        legend.key.spacing.y = unit(0.01, "cm"), # distant between key text
+        legend.key.spacing.x = unit(0.05, "cm"), # distant between key text
+        legend.box.spacing = unit(0.004,"cm"), # space between the plot and the legend box
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank()
-        )
+  )
+
+  #   theme(axis.text.x = element_text(angle=0,size=10,
+  #                                  hjust=0.5,colour = "black"),# shift 
+  #       axis.title.x=element_blank(),
+  #       # the x-axis labels to the right
+  #       # legend.position = "inside",
+  #       axis.title = element_text(size = 12), # size of axis names
+  #       axis.text.y = element_text(size=10,color="black"),
+  #       strip.text.x = ggtext::element_markdown(size = 11),# the name of 
+  #       # each facet will be recognised as a markdown object, so we can
+  #       # add line breaks (cause host names are too long)
+  #       legend.position.inside = c(0.9,0.8),
+  #       legend.text = ggtext::element_markdown(size=11),
+  #       legend.title = element_text(size = 12), # size of legend title
+  #       plot.caption = element_text(size=12), # size of plot caption
+  #       legend.key.size = unit(0.3, 'cm'), #change legend key size
+  #       legend.key.spacing.y = unit(0.01, "cm"), # distant between key text
+  #       legend.key.spacing.x = unit(0.05, "cm"), # distant between key text
+  #       legend.box.spacing = unit(0.01,"cm"), # space between the plot and the legend box
+  #       panel.grid.minor = element_blank(),
+  #       panel.grid.major = element_blank()
+  # )
+
 #+ fig.height = 6, fig.width = 11
 print(debebe.comparison.plot)
 # for(image.format in c("png","tiff")){
@@ -517,6 +510,18 @@ print(debebe.comparison.plot)
 #        # width = 5700,height =2800, units = "px",
 #        dpi=300,device = image.format)
 # }
+
+for(image.format in c("png","tiff")){
+  ggsave(file.path("./images/barplots",
+                 paste0(paste(format(Sys.time(),format="%Y%m%d"),
+                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
+                       "-barplot-wild-vs-lab-nmr-from-paper.",image.format)),
+       plot=debebe.comparison.plot,
+       width=170, 
+       height=90,
+       units="mm",
+       dpi=300,device = image.format)
+}
 sessionInfo()
 rm(list = ls(all=TRUE))
 gc()

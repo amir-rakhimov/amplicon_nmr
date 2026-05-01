@@ -31,52 +31,8 @@
 # library(phyloseq)
 library(tidyverse)
 library(vegan)
-#+ echo=FALSE
-## 2. Specifying parameters and directory/file names. #### 
-#'
-#' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled"
-#' Specify paths and image formats:
-rdafiles.directory<-"./output/rdafiles"
-rtables.directory<-file.path("./output/rtables",authorname)
-image.formats<-c("png","tiff")
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234"
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"Genus"
-#' Single reads or paired reads (decided in QIIME2):
-read.end.type<-"single"
-#' Import abundance table as an rds file (NOT rarefied): 
-ps.q.agg.date_time<-"20260211_17_01_10"
-ps.q.agg<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
-        read.end.type, truncationlvl,"table.rds",sep = "-")))
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-#'
-#' Import the rarefied abundance table (rds  file):
-ps.q.df.preprocessed.date_time<-"20260211_17_14_19"
-# 20260211_17_14_19 rarefied table for all hosts, genus level
-# 20260211_17_14_20 rarefied table file for NMR, genus level
-# 20260211_17_14_21 rarefied table file for NMR, ASV level
-
-#' Import metadata:
-custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
-#' Set "pretty" labels
-pretty.level.names<-c("NMR" = "*H. glaber*", # better labels for facets
-                      "DMR" = "*F. damarensis*",
-                      "B6mouse" = "B6 mouse",
-                      "MSMmouse" = "MSM/Ms mouse",
-                      "FVBNmouse" = "FVB/N mouse",
-                      "spalax" = "*N. leucodon*",
-                      "pvo" = "*P. v. orii*",
-                      "hare" = "*L. europaeus*",
-                      "rabbit" = "*O. cuniculus*")
-custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 #' Facet labels
 metric.labs <- c('sobs'= case_when(agglom.rank == "OTU" ~ 
@@ -89,19 +45,6 @@ metric.labs <- c('sobs'= case_when(agglom.rank == "OTU" ~
 plot.metrics<-c("sobs","shannon","invsimpson")
 div.indices<-c("sobs","shannon", "invsimpson")
 
-mytheme<-theme(
-  axis.title.x = element_blank(),
-  axis.title.y = element_blank(),
-  axis.text.y = element_text(size=15),
-  axis.title = element_text(size = 15),
-  strip.text.x = element_text(size=15),
-  plot.title = element_text(size = 15),
-  legend.text = element_text(size = 15),
-  legend.title = element_text(size = 18),
-  legend.position = "right",
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_blank())
-  
 #' Remove rows with 0 Abundance, if there's any.
 ps.q.agg <- ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)

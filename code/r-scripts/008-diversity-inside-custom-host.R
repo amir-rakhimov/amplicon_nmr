@@ -27,40 +27,8 @@ library(ggrepel)
 ## 2. Specifying parameters and directory/file names. #### 
 #'
 #' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled"
-#' Directories with input files:
-rdafiles.directory<-"./output/rdafiles"
-rtables.directory<-file.path("./output/rtables",authorname)
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234" 
-#' Single reads or paired reads (decided in QIIME2):
-read.end.type<-"single"
-rare.status<-"rare"
-filter.status<-"nonfiltered"
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"OTU"
-#' Import rarefied data (rds).
-ps.q.df.preprocessed.date_time<-"20260211_17_14_21" # ASV NMR
-#' Import abundance table as an rds file (NOT rarefied): 
-ps.q.agg.date_time<-"20260211_17_01_07" # ASV
-ps.q.agg<-readRDS(file=file.path(
-  rdafiles.directory,
-  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
-        read.end.type, truncationlvl,"table.rds",sep = "-")))
-#' Import metadata.
-custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.rds"))
-#' Specify paths and image formats.
-image.formats<-c("png","tiff")
-#' Labels for plots:
-metric.labs=c('sobs'= case_when(agglom.rank == "OTU" ~ "Richness (Observed species)",
-                                agglom.rank == "Genus" ~ "Richness (Observed genera)") ,
-              'shannon' = "Shannon",
-              'invsimpson' = "Inverse Simpson")
-plot.metrics<-c("sobs","shannon",
-                "invsimpson") # metrics to plot
-div.indices<-c("sobs","shannon",
-               "invsimpson")
 #' If you compare NMRs or mice (inside host):
 host<-"NMR"
 # host.class<-c("NMR"="naked mole-rat",

@@ -44,17 +44,6 @@ library(Polychrome)
 ## 2. Specifying parameters and directory/file names. #### 
 #'
 #' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled"
-#' Directories with input files:
-rdafiles.directory<-"./output/rdafiles"
-rtables.directory<-file.path("./output/rtables",authorname)
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234" 
-#' Single reads or paired reads (decided in QIIME2):
-read.end.type<-"single"
-rare.status<-"rare"
-filter.status<-"nonfiltered"
 #+ echo=FALSE
 ## 3. Prepare necessary functions. ####
 #'

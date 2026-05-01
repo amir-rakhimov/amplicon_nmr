@@ -29,65 +29,6 @@
 # install.packages(c("tidyverse","vegan","Polychrome"))
 library(tidyverse)
 library(vegan) # Need v2.6-4 instead of current (2.7-1)
-#+ echo=FALSE
-## 2. Specifying parameters and directory/file names. #### 
-#'
-#' ## Specifying parameters and directory/file names. 
-#' Name of the folder with QIIME2 output:
-authorname<-"pooled"
-#' Specify paths and image formats:
-rdafiles.directory<-"./output/rdafiles"
-rtables.directory<-file.path("./output/rtables",authorname)
-image.formats<-c("png","tiff")
-#' Truncation level that we chose in QIIME2:
-truncationlvl<-"234"
-#' The taxonomic rank that was used for agglomeration:
-agglom.rank<-"Genus"
-#' Single reads or paired reads (decided in QIIME2):
-read.end.type<-"single"
-#' Import abundance table as an rds file (NOT rarefied): 
-ps.q.agg.date_time<-"20260211_17_01_10"
-ps.q.agg<-readRDS(file=file.path(
-  "./output/rdafiles",
-  paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,
-        read.end.type, truncationlvl,"table.rds",sep = "-")))
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-#'
-#' Import the rarefied abundance table:
-ps.q.df.pca.input.date_time<-"20260211_17_14_19"
-#' Import metadata:
-custom.md<-readRDS("./output/rdafiles/custom.md.rds")
-#' This is for plot filenames:
-plot.types<-c("plot"="",
-              "plot.with.labels"="-with-labels")
-#' Set "pretty" labels
-pretty.level.names<-c("NMR" = "*H. glaber*", # better labels for facets
-                      "DMR" = "*F. damarensis*",
-                      "B6mouse" = "B6 mouse",
-                      "MSMmouse" = "MSM/Ms mouse",
-                      "FVBNmouse" = "FVB/N mouse",
-                      "spalax" = "*N. leucodon*",
-                      "pvo" = "*P. v. orii*",
-                      "hare" = "*L. europaeus*",
-                      "rabbit" = "*O. cuniculus*")
-custom.levels<-intersect(names(pretty.level.names),custom.md$class)
-#' Set a general theme for ggplot2. Add more parameters depending on the plot.
-mytheme <- theme(plot.title = element_text(size = 27),
-                 axis.text.x = element_text(angle=0,size=20),
-                 axis.text.y = element_text(size=20),
-                 axis.title = element_text(size = 20),
-                 legend.text = ggtext::element_markdown(size = 15),
-                 legend.title = element_text(size = 25),
-                 legend.position = "right",
-                 plot.caption = ggtext::element_markdown(hjust = 0,
-                                                         size=20),
-                 plot.caption.position = "plot",
-                 panel.grid.minor = element_blank(),
-                 panel.grid.major = element_blank()
-)
 #' Remove rows with 0 Abundance, if there's any.
 ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
@@ -95,6 +36,8 @@ ps.q.agg<-ps.q.agg%>%
 ## 3. PCA ####
 #'
 #' ## PCA ####
+#' The taxonomic rank that was used for agglomeration:
+agglom.rank<-"Genus"
 #' Import rarefied dataframe.
 ps.q.df.pca.input<-readRDS(
   file.path(rdafiles.directory,paste0(

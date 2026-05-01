@@ -94,45 +94,35 @@ library(microViz)
 ## 2. Import data from QIIME2. #### 
 #'
 #' ## Import data from QIIME2.  
-truncationlvl<-"234" # truncation level that we chose in QIIME2
-authorname<-"pooled" # name of the folder with QIIME2 output
-# qza_file_date_time<-"20240425_02_57_13"
-qza_file_date_time<-"20260209_16_33_25"
-read.end.type<-"single" # single reads or paired reads: decided in QIIME2
-qiimedir<-file.path("./output/qiime",paste0(authorname,"-qiime"),
-                    paste(qza_file_date_time,read.end.type,truncationlvl,sep="-")) # directory with QZA files
-
-metadatadir<-file.path("./data/metadata",
-                       paste(authorname,"metadata",sep = "-")) # directory with metadata
-
-#' Specify the name of your metadata file.
-metadata.filename<-file.path(metadatadir,
-                          paste("filenames",read.end.type,
-                                authorname,"raw-supercomp.tsv", 
-                                sep = "-"))
-biosample.md<-read.table("./data/metadata/pooled-metadata/biosample_metadata_for_ncbi.tsv",
-                         sep = "\t", header= T)
-
+source(here::here("config/R/config.R"))# config file with global variables
+# TODO: change domain according to the config file!!!!!
+if(!dir.exists(here::here("analysis","1-qiime2",paste(qza_file_date_time,read.end.type,
+                      truncationlvl,sep="-"), domain, "01-community_composition"))
+){
+  dir.create(here::here("analysis","1-qiime2",paste(qza_file_date_time,read.end.type,
+                                                    truncationlvl,sep="-"), 
+                        domain, "01-community_composition"))
+}
 #+ echo=FALSE
 ## 3. Import qza files and convert them into a phyloseq object. ####
 #'
 #' ## Import qza files and convert them into a phyloseq object.
 ps.q<-qza_to_phyloseq(
-  features = file.path(qiimedir, paste0(paste(qza_file_date_time,
+  features = file.path(qiime2.output.path, paste0(paste(qza_file_date_time,
                                               authorname,
                                               read.end.type,
                                               "trimmed-dada2-table",
                                               truncationlvl,
                                               "filtered",
                                               sep="-"),".qza")), # feature table
-  taxonomy = file.path(qiimedir,paste0(paste(qza_file_date_time,
+  taxonomy = file.path(qiime2.output.path,paste0(paste(qza_file_date_time,
                                              authorname,
                                              read.end.type,
                                              "trimmed-dada2",
                                              truncationlvl,
                                              "filtered-taxonomy",
                                              sep="-"),".qza")), # taxonomy
-  tree = file.path(qiimedir,paste0(paste(qza_file_date_time,
+  tree = file.path(qiime2.output.path,paste0(paste(qza_file_date_time,
                                          authorname,
                                          read.end.type,
                                          "trimmed-dada2",
