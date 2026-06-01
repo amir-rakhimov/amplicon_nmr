@@ -1,73 +1,60 @@
----
-output:
-  html_document: default
-  pdf_document: default
----
-# PhD project: Cross-species gut microbiota comparison with a focus on naked mole-rat longevity
-
-In this project, I analyse fecal microbiota from different rodents. Data from
-naked mole-rats (Heterocephalus glaber, NMR; n=19) and B6 
-mice (Mus musculus, B6 mouse, n=4) were newly obtained at Kumamoto University. 
-Data from MSM/Ms and FVB/N mice were obtained at Chiba Cancer Center. 
-Reads from Damaraland mole-rats (Fukomys damarensis, DMR; n=20) 
-[Bensch et al. 2022 PeerJ], European brown hares (Lepus europaeus, hare; n=9) 
-and European rabbits (Oryctolagus cuniculus, rabbit; n=12) 
-[Shanmuganandam et al. 2020 PeerJ], Lesser blind mole-rat 
-(Nannospalax leucodon, spalax; n=15) [Sibai et al. 2020 OMICS J Integr Biol], 
-and Siberian flying squirrel (Pteromys volans orii, PVO; n=19) 
-[Liu et al. 2020 Sci Rep] were downloaded from previous studies. 
-
-The repository is organised in four directories:
-
-1. `code`: the folder with all scripts, such as bash and R scripts
-- `bash-scripts`
-- `r-scripts`:
-  - `001-phyloseq-qiime2.R`: processes the QIIME2 output into phyloseq format,
-  agglomerates the ASV table by taxonomic rank. If "OTU" is specified, then 
-  the table is not agglomerated
-  - `002-barplots-qiime2.R`: creates a stacked barplot for all hosts and separate 
-  barplots for each host
-  - `003-phyloseq-rarefaction-filtering.R`: rarefies the ASV table (ASV level 
-  or agglomerated taxonomic rank). 
-  Also filters the table by  prevalence (optional)
-  - `004-beta-diversity.R`: using the output of `001-phyloseq-qiime2.R`,
-  filters data by host, 
-  rarefies the table with avgdist, 
-  calculates beta diversity metrics (robust Aitchison, Jaccard, Canberra, 
-  Bray-Curtis), 
-  performs PERMANOVA and pariwise tests,
-  plots PCoA, nMDS, and PCA. 
-  NB: only PCA uses the rarefied table from `003-phyloseq-rarefaction-filtering.R`
-  - `001-phyloseq-qiime2.R`:
-  - `001-phyloseq-qiime2.R`:
-  - `001-phyloseq-qiime2.R`:
-  - `001-phyloseq-qiime2.R`:
-  
-2. `data`: raw data, metadata, and QIIME2 output that is used for downstream
-processing in R.
-- `fastq`: FASTQ files from amplicon sequencing. Each subfolder corresponds
-to an experiment
-  - `biagi-fastq`: from wild naked mole-rats (Data provided by Elena Biagi)
-- `metadata`: metadata from each experiment
-- `qiime`: QZA files from QIIME2, such as. reference tables, trees, and 
-taxonomies. Each subfolder corresponds to an experiment
-  - `biagi-qiime`: QIIME2 output from wild naked mole-rats
-  - `pooled-qiime`: QIIME2 output from all experiments combined. We analysed all
-  the raw data together
-3. `images`: plots produced in R
-- `barplots`: barplots of relative abundances
-- `diversity`: alpha and beta diversity plots, PCA plots
-  - `alpha`: alpha diversity plots
-  - `nmds`: beta diversity analysis results visualised with nMDS
-  - `pca`: PCA plots
-  - `pcoa`: beta diversity analysis results visualised with PCoA
-- `taxaboxplots`: boxplots of individual taxa
-4. `output`: intermediate and final output from R
-- `diffabund`: differential abundance analysis results
-- `picrust`: PICRUSt2 results
-- `rdafiles`: rdafiles from phyloseq, ALDEx2, MaAsLin2, ANCOM-BC
-- `rtables`: R-tables from phyloseq, ALDEx2, MaAsLin2, ANCOM-BC
-  - merged
-  - pooled
+# 16S rRNA gene sequencing analysis of the naked mole-rat gut microbiota
+Original publication: Diversity and stability of the gut microbiome of naked mole-rat (Heterocephalus glaber), the longest-lived rodent  
+Amir Rakhimov, Noriko Yasuda-Yoshihara, Masanori Arita, Kazuhiro Okumura, Yoshimi Kawamura, Kaori Oka, Hiroshi Mori, Yuichi Wakabayashi, Yoshifumi Baba, Hideo Baba, Kyoko Miura  
+bioRxiv 2026.02.16.704739; doi: https://doi.org/10.64898/2026.02.16.704739
 
 
+## Description  
+This repository contains scripts and metadata related to the analysis of 
+16S rRNA gene sequencing data from naked mole-rats and other rodents. 
+Data from naked mole-rats and mice was generated at Kumamoto University and
+Chiba Cancer Center Research Institute; data
+from other hosts was taken from previous publications.
+
+The R scripts were converted into R markdown files and knitr files, which can
+be found in the markdown/ directory. The final report is _main.html
+
+Scripts and metadata related to whole metagenome sequencing and MAG assembly can
+be found in the other repository: https://github.com/amir-rakhimov/metagenome/
+
+## Installation  
+QIIME2 was run in a conda environment, requiring the following packages:
+
+Statistical analysis in R requires the following R and Bioconductor packages:
+
+
+# Usage
+## QIIME2 pipeline  
+For running code on a computer cluster with SLURM, run `.slurm` files from `code/slurm-scripts/`. For running code locally, run `.sh` scripts
+from `code/bash-scripts/`  
+1. Run `bash/001-get-fastq-files.sh` to download FASTQ files from other studies  
+2. Run `qiime2-import-datasets` to import sequencing runs separately and trim primers with `q2-cutadapt`  
+3. Run `qiime2-test-trunc_len` to test different DADA2 truncation parameters with `q2-dada2`  
+4. Run `qiime2-train-classifier` to train a Naive Bayes classifier on SILVA database with `q2-feature-classifier`  
+5. 
+
+## Data analysis in R   
+Run `.R` scripts in `code/r-scripts/`  
+
+
+## Input files
+
+
+## Example and output 
+All the output can be found in the report at markdown/_main.html
+
+
+## Publications
+Original publication: Diversity and stability of the gut microbiome of naked mole-rat (Heterocephalus glaber), the longest-lived rodent  
+Amir Rakhimov, Noriko Yasuda-Yoshihara, Masanori Arita, Kazuhiro Okumura, Yoshimi Kawamura, Kaori Oka, Hiroshi Mori, Yuichi Wakabayashi, Yoshifumi Baba, Hideo Baba, Kyoko Miura  
+bioRxiv 2026.02.16.704739; doi: https://doi.org/10.64898/2026.02.16.704739
+
+
+
+
+
+
+
+
+
+Amplicon_nmr project
