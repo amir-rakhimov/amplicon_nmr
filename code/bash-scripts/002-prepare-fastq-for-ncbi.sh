@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rename NMR and B6 mouse 16S files
-project_home_dir=~/projects/amplicon_nmr
+project_home_dir=$HOME/projects/amplicon_nmr
 nmr_b6_16s_original_dir="${project_home_dir}"/data/fastq/for-ncbi/"NMR B6 microbiome_16S_noster"/fastq
 nmr_b6_16s_renamed_dir="${project_home_dir}"/data/fastq/for-ncbi/renamed
 
