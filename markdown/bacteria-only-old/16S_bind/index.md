@@ -1,0 +1,76 @@
+---
+title: "NMR 16S rRNA gene sequencing analysis"
+output:
+  bookdown::html_document2:
+    toc: true
+---
+
+# Preface {-}
+
+This document contains all statistical analyses conducted on the 16S rRNA
+gene sequencing output.
+
+<!-- knitr::spin("code/r-scripts/001-phyloseq-qiime2.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/001-phyloseq-qiime2.Rmd", -->
+<!--  "markdown/001-phyloseq-qiime2.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/002-summary-stats-qiime2.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/002-summary-stats-qiime2.Rmd",  -->
+<!--   "markdown/002-summary-stats-qiime2.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/003-compare-data.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/003-compare-data.Rmd",  -->
+<!--   "markdown/003-compare-data.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/004-barplots-qiime2.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/004-barplots-qiime2.Rmd",  -->
+<!--   "markdown/004-barplots-qiime2.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/005-pca.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/005-pca.Rmd", "markdown/005-pca.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/006-alpha-diversity.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/006-alpha-diversity.Rmd", -->
+<!--   "markdown/006-alpha-diversity.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/007-diffabund-tests.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/007-diffabund-tests.Rmd",  -->
+<!--   "markdown/007-diffabund-tests.Rmd") -->
+
+<!-- knitr::spin("code/r-scripts/008-diversity-inside-custom-host.R", knit = FALSE) -->
+<!-- file.rename("code/r-scripts/008-diversity-inside-custom-host.Rmd",  -->
+<!--   "markdown/008-diversity-inside-custom-host.Rmd") -->
+
+
+
+<!-- rmarkdown::render('./markdown/001-phyloseq-qiime2.Rmd', -->
+<!--  'html_document', -->
+<!--  knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/002-summary-stats-qiime2.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/003-compare-data.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/004-barplots-qiime2.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/005-pca.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/006-alpha-diversity.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/007-diffabund-tests.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+<!-- rmarkdown::render('./markdown/008-diversity-inside-custom-host.Rmd', 'html_document', -->
+<!--   knit_root_dir="/home/rakhimov/projects/amplicon_nmr/") -->
+
+
+
+<!-- render_book(input = "markdown", output_format = "bookdown::html_document2", clean = TRUE, -->
+<!--   envir = parent.frame(),  -->
+<!--   output_dir = "16S_bind", new_session = TRUE, preview = FALSE, -->
+<!--   config_file = "_bookdown.yml") -->
