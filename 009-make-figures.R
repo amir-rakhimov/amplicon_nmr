@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 #' 
 #' ```{r, setup 002-summary-stats-qiime2.R, include=FALSE}
@@ -39,13 +41,14 @@ library(Polychrome)
 library(ggtext)
 library(ggrepel)
 #' Load necessary scripts.
-source("./code/r-scripts/get_n_uniq_taxa_per_host.R")
-source("./code/r-scripts/create_summary_stats_table.R")
-source("./code/r-scripts/add_relab_to_tax_df.R")
-source("./code/r-scripts/add_agegroup_to_tax_df.R")
-source("./code/r-scripts/get_unclassified_summary_stats.R")
-source("./code/r-scripts/get_dominant_taxa_in_host.R")
-source("./code/r-scripts/ggplot_species.R")
+source(file.path(util.functions.r,"get_n_uniq_taxa_per_host.R"))
+source(file.path(util.functions.r,"get_n_uniq_taxa_per_host.R"))
+source(file.path(util.functions.r,"create_summary_stats_table.R"))
+source(file.path(util.functions.r, "add_relab_to_tax_df.R"))
+source(file.path(util.functions.r, "add_agegroup_to_tax_df.R"))
+source(file.path(util.functions.r, "get_unclassified_summary_stats.R"))
+source(file.path(util.functions.r, "get_dominant_taxa_in_host.R"))
+source(file.path(util.functions.r, "ggplot_species.R"))
 
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
@@ -53,6 +56,14 @@ source("./code/r-scripts/ggplot_species.R")
 #' ## Specifying parameters and directory/file names. 
 #' Use only the taxa that are present in the workspace
 #' (custom.md is metadata from the rdafile).
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 #' Import the rarefied abundance table (rds  file):
@@ -61,29 +72,15 @@ custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 # 20260211_17_14_21 rarefied table file for NMR, ASV level
 #' Import rarefied dataframe and select Sample, Abundance, 
 #' class, and agglom.rank columns.
+
+ps.q.agg.asv<-readRDS(file = ps.q.agg.asv.fname)
+ps.q.agg.genus <- readRDS(file = ps.q.agg.genus.fname)
 ps.q.df.preprocessed.genus<-readRDS(
-  file.path(rdafiles.directory,paste0(
-    paste(
-      "20260211_17_14_19",
-      "ps.q.df.rare-nonfiltered","Genus",
-      paste(custom.levels,collapse = '-'),sep = "-"),
-    ".rds")))%>%
-  filter(class%in%custom.levels, Abundance!=0)%>%
-  dplyr::select(Sample,Abundance,class,Genus)
-
-ps.q.df.preprocessed.asv<-readRDS(
-  file.path(rdafiles.directory,paste0(
-    paste(
-      "20260211_17_14_21",
-      "ps.q.df.rare-nonfiltered","OTU",
-      "NMR",sep = "-"),
-    ".rds")))%>%
-  filter(Abundance!=0)%>%
-  dplyr::select(Sample,Abundance,class,OTU)
-
-
-
-
+  file.path(community.composition.rdafiles,
+            paste0(
+              paste("ps.q.df.rare-nonfiltered-Genus",
+                    paste(custom.levels,collapse = '-'),sep = "-"),
+              ".rds")))
 
 ## Figure 2 ####
 #+ echo=FALSE
@@ -148,21 +145,17 @@ div.plot<-all.div%>%
        y="",
        x="")+
   # ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))+
+  project_theme + 
+  manuscript.alpha.plot.theme +
   theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.text.y = element_text(size=10),
     axis.title = element_text(size = 10),
-    strip.text.x = element_text(size=10),
     plot.title = element_text(size = 10),
     legend.text = element_text(size = 10),
     legend.title = element_text(size = 13),
     legend.box.spacing = unit(0.01,units="cm"),
     legend.position = "right",
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_blank()) + # general theme
-  theme(axis.text.x = ggtext::element_markdown(size=10),
-        legend.text = ggtext::element_markdown(size=10))
+    legend.text = ggtext::element_markdown(size=10))
+
 
 div.plot.jitter<-div.plot+
   geom_jitter(aes(colour=class_letter),
@@ -241,19 +234,17 @@ pca.plot<-PC1.df%>%
        y = paste0("PC2 (", perc.var[2], "%)"),
        shape = "Host")+
   guides(fill="none")+
+  project_theme+
+  manuscript.pca.plot.theme +
   theme(axis.text.x = element_text(angle=0,size=13),
         axis.text.y = element_text(size=13),
         axis.title = element_text(size = 15),
-        legend.text = ggtext::element_markdown(size = 10),
         legend.title = element_text(size = 12),
         legend.key.spacing = unit(0.01,"cm"),
         legend.box.spacing = unit(0.01,units="cm"),
         plot.caption = ggtext::element_markdown(hjust = 0,
                                                 size=12),
-        plot.caption.position = "plot",
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank())+ # general theme
-  theme(legend.position = "bottom")+
+        legend.position = "bottom")+
   labs(shape ="")
 
 
@@ -271,7 +262,7 @@ custom.md.ages<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))%>%
 
 ps.q.agg.relab.nmr<-ps.q.agg.asv%>%
   filter(class=="NMR")
-source("./code/r-scripts/add_agegroup_to_tax_df.R")
+source(file.path(util.functions.r, "add_agegroup_to_tax_df.R"))
 ps.q.agg.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.relab.nmr,"OTU",
                                            custom.md.ages)
 
@@ -402,24 +393,8 @@ top10.shared.asv.plot<-ps.q.agg.relab.nmr%>%
        # title="Top 10 most abundant ASVs across age",
        fill="ASV"
   )+
-  theme(axis.text.y = element_text(size=8), # size of y axis ticks
-    axis.text.x = element_text(angle=45,size=8,hjust=1),# rotate 
-    axis.title.x = element_text(size = 10), # size of axis names
-    axis.title.y = element_text(size = 9, hjust= 0.2),
-    strip.text.x = ggtext::element_markdown(size=10),
-    legend.text = element_text(size = 7.2), # size of legend text
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_blank(),
-    legend.title = element_text(size=10),
-    legend.key.size = unit(0.3, 'cm'), #change legend key size
-    legend.key.spacing.y = unit(0.01, "cm"), # distant between key text
-    legend.key.spacing.x = unit(0.05, "cm"), # distant between key text
-    legend.box.spacing = unit(0.01,"cm"), # space between the plot and the legend box
-    panel.spacing = unit(0.8, "cm"), # increase distance between facets
-    plot.title = element_text(size = 8), # size of plot title
-    plot.caption = element_text(size=8), # size of plot caption
-    legend.position = "bottom")
-
+  project_theme +
+  manuscript.asv.barplot.theme
 
 
 #+ echo=FALSE
@@ -490,32 +465,6 @@ pca.plot.nmr<-PC1.df.nmr%>%
   # left_join(custom.md)
   left_join(custom.md.ages)
 
-#' Theme for alpha diversity plots:
-alpha.plot.theme<-theme(#plot.margin=unit(c(1,1,1,2), 'cm'),
-  axis.title.x = element_blank(),
-  axis.title.y = element_blank(),
-  axis.text.x = ggtext::element_markdown(size=10),
-  axis.text.y = element_text(size=10),
-  axis.title = element_text(size = 13),
-  strip.text.x = element_text(size=10),
-  plot.title = element_text(size = 14),
-  legend.text = element_text(size = 9),
-  legend.title = element_text(size = 10),
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_blank())
-#' Theme for PCA scatter plots:
-scatter.plot.theme<-theme(
-  axis.text.x = element_text(angle=0,size=10,hjust=1),
-  axis.text.y = element_text(size=10),
-  axis.title = element_text(size = 10),
-  plot.title = element_text(size = 14),
-  legend.text = element_text(size = 10),
-  legend.title = element_text(size = 10),
-  legend.position = "right",
-  plot.caption = ggtext::element_markdown(hjust = 0, size=13),
-  plot.caption.position = "plot",
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_blank())
 
 #+ echo=FALSE
 ### 3.6 Plot PCA on sexes. ####
@@ -561,7 +510,8 @@ pca.plot.nmr.sex<-pca.plot.nmr%>%
   geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   # ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
   #               gg.title.taxon))+
-  scatter.plot.theme+  # theme for scatter plots (PCA, PCoA, nMDS)
+  project_theme +
+  manuscript.pca.plot.theme.plot.theme+  # theme for scatter plots (PCA, PCoA, nMDS)
   theme(legend.title = element_text(vjust = 2),
         legend.key.spacing = unit(0.01,"cm"),
         legend.box.spacing = unit(0.01,units="cm")
@@ -592,7 +542,8 @@ pca.plot.nmr.age<-pca.plot.nmr%>%
   geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   # ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
   #               gg.title.taxon))+
-  scatter.plot.theme+  # theme for scatter plots (PCA, PCoA, nMDS)
+  project_theme +
+  manuscript.pca.plot.theme +  # theme for scatter plots (PCA, PCoA, nMDS)
   theme(
     legend.title = element_text(vjust = 5),
         legend.key.spacing = unit(0.01,"cm"),
@@ -661,7 +612,8 @@ nmr.age.div.plot<-all.div.nmr%>%
        x="Age (years)")+
   theme_bw()+
   # ggtitle(paste0("Alpha diversity of the naked mole-rat gut microbiota across age\n",gg.title.taxon))+
-  alpha.plot.theme + # general theme
+  project_theme +
+  manuscript.alpha.plot.theme + # general theme
   theme(axis.title.x = element_text(size=11),
         axis.text.y=element_text(size=8),
         legend.box.spacing = unit(0.01,units="cm"),
@@ -674,10 +626,8 @@ figure2<-plot_grid(div.plot.jitter,pca.plot,ncol=1,
                    labels = "auto",label_size = 20,
                    rel_heights = c(1,1.4))
 for(image.format in image.formats){
-  ggsave(filename = paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                          paste("figure2",image.format,sep = "."),sep = "-"),
-         path = "images",
+  ggsave(filename = paste("figure2",image.format,sep = "."),
+         path = manuscript.figures,
          plot = figure2,
          device = image.format,
          dpi=300,
@@ -703,10 +653,8 @@ figure3<-plot_grid(f3.top_row,
 #                    nmr.age.div.plot, ,ncol=1,
 #                    labels = "auto",label_size = 20)
 for(image.format in image.formats){
-  ggsave(filename = paste(paste(format(Sys.time(),format="%Y%m%d"),
-                                format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                          paste("figure3",image.format,sep = "."),sep = "-"),
-         path = "images",
+  ggsave(filename = paste("figure3",image.format,sep = "."),
+         path = manuscript.figures,
          plot = figure3,
          device = image.format,
          dpi=300,
