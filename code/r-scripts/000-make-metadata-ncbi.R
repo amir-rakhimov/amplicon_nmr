@@ -1,14 +1,14 @@
 library(tidyverse)
-authorname<-"pooled" # name of the folder with QIIME2 output
-read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+authorname<-"shared" # name of the folder with QIIME2 output
+# read.end.type<-"single" # single reads or paired reads: decided in QIIME2
+read.end.type<-"paired" # single reads or paired reads: decided in QIIME2
 metadatadir.16s<-file.path("./data/metadata",
-                       paste(authorname,"metadata",sep = "-")) # directory with metadata
+                       paste(authorname,sep = "-")) # directory with metadata
 metadatadir.wms<-file.path("../metagenome/data/metadata") # directory with metadata
 
 
 metadata.filename.16s<-file.path(metadatadir.16s,
-                             paste("filenames",read.end.type,
-                                   authorname,"raw-supercomp.tsv", sep = "-"))
+                             paste0("filenames-",read.end.type,".tsv"))
 metadata.filename.wms<-file.path(metadatadir.wms,
                              paste("samples.tsv", sep = "-"))
 custom.md.16s<-read.table(metadata.filename.16s, header = T)
