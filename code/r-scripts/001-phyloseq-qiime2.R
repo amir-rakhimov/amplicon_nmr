@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 #' ```{r, setup 001-phyloseq-qiime2.R, include=FALSE}
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
@@ -20,10 +22,10 @@
 #' QZA files using `qiime2R` package.
 #' We will convert the QZA files directly into phyloseq objects.
 #'
-#' The final output is the dataframe ps.q.agg and metadata custom.md.
-#' ps.q.agg and custom.md are saved as tsv files and rds files.
+#' The final output is the dataframe ps.q.agg.asv and metadata custom.md.
+#' ps.q.agg.asv and custom.md are saved as tsv files and rds files.
 #'
-#' 1) ps.q.agg is an ASV table with 7-13 columns   
+#' 1) ps.q.agg.asv is an ASV table with 7-13 columns   
 #' (7 if agglomerating at Phylum, 13 if agglomerating at ASV level):  
 #' * `Sample`: samples that were sequenced.   
 #' * `Abundance`: Absolute abundance of taxa.   
@@ -53,7 +55,7 @@
 #' dividing by the sum of reads in that host.  
 #'
 #' 2) custom.md is a dataframe with metadata. It has 5 variables:  
-#' * `class`: same as in ps.q.agg  
+#' * `class`: same as in ps.q.agg.asv  
 #' * `animal`: full names of animal hosts.  The variable is 
 #' factor with 9 levels at most ("Fukomys Damarensis", 
 #' "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
@@ -68,7 +70,7 @@
 #' four levels (F, M, NR, -)  
 #' * `birthday`: date of birth of samples. Not all samples have it. 
 #' It is a Date format variable.  
-#' * `Sample`: same as in ps.q.agg  
+#' * `Sample`: same as in ps.q.agg.asv  
 #'
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
@@ -90,39 +92,43 @@ library(phyloseq)
 library(tidyverse)
 library(microViz)
 
+
 #+ echo=FALSE
 ## 2. Import data from QIIME2. #### 
 #'
 #' ## Import data from QIIME2.  
+#' 
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
 source(here::here("config/R/config.R"))# config file with global variables
-# TODO: change domain according to the config file!!!!!
-if(!dir.exists(here::here("analysis","1-qiime2",paste(qza_file_date_time,read.end.type,
-                      truncationlvl,sep="-"), domain, "01-community_composition"))
-){
-  dir.create(here::here("analysis","1-qiime2",paste(qza_file_date_time,read.end.type,
-                                                    truncationlvl,sep="-"), 
-                        domain, "01-community_composition"))
-}
+
+dir.create(community.composition.tables,recursive = TRUE)
+dir.create(community.composition.rdafiles,recursive = TRUE)
+dir.create(community.composition.figures,recursive = TRUE)
+
 #+ echo=FALSE
 ## 3. Import qza files and convert them into a phyloseq object. ####
 #'
 #' ## Import qza files and convert them into a phyloseq object.
 ps.q<-qza_to_phyloseq(
-  features = file.path(qiime2.output.path, paste0(paste(qza_file_date_time,
+  features = file.path(qiime2.output.dir, paste0(paste(qza_file_date_time,
                                               authorname,
                                               read.end.type,
                                               "trimmed-dada2-table",
                                               truncationlvl,
                                               "filtered",
                                               sep="-"),".qza")), # feature table
-  taxonomy = file.path(qiime2.output.path,paste0(paste(qza_file_date_time,
+  taxonomy = file.path(qiime2.output.dir,paste0(paste(qza_file_date_time,
                                              authorname,
                                              read.end.type,
                                              "trimmed-dada2",
                                              truncationlvl,
                                              "filtered-taxonomy",
                                              sep="-"),".qza")), # taxonomy
-  tree = file.path(qiime2.output.path,paste0(paste(qza_file_date_time,
+  tree = file.path(qiime2.output.dir,paste0(paste(qza_file_date_time,
                                          authorname,
                                          read.end.type,
                                          "trimmed-dada2",
@@ -143,7 +149,7 @@ rm(ps.q.taxtab)
 ## 4. Add custom metadata. ####
 #'
 #' ## Add custom metadata. 
-custom.md<-read.table(metadata.filename, header = T)
+custom.md<-read.table(qiime2.metadata.filename, header = T)
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 #' Convert the Sample column into row names because phyloseq 
 #' needs samples as rownames.
@@ -196,9 +202,12 @@ custom.md.ages<-custom.md.ages%>%
   as.data.frame()
 rownames(custom.md.ages)<-custom.md.ages$sample_name
 
-# saveRDS(custom.md.ages,file="./output/rdafiles/custom.md.ages.rds")
-# write.table(custom.md.ages,file="./output/rtables/pooled/custom.md.ages.tsv",
-#             row.names = F,sep = "\t")
+custom.md.ages.fname <- file.path(new.metadata.dir,"custom.md.ages.rds")
+if(!file.exists(custom.md.ages.fname)){
+  saveRDS(custom.md.ages,file = custom.md.ages.fname)
+  write.table(custom.md.ages,file=file.path(new.metadata.dir,"custom.md.ages.tsv"),
+              row.names = F,sep = "\t")
+}
 
 #' You can exclude some samples based on class. Specify the excluded classes
 #' in a vector, then use the `%in%` operator. It will remove entries 
@@ -211,9 +220,12 @@ custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','tx'),]
 custom.md<-custom.md[!rownames(custom.md) %in%
                        intersect(names(which(colSums(ps.q@otu_table)<20000)),
                                  rownames(custom.md)),]
-# saveRDS(custom.md,file="./output/rdafiles/custom.md.rds")
-# write.table(custom.md,file="./output/rtables/pooled/custom.md.tsv",
-#             row.names = F,sep = "\t")
+custom.md.fname <- file.path(new.metadata.dir,"custom.md.rds")
+if (!file.exists (custom.md.fname)){
+  saveRDS(custom.md,file = custom.md.fname)
+  write.table(custom.md,file = file.path(new.metadata.dir,"custom.md.tsv"),
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
@@ -239,27 +251,29 @@ ps.q@otu_table@.Data%>%
   summary()
 
 #' Select only Bacteria. Remove chloroplast and mitochondria
-ps.q<-ps.q %>%
-  subset_taxa(Kingdom%in%"Bacteria")%>%
+if(active.analysis == "bacteria_only"){
+  ps.q<-ps.q %>%
+    subset_taxa(Kingdom%in%"Bacteria")
+}
+ps.q <- ps.q%>%
   subset_taxa(!Order %in% "Chloroplast")%>%
   subset_taxa(!Family %in% "Mitochondria")
-
 #+ echo=FALSE
 ### 4.3 Fix empty taxa with higher rank taxon. ####
 #'
 #' ### Fix empty taxa with higher rank taxon. ####
 #' Because we want to remove NA values and make ambiguous "uncultured" or 
 #' "unclassified" taxa more understandable.
-ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured","Unassigned",
+ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured",#"Unassigned",
                                 "uncultured_bacterium","uncultured_rumen",
                                 "gut_metagenome","human_gut","mouse_gut",
                                 "wallaby_gut","uncultured_soil", 
-                                "uncultured_organism","uncultured_prokaryote"))
+                                "uncultured_organism","uncultured_prokaryote",NA))
 #+ echo=FALSE
 ## 5. Convert the phyloseq object into a dataframe. ####
 #'
 #' ## Convert the phyloseq object into a dataframe.
-ps.q.agg<-ps.q %>%
+ps.q.agg.asv<-ps.q %>%
   psmelt() 
 ps.q.agg.phylum<-ps.q %>%
   tax_glom("Phylum",NArm = FALSE) %>% # agglomerate by phylum
@@ -270,7 +284,7 @@ ps.q.agg.family<-ps.q %>%
 ps.q.agg.genus<-ps.q %>%
   tax_glom("Genus",NArm = FALSE) %>% # agglomerate by genus
   psmelt()  # transform the phyloseq object into an R dataframe
-ps.list <- list("OTU" = ps.q.agg, 
+ps.list <- list("OTU" = ps.q.agg.asv, 
                "Phylum" = ps.q.agg.phylum,
                "Family" = ps.q.agg.family, 
                "Genus" = ps.q.agg.genus)
@@ -366,22 +380,24 @@ for (ps.df.index in names(ps.list)){
     ungroup()%>%
     dplyr::select(-TotalClass,-TotalSample,-TotalAgglomRank)
   # Save the tables in TSV format and as an RDS object
-  # write.table(ps.df,
-  #             file=file.path("./output/rtables",authorname,paste(
-  #               paste(format(Sys.time(),format="%Y%m%d"),
-  #                     format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #               "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-  #               "table.tsv",sep="-")),
-  #             row.names = F,sep = "\t")
-  # saveRDS(ps.df,
-  #         file=file.path("./output/rdafiles",paste(
-  #           paste(format(Sys.time(),format="%Y%m%d"),
-  #                 format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #           "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-  #           "table.rds",sep="-")))
+  tsv.fname <- file.path(community.composition.tables,paste(
+    "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
+    "table.tsv",sep="-"))
+  if(!file.exists(tsv.fname)){
+    write.table(ps.df,
+                file = tsv.fname,
+                row.names = F,sep = "\t")
+  }
   
+  rda.fname <- file.path(community.composition.rdafiles,paste(
+    "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
+    "table.rds",sep="-"))
+  if(!file.exists(rda.fname)){
+    saveRDS(ps.df,
+            file = rda.fname)
+  }
 }
 
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 
 #' ```{r, setup 004-barplots-qiime2.R, include=FALSE}
@@ -31,9 +33,32 @@ library(Polychrome)
 library(ggtext)
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"Genus"
+#+ echo=FALSE
+## 2. Specifying parameters and directory/file names. #### 
+#'
+#' ## Specifying parameters and directory/file names. 
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+
+## 3. Import datasets. #### 
+#'
+#' ## Import datasets.
+#' Import abundance table as an rds file (NOT rarefied): 
+ps.q.agg<-readRDS(file=file.path(
+  community.composition.rdafiles,
+  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
+        truncationlvl,"table.rds",sep = "-")))
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 #+ echo=FALSE
-## 3. Set up the barplot. ####
+## 4. Set up the barplot. ####
 #'
 #' ## Set up the barplot.
 #' First, find where the agglom.rank column is located (what number the
@@ -61,7 +86,7 @@ if(agglom.rank%in%custom_order){
 }
 #'
 #+ echo=FALSE
-### 3.1 Tidy up the taxonomic names. ####
+### 4.1 Tidy up the taxonomic names. ####
 #'
 #' ### Tidy up the taxonomic names. ####
 #' First, merge the taxonomic columns into the "taxon" column to find 
@@ -124,7 +149,7 @@ plot.cols<-c("#C1CDCD",plot.cols[1:length(plot.cols)-1])
 col.vec<-setNames(plot.cols,levels(new.df$taxon))
 
 #+ echo=FALSE
-## 4. Plot the barplot. ####
+## 5. Plot the barplot. ####
 #'
 #' ## Plot the barplot.
 #' We will concatenate the sample name on the x-axis with the 
@@ -195,20 +220,15 @@ print(barplot.all+
         ggtitle(paste(agglom.rank,"level gut microbiota profiles of fecal samples from different rodents"))+
         theme(plot.title = element_text(size=10))
       )
-# for(image.format in image.formats){
-#   ggsave(paste0(barplot.directory,
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "barplot",paste(custom.levels,collapse = '-'),
-#                       truncationlvl,agglom.rank,
-#                       sep = "-"),".",image.format),
-#          plot=barplot.all,
-#          width=11, height=8,units="in",
-#          
-#          # width = 13500,height = 5200,
-#          # units = "px",
-#          dpi=800,device = image.format)
-# }
+for(image.format in image.formats){
+  ggsave(paste0(paste("barplot",paste(custom.levels,collapse = '-'),
+                      truncationlvl,agglom.rank,
+                      sep = "-"),".",image.format),
+         path = community.composition.figures,
+         plot=barplot.all,
+         width=11, height=8,units="in",
+         dpi=800,device = image.format)
+}
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

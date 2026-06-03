@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 
 #' ```{r, setup 008-diversity-inside-custom-host.R, include=FALSE}
@@ -29,55 +31,50 @@ library(ggrepel)
 #' ## Specifying parameters and directory/file names. 
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"OTU"
-#' If you compare NMRs or mice (inside host):
-host<-"NMR"
-# host.class<-c("NMR"="naked mole-rat",
-#               "mice"="mouse")
-# comparison<-"age"
-# comparison<-"sex"
-# comparison<-"strain"
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+# comparison<- cmdargs[2] #"age" or "sex" 
+# host <- cmdargs[3] # NMR
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+# comparison<- params$comparison #"age" or "sex"
+# host <-"NMR"# params$host # NMR
+print(paste("The analysis focus is:", active.analysis, comparison, host))
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+
+ps.q.agg<-readRDS(file=file.path(
+  community.composition.rdafiles,
+  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
+        truncationlvl,"table.rds",sep = "-")))%>%
+  filter(class == "NMR",Abundance!=0)
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 gg.title.taxon <- ifelse(agglom.rank=="OTU","(ASV level)",
                        paste0("(",agglom.rank," level)"))
-
 host.labels <- c("NMR" = "*Heterocephalus glaber*")
 #' Load the rarefied dataframe:
 ps.q.df.preprocessed<-readRDS(
-  file.path(rdafiles.directory,paste0(
-    paste(
-      ps.q.df.preprocessed.date_time,
-      paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
-      paste(names(host.labels),collapse = '-'),sep = "-"),
-    ".rds")))
+  file.path(community.composition.rdafiles,
+            paste0(
+              paste("ps.q.df.rare-nonfiltered",agglom.rank,
+                    paste(custom.levels,collapse = '-'),sep = "-"),
+              ".rds")))%>%
+  filter(class == "NMR",Abundance!=0)
 #' Load metadata with age information:
-custom.md<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))%>%
+custom.md<-readRDS(file.path(new.metadata.dir,"custom.md.ages.rds"))%>%
   filter(sequencing_type == "Naked mole-rat 16S rRNA gene sequencing")
-
-#' Theme for alpha diversity plots:
-alpha.plot.theme<-theme(#plot.margin=unit(c(1,1,1,2), 'cm'),
-  axis.title.x = element_blank(),
-  axis.title.y = element_blank(),
-  axis.text.x = ggtext::element_markdown(size=18),
-  axis.text.y = element_text(size=18),
-  axis.title = element_text(size = 20),
-  strip.text.x = element_text(size=20),
-  plot.title = element_text(size = 27),
-  legend.text = element_text(size = 20),
-  legend.title = element_text(size = 25),
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_blank())
-#' Theme for PCA scatter plots:
-scatter.plot.theme<-theme(
-  axis.text.x = element_text(angle=0,size=20,hjust=1),
-  axis.text.y = element_text(size=20),
-  axis.title = element_text(size = 20),
-  plot.title = element_text(size = 27),
-  legend.text = element_text(size = 20),
-  legend.title = element_text(size = 25),
-  legend.position = "right",
-  plot.caption = ggtext::element_markdown(hjust = 0, size=20),
-  plot.caption.position = "plot",
-  panel.grid.minor = element_blank(),
-  panel.grid.major = element_blank())
+#' Labels for plots:
+metric.labs=c('sobs'= case_when(agglom.rank == "OTU" ~ "Richness (Observed species)",
+                                agglom.rank == "Genus" ~ "Richness (Observed genera)") ,
+              'shannon' = "Shannon",
+              'invsimpson' = "Inverse Simpson")
+plot.metrics<-c("sobs","shannon",
+                "invsimpson") # metrics to plot
+div.indices<-c("sobs","shannon",
+               "invsimpson")
 
 #+ echo=FALSE
 ## 3. Alpha diversity analysis. ####
@@ -267,6 +264,7 @@ div.plot.sex<-all.div%>%
   # scale_fill_manual(values = custom.fill)+
   # ggtitle(paste("Alpha diversity of the gut microbiota of different",as.character(host.class[host]),gg.title.groups,
   #               gg.title.taxon))+
+  project_theme +
   alpha.plot.theme + # theme for alpha diversity plots
   theme(legend.position = "none",
         strip.text.x = element_text(size=15))
@@ -284,30 +282,25 @@ div.plot.sex.dots<-div.plot.sex+
 #+ fig.width=10, fig.height=6
 print(div.plot.sex.dots)
 
-# for(image.format in image.formats){
-#   ggsave(paste0("./images/diversity/alpha/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "alpha-jitter",
-#                       paste(plot.metrics,collapse = "-"),
-#                       host,"sex",agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=div.plot.sex.jitter,
-#          width=10, height=6,units="in",
-#          # width = 6000,height = 3000, units = "px",
-#          dpi=300,device = image.format)
-#   ggsave(paste0("./images/diversity/alpha/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "alpha-dots",
-#                       paste(plot.metrics,collapse = "-"),
-#                       host,"sex",agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=div.plot.sex.dots,
-#          width=10, height=6,units="in",
-#          # width = 6000,height = 3000, units = "px",
-#          dpi=300,device = image.format)
-# }
+for(image.format in image.formats){
+  ggsave(paste0(paste("alpha-jitter",
+                      paste(plot.metrics,collapse = "-"),
+                      "NMR","sex",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.sex.jitter,
+         path = file.path(diversity.figures,"alpha"),
+         width=10, height=6,units="in",
+         dpi=300,device = image.format)
+  ggsave(paste0(paste("alpha-dots",
+                      paste(plot.metrics,collapse = "-"),
+                      "NMR","sex",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.sex.dots,
+         path = file.path(diversity.figures,"alpha"),
+         width=10, height=6,units="in",
+         # width = 6000,height = 3000, units = "px",
+         dpi=300,device = image.format)
+}
 
 #+ echo=FALSE
 ### 3.7 Plot diversity on ages. ####
@@ -346,25 +339,23 @@ nmr.age.div.plot<-all.div%>%
        x="Age (years)")+
   theme_bw()+
   # ggtitle(paste0("Alpha diversity of the naked mole-rat gut microbiota across age\n",gg.title.taxon))+
+  project_theme +
   alpha.plot.theme + # general theme
   theme(axis.title.x = element_text(size=20),
         legend.title = element_text(vjust = 2))
 
 #+ fig.width=11, fig.height=8
 print(nmr.age.div.plot)
-# for(image.format in image.formats){
-#   ggsave(paste0("./images/diversity/alpha/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "alpha-per-age",
-#                       paste(plot.metrics,collapse = "-"),
-#                       "NMR","age",agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=nmr.age.div.plot,
-#          width=11, height=8,units="in",
-#          # width = 4000,height = 3000,units = "px",
-#          dpi=300,device = image.format)
-# }
+for(image.format in image.formats){
+  ggsave(paste0(paste("alpha-per-age",
+                      paste(plot.metrics,collapse = "-"),
+                      "NMR","age",agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot = nmr.age.div.plot,
+         path = file.path(diversity.figures,"alpha"),
+         width=11, height=8,units="in",
+         dpi=300,device = image.format)
+}
 
 
 #+ echo=FALSE
@@ -392,11 +383,12 @@ ps.q.df.wide.pca<-as.matrix(ps.q.df.wide.pca) # convert to matrix
 ps.q.df.wide.pca.tfm<-decostand(ps.q.df.wide.pca,method="rclr",logbase = exp)
 
 #### >if you want to exclude specific samples
-if(host=="NMR"){
-  ps.q.df.wide.pca<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
-}else if(host=="mice"){
-  ps.q.df.wide.pca<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("mf_1","MSM343")),]
-}
+ps.q.df.wide.pca<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
+# if(host=="NMR"){
+#   ps.q.df.wide.pca<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("M40")),]
+# }else if(host=="mice"){
+#   ps.q.df.wide.pca<-ps.q.df.wide.pca[-which(rownames(ps.q.df.wide.pca)%in%c("mf_1","MSM343")),]
+# }
 # remove ASVs that are zero because their samples are removed
 ps.q.df.wide.pca<-ps.q.df.wide.pca[,which(colSums(ps.q.df.wide.pca)!=0)]
 ps.q.df.wide.pca.tfm<-decostand(ps.q.df.wide.pca,
@@ -404,30 +396,30 @@ ps.q.df.wide.pca.tfm<-decostand(ps.q.df.wide.pca,
                                 logbase = exp)
 ####<
 
-# calculate principal components
+#' Calculate principal components:
 pca.q<-prcomp(ps.q.df.wide.pca.tfm)
 str(pca.q)
 dim(pca.q$x)
 
-# reverse the signs
+#' Reverse the signs:
 pca.q$rotation<- -1*pca.q$rotation
 
-# display principal components (loadings)
+#' Display principal components (loadings):
 head(pca.q$rotation)
 
-# reverse the signs of the scores
+#' Reverse the signs of the scores:
 pca.q$x<- -1*pca.q$x
 
-# display the first six scores
+#' Display the first six scores:
 head(pca.q$x)
 
-#calculate total variance explained by each principal component
+#' Calculate total variance explained by each principal component:
 pca.q$sdev^2 / sum(pca.q$sdev^2)
 
-#calculate total variance explained by each principal component
+#' Calculate total variance explained by each principal component:
 var_explained = pca.q$sdev^2 / sum(pca.q$sdev^2)
 
-#create scree plot
+#' Create scree plot:
 qplot(seq_along(1:nrow(ps.q.df.wide.pca.tfm)), var_explained) + 
   geom_line() + 
   xlab("Principal Component") + 
@@ -450,10 +442,11 @@ PC2.df<-as.data.frame(PC2)%>%mutate(Sample=rownames(ps.q.df.wide.pca))
 
 pca.plot<-PC1.df%>%
   left_join(PC2.df)%>%
+  left_join(biosample.md%>%filter(sequencing_type=="Naked mole-rat 16S rRNA gene sequencing"),
+            by = join_by("Sample" == "host_subject_id"))%>%
+  mutate(first_collection_date = as.Date(first_collection_date),
+         collection_year = year(first_collection_date))
   # left_join(custom.md)
-  left_join(custom.md)
-
-
 
 pca.plot.sex<-pca.plot%>%
   ggplot(aes(x = PC1, y = PC2,
@@ -488,8 +481,10 @@ pca.plot.sex<-pca.plot%>%
   geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   # ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
   #               gg.title.taxon))+
-  scatter.plot.theme+  # theme for scatter plots (PCA, PCoA, nMDS)
-  theme(legend.title = element_text(vjust = 2))
+  project_theme +
+  pca.plot.theme +  # theme for scatter plots (PCA, PCoA, nMDS)
+  theme(legend.text = ggtext::element_markdown(size = 20),
+        legend.title = element_text(vjust = 2))
 
 pca.plot.age<-pca.plot%>%
     ggplot(aes(x = PC1, 
@@ -501,7 +496,8 @@ pca.plot.age<-pca.plot%>%
     scale_fill_viridis_c(option = "D")+
     scale_color_viridis_c(option = "D")+
     guides(color = "none",
-           shape = "none")+
+           shape = "none"
+           )+
     labs(fill="Age (years)")+
   geom_point(size = 5,
              color = "black" 
@@ -513,8 +509,27 @@ pca.plot.age<-pca.plot%>%
   geom_vline(xintercept=0,linetype="dashed", color = "grey")+
   # ggtitle(paste("PCA between different",as.character(host.class[host]),gg.title.groups, "\n",
   #               gg.title.taxon))+
-  scatter.plot.theme+  # theme for scatter plots (PCA, PCoA, nMDS)
+  project_theme +
+  pca.plot.theme +  # theme for scatter plots (PCA, PCoA, nMDS)
   theme(legend.title = element_text(vjust = 2))
+
+pca.plot.batch<-pca.plot%>%
+  ggplot(aes(x = PC1, 
+             y = PC2, 
+             color = collection_year,
+             fill = collection_year))+
+  scale_fill_viridis_c(option = "D")+
+  scale_color_viridis_c(option = "D")+
+  guides(color = "none"
+  )+
+  labs(fill="Collection year")+
+  geom_point(size = 5  ) +
+  labs(x=paste0("PC1 (", perc.var[1], "%)"),
+       y=paste0("PC2 (", perc.var[2], "%)"))+
+  theme_bw()+
+  geom_hline(yintercept=0,linetype="dashed", color = "grey")+
+  geom_vline(xintercept=0,linetype="dashed", color = "grey")
+
 
 #+ fig.width=11, fig.height=8
 print(pca.plot.sex)
@@ -527,7 +542,6 @@ pca.sex.labeled<-pca.plot.sex +
                            show.legend = FALSE,size=7) # add labels to samples
 
 pca.age.labeled<-pca.plot.age+
-  # ggrepel::geom_text_repel(aes(label=paste0(Sample," (",age,")")),
   ggrepel::geom_text_repel(aes(label=paste0(Sample," (",age,")")),
                            max.overlaps = Inf,
                            show.legend = FALSE,
@@ -539,30 +553,29 @@ print(pca.sex.labeled)
 #+ fig.width=11, fig.height=8
 print(pca.age.labeled)
 
-# for(image.format in image.formats){
-#   ggsave(paste0("./images/diversity/pca/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "pca",
-#                       host,
-#                       comparison,agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=pca.plot,
-#          width=11, height=8,units="in",
-#          # width = 4000,height = 2500,units = "px",
-#          dpi=300,device = image.format)
-#   ggsave(paste0("./images/diversity/pca/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "pca-labeled",
-#                       host,
-#                       comparison,agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=pca.labeled,
-#          width=11, height=8,units="in",
-#          # width = 4000,height = 2500,units = "px",units = "px",
-#          dpi=300,device = image.format)
-# }
+pca.plots<-list("age" = c(pca.plot.age, pca.age.labeled),
+                "sex" = c(pca.plot.sex, pca.sex.labeled)
+                )
+for (pca_comparison in names(pca.plots)){
+  for(image.format in image.formats){
+    ggsave(paste0(paste("pca",
+                        "NMR",
+                        pca_comparison,agglom.rank,truncationlvl,
+                        sep = "-"),".",image.format),
+           plot = pca.plots[[pca_comparison]][1],
+           path = file.path(diversity.figures,"pca"),
+           width=11, height=8,units="in",
+           dpi=300,device = image.format)
+    ggsave(paste0(paste("pca-labeled",
+                        "NMR",
+                        pca_comparison,agglom.rank,truncationlvl,
+                        sep = "-"),".",image.format),
+           plot = pca.plots[[pca_comparison]][2],
+           path = file.path(diversity.figures,"pca"),
+           width=11, height=8,units="in",
+           dpi=300,device = image.format)
+  }
+}
 
 #+ echo=FALSE
 ### 4.2 Find ASVs that contribute to PCs. ####
@@ -607,9 +620,10 @@ rbind(pc1.loadings,pc2.loadings)%>%
   ungroup%>%
   mutate(OTU=ASV,
          OTU=gsub(" ","_",OTU))%>%
+  distinct(OTU,.keep_all = )%>%
   head
 
 
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

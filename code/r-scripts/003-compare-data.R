@@ -32,12 +32,28 @@
 library(tidyverse)
 library(phyloseq)
 library(ggtext)
-source("./code/r-scripts/get_dominant_taxa_in_host.R")
-source("./code/r-scripts/get_n_uniq_taxa_per_host.R")
+source(file.path(util.functions,"R/get_dominant_taxa_in_host.R"))
+source(file.path(util.functions,"R/get_n_uniq_taxa_per_host.R"))
 #+ echo=FALSE
-## 2. Specifying parameters and directory/file names. #### 
+## 2. Import the config file. ####
+#' 
+#' ## Import the config file.
+cmdargs <- commandArgs(trailingOnly = TRUE)
+active.analysis <- cmdargs[1]
+
+source(here::here("config/R/config.R"))# config file with global variables
+
+## 3. Import datasets. #### 
 #'
-#' ## Specifying parameters and directory/file names. 
+#' ## Import datasets.
+#' Import datasets as rds files.
+ps.q.agg.asv<-readRDS(file = ps.q.agg.asv.fname)
+ps.q.agg.genus <- readRDS(file = ps.q.agg.genus.fname)
+ps.q.agg.family <- readRDS(file = ps.q.agg.family.fname)
+ps.q.agg.phylum<-readRDS(file = ps.q.agg.phylum.fname)
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
+
 
 #+ echo=FALSE
 ## 4. Re-analysis of the DMR dataset. ####
@@ -513,9 +529,7 @@ print(debebe.comparison.plot)
 
 for(image.format in c("png","tiff")){
   ggsave(file.path("./images/barplots",
-                 paste0(paste(format(Sys.time(),format="%Y%m%d"),
-                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-                       "-barplot-wild-vs-lab-nmr-from-paper.",image.format)),
+                 paste0("barplot-wild-vs-lab-nmr-from-paper.",image.format)),
        plot=debebe.comparison.plot,
        width=170, 
        height=90,

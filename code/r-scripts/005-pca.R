@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 #' 
 #' ```{r, setup 005-pca.R, include=FALSE}
@@ -29,6 +31,34 @@
 # install.packages(c("tidyverse","vegan","Polychrome"))
 library(tidyverse)
 library(vegan) # Need v2.6-4 instead of current (2.7-1)
+#+ echo=FALSE
+## 2. Specifying parameters and directory/file names. #### 
+#'
+#' ## Specifying parameters and directory/file names. 
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+
+dir.create(diversity.tables,recursive = TRUE)
+dir.create(diversity.rdafiles,recursive = TRUE)
+dir.create(file.path(diversity.figures, "pca"),recursive = TRUE)
+dir.create(file.path(diversity.figures, "alpha"),recursive = TRUE)
+plot.types<-c("plot"="",
+              "plot.with.labels"="-with-labels")
+
+#' The taxonomic rank that was used for agglomeration:
+agglom.rank<-"Genus"
+ps.q.agg<-readRDS(file=file.path(
+  community.composition.rdafiles,
+  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
+        truncationlvl,"table.rds",sep = "-")))
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 #' Remove rows with 0 Abundance, if there's any.
 ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
@@ -36,14 +66,11 @@ ps.q.agg<-ps.q.agg%>%
 ## 3. PCA ####
 #'
 #' ## PCA ####
-#' The taxonomic rank that was used for agglomeration:
-agglom.rank<-"Genus"
 #' Import rarefied dataframe.
 ps.q.df.pca.input<-readRDS(
-  file.path(rdafiles.directory,paste0(
-    paste(
-      ps.q.df.pca.input.date_time,
-      "ps.q.df.rare-nonfiltered",agglom.rank,
+  file.path(community.composition.rdafiles,
+            paste0(
+    paste("ps.q.df.rare-nonfiltered",agglom.rank,
       paste(custom.levels,collapse = '-'),sep = "-"),
     ".rds")))
 #' Convert into wide format.
@@ -150,7 +177,8 @@ pca.plot<-PC1.df%>%
        y = paste0("PC2 (", perc.var[2], "%)"),
        shape = "Host")+
   guides(fill="none")+
-  mytheme+ # general theme
+  project_theme + # general theme
+  pca.plot.theme+
   theme(legend.position = "bottom")+
   labs(shape ="")
 
@@ -168,22 +196,19 @@ print(pca.plot.with.labels +
         ggtitle(paste0("PCA between different rodents (",agglom.rank, " level)"))+
         theme(plot.title = element_text(size = 14)))
 # Save the plots
-# for(plot.type in seq_along(plot.types)){
-#   for(image.format in image.formats){
-#     ggsave(filename = paste0(paste(paste(format(Sys.time(), format="%Y%m%d"),
-#                               format(Sys.time(), format = "%H_%M_%S"),
-#                               sep = "_"),
-#                         "pca",
-#                         paste(custom.levels,collapse = '-'),
-#                         agglom.rank,truncationlvl,sep = "-"),
-#                   plot.types[plot.type], ".",image.format),
-#            path = "./images/diversity/pca",
-#            plot=get(paste0("pca.",names(plot.types[plot.type]))),
-#            width=11, height=8,units="in",
-#            # width = 4500,height = 3000,units = "px",
-#            dpi=300,device = image.format)
-#   }
-# }
+for(plot.type in seq_along(plot.types)){
+  for(image.format in image.formats){
+    ggsave(filename = paste0(paste(
+                        "pca",
+                        paste(custom.levels,collapse = '-'),
+                        agglom.rank,truncationlvl,sep = "-"),
+                  plot.types[plot.type], ".",image.format),
+           path = file.path(diversity.figures,"pca"),
+           plot=get(paste0("pca.",names(plot.types[plot.type]))),
+           width=11, height=8,units="in",
+           dpi=300,device = image.format)
+  }
+}
 #+ echo=FALSE
 ## 5. Find ASVs that contribute to PCs. ####
 #' 
@@ -224,7 +249,7 @@ loadings.df<-pc1.loadings%>%
   distinct(Genus,PC_num)
 loadings.df  
 #' Check if the loadings are found in the data:
-source("./code/r-scripts/add_relab_to_tax_df.R")
+source(file.path(util.functions.r,"add_relab_to_tax_df.R"))
 ps.q.agg.pc_loadings<-add_relab_to_tax_df(ps.q.agg,"Genus")%>%
   distinct(class,Genus,MeanRelativeAbundance,sdRelativeAbundance)%>%
   right_join(loadings.df)
@@ -237,5 +262,5 @@ ps.q.agg.pc_loadings<-add_relab_to_tax_df(ps.q.agg,"Genus")%>%
 ps.q.agg.pc_loadings
 
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

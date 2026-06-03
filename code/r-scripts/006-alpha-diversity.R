@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 #' 
 #' ```{r, setup 006-alpha-diversity.R, include=FALSE}
@@ -31,8 +33,26 @@
 # library(phyloseq)
 library(tidyverse)
 library(vegan)
+#+ echo=FALSE
+## 2. Specifying parameters and directory/file names. #### 
+#'
+#' ## Specifying parameters and directory/file names. 
 #' The taxonomic rank that was used for agglomeration:
 agglom.rank<-"Genus"
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+ps.q.agg<-readRDS(file=file.path(
+  community.composition.rdafiles,
+  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
+        truncationlvl,"table.rds",sep = "-")))
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
 #' Facet labels
 metric.labs <- c('sobs'= case_when(agglom.rank == "OTU" ~ 
@@ -52,15 +72,12 @@ ps.q.agg <- ps.q.agg%>%
 #' Import rarefied dataframe and select Sample, Abundance, 
 #' class, and agglom.rank columns.
 ps.q.df.preprocessed<-readRDS(
-  file.path(rdafiles.directory,paste0(
-    paste(
-      ps.q.df.preprocessed.date_time,
-      "ps.q.df.rare-nonfiltered",agglom.rank,
-      paste(custom.levels,collapse = '-'),sep = "-"),
-    ".rds")))%>%
-  filter(class%in%custom.levels, Abundance!=0)%>%
-  dplyr::select(Sample,Abundance,class,all_of(agglom.rank),)
-
+  file.path(community.composition.rdafiles,
+            paste0(
+              paste("ps.q.df.rare-nonfiltered",agglom.rank,
+                    paste(custom.levels,collapse = '-'),sep = "-"),
+              ".rds")))%>%
+  filter(class%in%custom.levels)
 #+ echo=FALSE
 ## 3. Alpha diversity analysis. ####
 #' 
@@ -69,17 +86,7 @@ ps.q.df.preprocessed<-readRDS(
 ### 3.1 Compute alpha diversity metrics. ####
 #' 
 #' ### Compute alpha diversity metrics.
-all.div<-ps.q.df.preprocessed%>%
-  group_by(Sample)%>%
-  reframe(sobs=specnumber(Abundance), # richness (num of species)
-          shannon=diversity(Abundance,index = "shannon"),
-          invsimpson=diversity(Abundance, index="invsimpson"), # inverse simpson
-          tot=sum(Abundance),
-          class=class)%>%
-  group_by(Sample)%>%
-  pivot_longer(cols=c(sobs,shannon,invsimpson),
-               names_to="metric")%>%
-  distinct()
+all.div<-get_alpha_diversity(ps.q.df.preprocessed,agglom.rank)
 
 #+ echo=FALSE
 ### 3.2 Alpha diversity tests. ####
@@ -183,9 +190,16 @@ div.plot<-all.div%>%
                                           preserve = "single"))+
   labs(fill = "Host")+
   # ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))+
-  mytheme + # general theme
+  project_theme + # general theme
+  alpha.plot.theme +
   theme(axis.text.x = ggtext::element_markdown(size=12),
-        legend.text = ggtext::element_markdown(size=15))
+    axis.text.y = element_text(size=15),
+    axis.title = element_text(size = 15),
+    strip.text.x = element_text(size=15),
+    plot.title = element_text(size = 15),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 18),
+    legend.position = "right")
 
 div.plot.jitter<-div.plot+
   geom_jitter(aes(colour=class_letter),
@@ -213,32 +227,26 @@ print(div.plot.dots +
         ggtitle(paste0("Alpha diversity of the gut microbiota of different rodents \n(",agglom.rank, " level)"))+
         theme(plot.title = element_text(size = 14))
 )
-# for(image.format in image.formats){
-#   ggsave(paste0("./images/diversity/alpha/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "alpha-jitter",
-#                       paste(plot.metrics,collapse = "-"),
-#                       paste(custom.levels,collapse = '-'),
-#                       agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=div.plot.jitter,
-#          width=11, height=5,units="in",
-#          # width = 4500,height = 2000,units = "px",
-#          dpi=300,device = image.format)
-#   ggsave(paste0("./images/diversity/alpha/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "alpha-dots",
-#                       paste(plot.metrics,collapse = "-"),
-#                       paste(custom.levels,collapse = '-'),
-#                       agglom.rank,truncationlvl,
-#                       sep = "-"),".",image.format),
-#          plot=div.plot.dots,
-#          width=11, height=5,units="in",
-#          # width = 4500,height = 2000,units = "px",
-#          dpi=300,device = image.format)
-# }
+for(image.format in image.formats){
+  ggsave(paste0(paste("alpha-jitter",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.jitter,
+         path = file.path(diversity.figures,"alpha"),
+         width=11, height=5,units="in",
+         dpi=300,device = image.format)
+  ggsave(paste0(paste("alpha-dots",
+                      paste(plot.metrics,collapse = "-"),
+                      paste(custom.levels,collapse = '-'),
+                      agglom.rank,truncationlvl,
+                      sep = "-"),".",image.format),
+         plot=div.plot.dots,
+         path = file.path(diversity.figures,"alpha"),
+         width=11, height=5,units="in",
+         dpi=300,device = image.format)
+}
 
 #+ echo=FALSE
 ### 4.1 Add significance stars. ####
@@ -358,5 +366,5 @@ print(newplot)
 #   }
 # }
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

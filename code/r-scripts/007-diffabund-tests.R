@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 
 #' ```{r, setup 007-diffabund-tests.R, include=FALSE}
@@ -44,6 +46,21 @@ library(Polychrome)
 ## 2. Specifying parameters and directory/file names. #### 
 #'
 #' ## Specifying parameters and directory/file names. 
+rare.status<-"rare"
+filter.status<-"nonfiltered"
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+
+dir.create(diffabund.tables,recursive = TRUE)
+dir.create(diffabund.rdafiles,recursive = TRUE)
+dir.create(diffabund.figures,recursive = TRUE)
+
 #+ echo=FALSE
 ## 3. Prepare necessary functions. ####
 #'
@@ -53,23 +70,15 @@ library(Polychrome)
 #' call the function and change the parameters.
 prepare_data <- function(agglom.rank, comparison, 
                          ref.level, inside.host){
-  rdafiles.directory<-"./output/rdafiles"
-  rare.status<-"rare"
-  filter.status<-"nonfiltered"
   print(paste("Performing differential microbial abundance tests on", comparison, "variable at", agglom.rank, "level.",
               "Reference:", ref.level))
   #' Import abundance table as an rds file (NOT rarefied):
   if(inside.host == TRUE){
-    if(agglom.rank == "OTU"){
-      ps.q.agg.date_time<-"20260211_17_01_07" # ASV NMR
-      ps.q.df.preprocessed.date_time <- "20260211_17_14_21"
-    }
     custom.levels<-"NMR"
-    custom.md<-readRDS("./output/rdafiles/custom.md.ages.rds")%>%
+    custom.md<-readRDS(file.path(new.metadata.dir,"custom.md.ages.rds"))%>%
       filter(sequencing_type == "Naked mole-rat 16S rRNA gene sequencing")
   }else if(inside.host ==FALSE){
     if(agglom.rank == "Genus" ){
-      ps.q.agg.date_time<-"20260211_17_01_10" # Genus all hosts
       custom.levels<-c("NMR",
                        "DMR",
                        "B6mouse",
@@ -79,42 +88,51 @@ prepare_data <- function(agglom.rank, comparison,
                        "pvo",
                        "hare",
                        "rabbit")
-      custom.md<-readRDS("./output/rdafiles/custom.md.rds")
-      ps.q.df.preprocessed.date_time <- "20260211_17_14_19"
-      
+      custom.md <- readRDS(custom.md.path)
     } 
   }
   #' Import abundance table as an rds file (NOT rarefied):
   ps.q.agg<-readRDS(file=file.path(
-    rdafiles.directory,
-    paste(ps.q.agg.date_time,"phyloseq-qiime",authorname,agglom.rank,read.end.type,
+    community.composition.rdafiles,
+    paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
           truncationlvl,"table.rds",sep = "-")))
   ps.q.agg<-ps.q.agg%>%
     filter(class%in%custom.levels,Abundance!=0)
   
   #' Rarefied abundance table:
   ps.q.df.preprocessed<-readRDS(
-    file.path(rdafiles.directory,paste0(
-      paste(
-        ps.q.df.preprocessed.date_time,
-        paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
-        paste(custom.levels,collapse = '-'),sep = "-"),
-      ".rds")))
-  if(inside.host ==TRUE){
-    ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
-      filter(class=="NMR",Abundance!=0)
-  }
+    file.path(community.composition.rdafiles,
+              paste0(
+                paste(paste0("ps.q.df.",rare.status),filter.status,agglom.rank,
+                      paste(custom.levels,collapse = '-'),sep = "-"),
+                ".rds")))%>%
+    filter(class%in%custom.levels, Abundance!=0)%>%
+    dplyr::select(all_of(c("Sample",agglom.rank,"Abundance","class")))
+  
+  # if(inside.host ==TRUE){
+  #   ps.q.df.preprocessed<-ps.q.df.preprocessed%>%
+  #     filter(class=="NMR",Abundance!=0)
+  # }
   
   #' Specify output file name:
   output.filename<-paste(paste(custom.levels,collapse = '-'),
                          agglom.rank,comparison,
-                         truncationlvl,"ref",ref.level,
+                         "ref",ref.level,
                          sep="-")
+  if(inside.host == TRUE){
+    short.filename<-paste("NMR",agglom.rank,comparison,
+                           "ref",ref.level,
+                           sep="-")
+  }else if(inside.host ==FALSE){
+    short.filename<-paste("all_hosts",agglom.rank,comparison,
+                           "ref",ref.level,
+                           sep="-")
+  }
   print(paste("Output filename prefix:", output.filename))
   # Preparing the wide dataset.
   ps.q.df.wide<-ps.q.df.preprocessed%>%
-    dplyr::select(all_of(c("Sample",agglom.rank,"Abundance","class")))%>%
-    filter(Abundance!=0)%>%
+    
+    # filter(Abundance!=0)%>%
     pivot_wider(names_from = agglom.rank, # or OTU
                 values_from = "Abundance",
                 values_fill = 0)%>%
@@ -139,6 +157,7 @@ prepare_data <- function(agglom.rank, comparison,
   return(list(dataset = ps.q.df.wide, 
               ps.q.agg = ps.q.agg,
               output.filename = output.filename, 
+              short.filename = short.filename,
               metadata = custom.md, 
               custom.levels = custom.levels,
               sample.groups = sample.groups))
@@ -152,8 +171,6 @@ perform_maaslin2_test <- function(ps.q.df.wide,
                                  custom.levels,
                                  ref.level,
                                  inside.host){
-  authorname <-"pooled"
-  rare.status<-"rare"
   # Create reference levels.
   if (comparison=="age"){
     maaslin.reference<-paste("agegroup", ref.level, sep = ",")
@@ -186,12 +203,9 @@ perform_maaslin2_test <- function(ps.q.df.wide,
                analysis_method = "LM",
                random_effects = c("relation"), 
                standardize = FALSE,
-               output = file.path("./output/maaslin2",
+               output = file.path(maaslin2.out,
                                   paste0(authorname,"-output"),
                                   rare.status,paste(
-                                    paste(format(Sys.time(),format="%Y%m%d"),
-                                          format(Sys.time(),
-                                                 format = "%H_%M_%S"),sep = "_"),
                                     output.filename, "with-relations",sep = "-")), 
                fixed_effects = maaslin.comparison,
                reference = maaslin.reference,
@@ -207,11 +221,9 @@ perform_maaslin2_test <- function(ps.q.df.wide,
                transform = "LOG",
                random_effects = NULL,
                standardize = FALSE,
-               output = file.path("./output/maaslin2",
+               output = file.path(maaslin2.out,
                                   paste0(authorname,"-output"),
                                   rare.status,paste(
-                                    paste(format(Sys.time(),format="%Y%m%d"),
-                                          format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
                                     output.filename,sep = "-")), 
                fixed_effects = c("class"),
                reference = paste0("class,",ref.level),
@@ -223,11 +235,12 @@ perform_maaslin2_test <- function(ps.q.df.wide,
 
 #' Function to process the MaAsLin2 output:
 process_maaslin2_output<-function(agglom.rank,
+                                  short.filename,
                                   maaslin.fit_data,
                                   ps.q.agg,
                                   sample.groups){
   #' Downstream processing of Maaslin2 output.
-  source("./code/r-scripts/make_features_maaslin.R")
+  source(file.path(util.functions.r,"make_features_maaslin.R"))
   #' Extract features with qvalue < 0.05.
   if(min(maaslin.fit_data$results$qval)<0.05){
     maaslin.signif.features<-maaslin.fit_data$results%>%
@@ -289,22 +302,17 @@ process_maaslin2_output<-function(agglom.rank,
   }else{
     table(maaslin.signif.decreased$feature%in%ps.q.agg[,agglom.rank])
   }
-  # write.table(maaslin.signif.features,
-  #             file=file.path("./output/rtables/pooled",paste(
-  #               paste(format(Sys.time(),format="%Y%m%d"),
-  #                     format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #               "maaslin2",output.filename,
-  #               "signif.tsv",sep="-")),
-  #             row.names = F,sep = "\t")
-  # write.table(maaslin.signif.decreased,
-  #             file=file.path("./output/rtables/pooled",
-  #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-  #                                        format(Sys.time(),format = "%H_%M_%S"),
-  #                                        sep = "_"),
-  #                                  "maaslin.signif.decreased",
-  #                                  output.filename,
-  #                                  "signif.tsv",sep="-")),
-  #             row.names = F,sep = "\t")
+  write.table(maaslin.signif.features,
+              file=file.path(diffabund.tables,paste(
+                "maaslin2",short.filename,
+                "signif.tsv",sep="-")),
+              row.names = F,sep = "\t")
+  write.table(maaslin.signif.decreased,
+              file=file.path(diffabund.tables,
+                             paste("maaslin.signif.decreased",
+                                   short.filename,
+                                   "signif.tsv",sep="-")),
+              row.names = F,sep = "\t")
   return(list(maaslin.signif.features = maaslin.signif.features,
          maaslin.signif.decreased = maaslin.signif.decreased))
   
@@ -402,9 +410,7 @@ analyse_test_output <-function(agglom.rank,
                                aldex.neg.effect = NULL,
                                ancombc.signif.features = NULL,
                                ancombc.signif.decreased = NULL){
-  image.formats<-c("png","tiff")
-  rtables.directory<-file.path("./output/rtables",authorname)
-  
+
   if(inside.host==FALSE){
     #' Find common significant features between three tools.
     print(Reduce(intersect,list(maaslin.signif.features$feature,
@@ -431,15 +437,12 @@ analyse_test_output <-function(agglom.rank,
       arrange(-MeanRelativeAbundance)%>%
       dplyr::select(Genus,MeanRelativeAbundance)
     head(common.decreased.df)
-    # write.table(common.decreased.df,
-    #             file=file.path(rtables.directory,
-    #                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-    #                                        format(Sys.time(),format = "%H_%M_%S"),
-    #                                        sep = "_"),
-    #                                  "significant-features",
-    #                                  output.filename,
-    #                                  "signif.tsv",sep="-")),
-    #             row.names = F,sep = "\t")
+    write.table(common.decreased.df,
+                file=file.path(diffabund.tables,
+                               paste("significant-features",
+                                     output.filename,
+                                     "signif.tsv",sep="-")),
+                row.names = F,sep = "\t")
   }
   
   
@@ -484,21 +487,6 @@ analyse_test_output <-function(agglom.rank,
     gg.title.groups<-"groups"
   }
   
-  plot.theme <-theme(
-    axis.title.y = element_blank(),
-    axis.title = element_text(size = 5),
-    axis.text.y = ggtext::element_markdown(size=5),
-    # axis.text.y = element_text(size=5),
-    axis.text.x = element_text(size=5),
-    strip.text.x = ggtext::element_markdown(size=5),
-    plot.title = element_text(size =5),
-    legend.text = element_text(size = 5),
-    legend.title = element_text(size = 5),
-    legend.position = "none",
-    panel.grid.minor = element_blank(),
-    panel.grid.major = element_blank()
-  )
-  
   if(inside.host==TRUE){
     pretty.asv.names.df<-ps.q.agg%>%
       ungroup()%>%
@@ -542,20 +530,17 @@ analyse_test_output <-function(agglom.rank,
                            end = 0.9,
                            alpha = 0.5)+
       # ggtitle(paste0("Relative abundance of differentially abundant ASVs \nin different naked mole-rat groups"))+
-      plot.theme
+      diffabund.plot.theme
     
     
-    # for(image.format in image.formats){
-    #   ggsave(paste0("./images/taxaboxplots/",
-    #                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-    #                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-    #                       ref.level,"specific-bacteria","NMR",comparison,
-    #                       sep = "-"),".",image.format),
-    #          plot=feature.plot,
-    #          width=11, height=8,units="in",
-    #          # width = 4500,height = 2500,units = "px",
-    #          dpi=300,device = image.format)
-    # }
+    for(image.format in image.formats){
+      ggsave(paste0(paste(ref.level,"specific-bacteria","NMR",comparison,
+                          sep = "-"),".",image.format),
+             plot = feature.plot,
+             path = diffabund.figures,
+             width = 11, height = 8,units="in",
+             dpi = 300,device = image.format)
+    }
   }else{
     feature.plot<-ps.q.agg%>%
       filter(get(agglom.rank)%in%common.decreased)%>%
@@ -576,21 +561,17 @@ analyse_test_output <-function(agglom.rank,
                        limits=rev(ggplot.levels))+ # rename boxplot labels (x axis)
       scale_fill_viridis_d(option="C")+
       # ggtitle(paste0("Relative abundance of naked mole-rat-specific taxa"))+
-      plot.theme
+      diffabund.plot.theme
     
     
-    # for(image.format in image.formats){
-    #   ggsave(paste0("./images/taxaboxplots/",
-    #                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-    #                             format(Sys.time(),format = "%H_%M_%S"),
-    #                             sep = "_"),
-    #                       "NMR-specific-bacteria",
-    #                       sep = "-"),".",image.format),
-    #          plot=feature.plot,
-    #          width=8, height=11,units="in",
-    #          # width = 4000,height = 12000,units = "px",
-    #          dpi=300,device = image.format)
-    # }
+    for(image.format in image.formats){
+      ggsave(paste0(paste("NMR-specific-bacteria",
+                          sep = "-"),".",image.format),
+             plot=feature.plot,
+             path = diffabund.figures,
+             width=8, height=11,units="in",
+             dpi=300,device = image.format)
+    }
     
   }
   print(feature.plot)
@@ -629,29 +610,26 @@ maaslin.fit_data.host<-
 
 #' Save the fit data object as an rds file.
 # 20260220_21_13_07
-# saveRDS(maaslin.fit_data.host,
-#         file = file.path("output/rdafiles",
-#                          paste(
-#                            paste(format(Sys.time(),format="%Y%m%d"),
-#                                  format(Sys.time(),format = "%H_%M_%S"),
-#                                  sep = "_"),"maaslin.fit_data.host",
-#                            host.data.for_test$output.filename,".rds",sep = "-")))
+saveRDS(maaslin.fit_data.host,
+        file = file.path(diffabund.rdafiles,
+                         paste(
+                           "maaslin.fit_data.host",
+                           paste0(host.data.for_test$short.filename,".rds"),sep = "-")))
 
 #' Process the output 
 # "20260213_12_20_50" for signif.tsv
 # "20260213_12_20_51" for maaslin.signif.decreased.tsv
-maaslin.processed_output.host <- process_maaslin2_output(agglom.rank = agglom.rank,
-                        maaslin.fit_data = maaslin.fit_data.host,
-                        ps.q.agg = host.data.for_test$ps.q.agg,
-                        sample.groups = host.data.for_test$sample.groups)
+maaslin.processed_output.host <- 
+  process_maaslin2_output(agglom.rank = agglom.rank,
+                          short.filename = host.data.for_test$short.filename,
+                          maaslin.fit_data = maaslin.fit_data.host,
+                          ps.q.agg = host.data.for_test$ps.q.agg,
+                          sample.groups = host.data.for_test$sample.groups)
 
 #' Save the workspace.
 #' 20260213_12_20_28: genus workspace
-# save.image(file.path("./output/rdafiles",paste(
-#   paste(format(Sys.time(),format="%Y%m%d"),
-#         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#   "maaslin2",host.data.for_test$output.filename,"workspace.RData",sep="-")))
-
+save.image(file.path(diffabund.rdafiles,paste(
+  "maaslin2",host.data.for_test$short.filename,"workspace.RData",sep="-")))
 
 #+ echo=FALSE
 ### 4.2 Run a test with ALDEx2. ####
@@ -703,18 +681,14 @@ ps.q.aldex.clr <- aldex.clr(t(host.data.for_test$dataset), mm,
                             denom="all", verbose=F)
 ps.q.glm.test <- aldex.glm(ps.q.aldex.clr,mm)
 #' Save the workspace just in case.
-# save.image(paste0("./output/rdafiles/",
-#                   paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                         "aldex2",host.data.for_test$output.filename,
-#                         "workspace-test.RData",sep="-")))
+save.image(file.path(diffabund.rdafiles,
+                  paste("aldex2",host.data.for_test$short.filename,
+                        "workspace-test.RData",sep="-")))
 ps.q.glm.effect <- aldex.glm.effect(ps.q.aldex.clr, CI= T)
 #' Save the workspace just in case.
-# save.image(paste0("./output/rdafiles/",
-#                   paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                               format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                         "aldex2",output.filename,
-#                         "workspace-effect.RData",sep = "-")))
+save.image(file.path(diffabund.rdafiles,
+                  paste("aldex2",host.data.for_test$short.filename,
+                        "workspace-effect.RData",sep = "-")))
 
 
 #' Extract significant features.
@@ -766,29 +740,21 @@ head(aldex.neg.effect)
 #' Save the significant features with negative effect size as a 
 #'  tab-separated file.
 # "20260213_13_19_00"
-# write.table(aldex.neg.effect,
-#             file=file.path("./output/rtables",authorname,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),
-#                                        sep = "_"),
-#                                  "aldex.neg.effect",
-#                                  output.filename,
-#                                  "signif.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+write.table(aldex.neg.effect,
+            file=file.path(diffabund.tables,
+                           paste("aldex.neg.effect",
+                                 host.data.for_test$short.filename,
+                                 "signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
 #' Save the workspace just in case.
-# save.image(file.path("./output/rdafiles",paste(
-#   paste(format(Sys.time(),format="%Y%m%d"),
-#         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#   "aldex2",output.filename,"workspace.RData",sep="-")))
+save.image(file.path(diffabund.rdafiles,paste(
+  "aldex2",host.data.for_test$short.filename,"workspace.RData",sep="-")))
 #' Save all significant features.
 # "20260213_13_20_05"
-# write.table(aldex.signif.features,
-#             file=file.path("./output/rtables",authorname,paste(
-#               paste(format(Sys.time(),format="%Y%m%d"),
-#                     format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#               "aldex2",output.filename,"signif.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-
+write.table(aldex.signif.features,
+            file=file.path(diffabund.tables,paste(
+              "aldex2",host.data.for_test$short.filename,"signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
 
 #+ echo=FALSE
 ### 4.3 Run a test with ANCOMBC. ####
@@ -816,30 +782,23 @@ ancombc.signif.decreased<-subset(ancombc.signif.features,
 head(ancombc.signif.features)
 head(ancombc.signif.decreased)
 #' Save the workspace.
-# save.image(file.path("./output/rdafiles",paste(
-#   paste(format(Sys.time(),format="%Y%m%d"),
-#         format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#   "ancombc",host.data.for_test$output.filename,"workspace.RData",sep="-")))
+save.image(file.path(diffabund.rdafiles,paste(
+  "ancombc", host.data.for_test$short.filename, "workspace.RData",sep="-")))
 #' Save all significant features. 
-# "20260213_13_41_58"
-# write.table(ancombc.signif.features,
-#             file=file.path("./output/rtables",authorname,paste(
-#               paste(format(Sys.time(),format="%Y%m%d"),
-#                     format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#               "ancombc",host.data.for_test$output.filename,
-#               "signif.tsv",sep="-")), 
-#             row.names = F,sep = "\t")
+"20260213_13_41_58"
+write.table(ancombc.signif.features,
+            file=file.path(diffabund.tables,paste(
+              "ancombc",host.data.for_test$short.filename,
+              "signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
 #' Save decreased significant features.
 # "20260213_13_42_00"
-# write.table(ancombc.signif.decreased,
-#             file=file.path("./output/rtables",authorname,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),
-#                                        sep = "_"),
-#                                  "ancombc.signif.decreased",
-#                                  host.data.for_test$output.filename,
-#                                  "signif.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+write.table(ancombc.signif.decreased,
+            file=file.path(diffabund.tables,
+                           paste("ancombc.signif.decreased",
+                                 host.data.for_test$short.filename,
+                                 "signif.tsv",sep="-")),
+            row.names = F,sep = "\t")
 
 #+ echo=FALSE
 ### 4.4 Downstream analysis and plotting of differentially abundant features. ####
@@ -853,7 +812,7 @@ analyse_test_output(agglom.rank = agglom.rank,
                     ref.level = ref.level, 
                     ps.q.agg = host.data.for_test$ps.q.agg,
                     sample.groups = host.data.for_test$sample.groups,
-                    output.filename = host.data.for_test$output.filename,
+                    output.filename = host.data.for_test$short.filename,
                     custom.md = host.data.for_test$metadata,
                     maaslin.signif.features = maaslin.processed_output.host$maaslin.signif.features,
                     maaslin.signif.decreased = maaslin.processed_output.host$maaslin.signif.decreased,
@@ -890,17 +849,16 @@ maaslin.fit_data.age<-
 
 #' Save the fit data object as an rds file.
 # 20260224_21_19_15
-# saveRDS(maaslin.fit_data.age,
-#         file = file.path("output/rdafiles",
-#                          paste(
-#                            paste(format(Sys.time(),format="%Y%m%d"),
-#                                  format(Sys.time(),format = "%H_%M_%S"),
-#                                  sep = "_"),"maaslin.fit_data.age",
-#                            nmr.age.data.for_test$output.filename,
-#                            ".rds",sep = "-")))
+saveRDS(maaslin.fit_data.age,
+        file = file.path(diffabund.rdafiles,
+                         paste(
+                           "maaslin.fit_data.age",
+                           nmr.age.data.for_test$output.filename,
+                           ".rds",sep = "-")))
 # "20260213_14_39_57" for both signif and signif.decreased tsv
 maaslin.processed_output.age <- 
   process_maaslin2_output(agglom.rank = agglom.rank,
+                          short.filename = nmr.age.data.for_test$output.filename,
                           maaslin.fit_data = maaslin.fit_data.age,
                           ps.q.agg = nmr.age.data.for_test$ps.q.agg,
                           sample.groups = nmr.age.data.for_test$sample.groups)
@@ -951,17 +909,16 @@ maaslin.fit_data.sex<-
 
 #' Save the fit data object as an rds file.
 # 20260224_21_21_02
-# saveRDS(maaslin.fit_data.sex,
-#         file = file.path("output/rdafiles",
-#                          paste(
-#                            paste(format(Sys.time(),format="%Y%m%d"),
-#                                  format(Sys.time(),format = "%H_%M_%S"),
-#                                  sep = "_"),"maaslin.fit_data.sex",
-#                            nmr.sex.data.for_test$output.filename,".rds",sep = "-")))
+saveRDS(maaslin.fit_data.sex,
+        file = file.path(diffabund.rdafiles,
+                         paste(
+                           "maaslin.fit_data.sex",
+                           nmr.sex.data.for_test$output.filename,".rds",sep = "-")))
 # "20260215_19_30_37" for both signif and signif.decreased tsv
 maaslin.processed_output.sex <-
   process_maaslin2_output(agglom.rank = agglom.rank,
                           maaslin.fit_data = maaslin.fit_data.sex,
+                          short.filename = nmr.sex.data.for_test$output.filename,
                           ps.q.agg = nmr.sex.data.for_test$ps.q.agg,
                           sample.groups = nmr.sex.data.for_test$sample.groups)
 #' Downstream analysis and plotting of differentially abundant features. 
@@ -982,6 +939,110 @@ analyse_test_output(agglom.rank = agglom.rank,
                     ancombc.signif.features = NULL,
                     ancombc.signif.decreased = NULL)
 
+ps.q.agg.genus.all_domains<-readRDS("analysis/1-qiime2/20260209_16_33_25-single-234/01-community_composition/all_domains/rdafiles/phyloseq-qiime-pooled-Genus-single-234-table.rds")
+
+ps.q.agg.genus.bacteria<-readRDS("analysis/1-qiime2/20260209_16_33_25-single-234/01-community_composition/bacteria_only-old/rdafiles/phyloseq-qiime-pooled-Genus-single-234-table.rds")
+
+rare.genus.all_domains<-read.table("analysis/1-qiime2/20260209_16_33_25-single-234/01-community_composition/all_domains/tables/ps.q.df.rare-nonfiltered-Genus-NMR-DMR-B6mouse-MSMmouse-FVBNmouse-spalax-pvo-hare-rabbit.tsv",header = T)%>%
+  as_tibble()
+
+rare.genus.bacteria<-read.table("analysis/1-qiime2/20260209_16_33_25-single-234/01-community_composition/bacteria_only-old/tables/renamed/ps.q.df.rare-nonfiltered-Genus-all_hosts.tsv",header = T)%>%
+  as_tibble()
+
+all.domains.maaslin.signif<-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/all_domains/tables/maaslin2-all_hosts-Genus-host-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+all.domains.maaslin.signif.decreased<-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/all_domains/tables/maaslin.signif.decreased-all_hosts-Genus-host-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+
+all.domains.signif.all<-read.table(file ="analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/all_domains/tables/significant-features-all_hosts-Genus-host-ref-NMR-signif.tsv", header= T)%>%
+  as_tibble()
+
+all.domains.ancom <-read.table(file ="analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/all_domains/tables/ancombc.signif.decreased-all_hosts-Genus-host-ref-NMR-signif.tsv", header= T)%>%
+  as_tibble()
+
+all.domains.maaslin.signif%>%arrange(feature)
+all.domains.maaslin.signif.decreased%>%arrange(feature)
+all.domains.signif.all
+
+bacteria.only.maaslin.signif<-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/bacteria_only-old/tables/renamed/maaslin2-all_hosts-Genus-host-234-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+
+bacteria.only.maaslin.signif.decreased<-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/bacteria_only-old/tables/renamed/maaslin.signif.decreased-all_hosts-Genus-host-234-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+
+bacteria.only.signif.all<-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/bacteria_only-old/tables/renamed/significant-features-all_hosts-Genus-host-234-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+bacteria.only.ancom <-read.table(file = "analysis/1-qiime2/20260209_16_33_25-single-234/03-differential_abundance/bacteria_only-old/tables/renamed/ancombc.signif.decreased-all_hosts-Genus-host-234-ref-NMR-signif.tsv",header = T)%>%
+  as_tibble()
+
+bacteria.only.maaslin.signif.decreased%>%group_by(feature)%>%summarise(nf=n())%>%summarise(nf==8)%>%table()
+all.domains.maaslin.signif.decreased%>%group_by(feature)%>%summarise(nf=n())%>%summarise(nf==8)%>%table()
+
+
+# small discrepancy 
+setdiff(unique(bacteria.only.maaslin.signif.decreased$feature),
+        unique(all.domains.maaslin.signif.decreased$feature))
+setdiff(unique(all.domains.maaslin.signif.decreased$feature),
+        unique(bacteria.only.maaslin.signif.decreased$feature))
+
+setdiff(unique(bacteria.only.ancom$taxon_id),
+        unique(all.domains.ancom$taxon_id))
+setdiff(unique(all.domains.ancom$taxon_id),
+        unique(bacteria.only.ancom$taxon_id))
+
+setdiff(all.domains.signif.all$Genus,
+        bacteria.only.signif.all$Genus)
+setdiff(bacteria.only.signif.all$Genus,
+        all.domains.signif.all$Genus
+  )
+
+
+# Check
+all.domains.maaslin.signif%>%
+  filter(feature =="Acetanaerobacterium")
+
+bacteria.only.maaslin.signif.decreased%>%
+  filter(feature =="Acetanaerobacterium")
+
+# No difference in the general table
+ps.q.agg.genus.all_domains%>%
+  filter(Genus =="Acetanaerobacterium")%>%
+  distinct(class,Genus,MeanRelativeAbundance)%>%
+  arrange(Genus,class)
+ps.q.agg.genus.bacteria%>%
+  filter(Genus =="Acetanaerobacterium")%>%
+  distinct(class,Genus,MeanRelativeAbundance)%>%
+  arrange(Genus,class)
+
+ps.q.agg.genus.all_domains%>%
+  filter(Genus %in%c("Methanobrevibacter", "Paludicola"  ))%>%
+  distinct(class,Genus,MeanRelativeAbundance)%>%
+  arrange(Genus,class)
+ps.q.agg.genus.bacteria%>%
+  filter(Genus %in%c("Methanobrevibacter", "Paludicola"  ))%>%
+  distinct(class,Genus,MeanRelativeAbundance)%>%
+  arrange(Genus,class)
+
+
+# but in rarefied data, these bacteria are more abundant
+rare.genus.all_domains%>%
+  filter(Genus =="Acetanaerobacterium")
+rare.genus.bacteria%>%
+  filter(Genus =="Acetanaerobacterium")
+
+rare.genus.all_domains%>%
+  filter(Genus %in%c("Methanobrevibacter", "Paludicola"  ))%>%
+  group_by(class, Genus)%>%
+  summarise(MeanAbundance = mean(Abundance))%>%
+  arrange(Genus,class)
+rare.genus.bacteria%>%
+  filter(Genus %in%c("Methanobrevibacter", "Paludicola"  ))%>%
+  group_by(class, Genus)%>%
+  summarise(MeanAbundance = mean(Abundance))%>%
+  arrange(Genus,class)
+
+
+
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()

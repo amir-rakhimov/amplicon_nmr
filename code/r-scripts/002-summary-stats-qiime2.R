@@ -2,6 +2,8 @@
 #' output: 
 #'   bookdown::html_document2:
 #'      toc: true
+#' params:
+#'   active.analysis: ''
 #' ---
 #' 
 #' ```{r, setup 002-summary-stats-qiime2.R, include=FALSE}
@@ -33,15 +35,38 @@ library(vegan)
 library(Polychrome)
 library(ggtext)
 library(ggrepel)
-#' Load necessary scripts.
-source("./code/r-scripts/get_n_uniq_taxa_per_host.R")
-source("./code/r-scripts/create_summary_stats_table.R")
-source("./code/r-scripts/add_relab_to_tax_df.R")
-source("./code/r-scripts/add_agegroup_to_tax_df.R")
-source("./code/r-scripts/get_unclassified_summary_stats.R")
-source("./code/r-scripts/get_dominant_taxa_in_host.R")
-source("./code/r-scripts/ggplot_species.R")
 
+#+ echo=FALSE
+## 2. Import the config file. ####
+#' 
+#' ## Import the config file.
+# cmdargs <- commandArgs(trailingOnly = TRUE)
+# active.analysis <- cmdargs[1]
+unlockBinding("params", env = .GlobalEnv)
+active.analysis <- params$active.analysis
+print(paste("The analysis focus is:", active.analysis))
+
+source(here::here("config/R/config.R"))# config file with global variables
+source(here::here("config/R/themes.R"))# config file with themes
+#+ echo=FALSE
+## 3. Import datasets as rds files. ####
+#'
+#' Import datasets as rds files.
+ps.q.agg.asv<-readRDS(file = ps.q.agg.asv.fname)
+ps.q.agg.genus <- readRDS(file = ps.q.agg.genus.fname)
+ps.q.agg.family <- readRDS(file = ps.q.agg.family.fname)
+ps.q.agg.phylum<-readRDS(file = ps.q.agg.phylum.fname)
+custom.md <- readRDS(custom.md.path)
+custom.levels<-intersect(names(pretty.level.names),custom.md$class)
+#' Load necessary scripts.
+source(file.path(util.functions.r,"get_n_uniq_taxa_per_host.R"))
+source(file.path(util.functions.r,"create_summary_stats_table.R"))
+source(file.path(util.functions.r,"add_relab_to_tax_df.R"))
+source(file.path(util.functions.r,"add_agegroup_to_tax_df.R"))
+source(file.path(util.functions.r,"get_unclassified_summary_stats.R"))
+source(file.path(util.functions.r,"get_dominant_taxa_in_host.R"))
+source(file.path(util.functions.r,"ggplot_species.R"))
+source(file.path(util.functions.r,"get_rarefied_table.R"))
 
 #+ echo=FALSE
 ## 4. Calculating summary statistics. ####
@@ -53,7 +78,7 @@ source("./code/r-scripts/ggplot_species.R")
 #' 
 #' ### Check the total number of unique ASV/phyla/families/genera per class.
 #' We will use it for the summary table in the next section.
-n.asv.per.host<-get_n_uniq_taxa_per_host(ps.q.agg,"OTU")
+n.asv.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.asv,"OTU")
 n.phylum.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.phylum,"Phylum")
 n.family.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.family,"Family")
 n.genus.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.genus,"Genus")
@@ -69,18 +94,19 @@ n.genus.per.host<-get_n_uniq_taxa_per_host(ps.q.agg.genus,"Genus")
 #' - Number of phyla per host  
 #' - Number of families per host  
 #' - Number of genera per host  
-summary.stats.table<-create_summary_stats_table(ps.q.agg,
+summary.stats.table<-create_summary_stats_table(ps.q.agg.asv,
                                                 n.asv.per.host,
                                                 n.phylum.per.host,
                                                 n.family.per.host,
                                                 n.genus.per.host)
-print(summary.stats.table)
-# write.table(summary.stats.table,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "summary-table.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(as.data.frame(summary.stats.table),format = "simple")
+summary.stats.table.fname<-file.path(community.composition.tables,
+  "summary-table.tsv")
+if(!file.exists(summary.stats.table.fname)){
+  write.table(summary.stats.table,
+              file=summary.stats.table.fname,
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ## 5. Add relative abundance and average relative abundance columns. ####
@@ -89,32 +115,32 @@ print(summary.stats.table)
 ps.q.agg.phylum.relab<-add_relab_to_tax_df(ps.q.agg.phylum,"Phylum")
 ps.q.agg.family.relab<-add_relab_to_tax_df(ps.q.agg.family,"Family")
 ps.q.agg.genus.relab<-add_relab_to_tax_df(ps.q.agg.genus,"Genus")
-ps.q.agg.relab<-add_relab_to_tax_df(ps.q.agg,"OTU")
-head(ps.q.agg.phylum.relab)
-head(ps.q.agg.family.relab)
-head(ps.q.agg.genus.relab)
-print(head(ps.q.agg.relab))
+ps.q.agg.asv.relab<-add_relab_to_tax_df(ps.q.agg.asv,"OTU")
+knitr::kable(head(ps.q.agg.phylum.relab),format = "simple")
+knitr::kable(head(ps.q.agg.family.relab),format = "simple")
+knitr::kable(head(ps.q.agg.genus.relab),format = "simple")
+knitr::kable(head(ps.q.agg.asv.relab),format = "simple")
 
 #+ echo=FALSE
-## 6. Add agegroup variable to NMR data (must run for plotting). ####
+## 6. Add agegroup variable to NMR data. ####
 #'
-#' ## Add agegroup variable to NMR data (must run for plotting).
-custom.md.ages<-readRDS(file.path(rdafiles.directory,"custom.md.ages.rds"))%>%
+#' ## Add agegroup variable to NMR data.
+custom.md.ages<-readRDS(file.path(new.metadata.dir,"custom.md.ages.rds"))%>%
   filter(sequencing_type == "Naked mole-rat 16S rRNA gene sequencing")
 
 ps.q.agg.genus.relab.nmr<-ps.q.agg.genus.relab%>%
   filter(class=="NMR")
 
-ps.q.agg.relab.nmr<-ps.q.agg.relab%>%
+ps.q.agg.asv.relab.nmr<-ps.q.agg.asv.relab%>%
   filter(class=="NMR")
 
 #' Add the age groups.
 ps.q.agg.genus.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.genus.relab.nmr,"Genus",
                                              custom.md.ages)
-ps.q.agg.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.relab.nmr,"OTU",
+ps.q.agg.asv.relab.nmr<-add_agegroup_to_tax_df(ps.q.agg.asv.relab.nmr,"OTU",
                                        custom.md.ages)
-print(head(ps.q.agg.genus.relab.nmr))
-print(head(ps.q.agg.relab.nmr))
+knitr::kable(head(ps.q.agg.genus.relab.nmr),format = "simple")
+knitr::kable(head(ps.q.agg.asv.relab.nmr),format = "simple")
 
 #+ echo=FALSE
 ## 7. Calculate summary stats of unclassified genera in each animal (unrarefied). ####
@@ -126,111 +152,50 @@ all.ranks<-c("Kingdom", "Phylum", "Class", "Order", "Family","Genus")
 agglom.rank<-"Genus"
 unclassified.genus.summary.stats.table<-
   get_unclassified_summary_stats(ps.q.agg.genus.relab,"Genus")
-print(unclassified.genus.summary.stats.table)
+knitr::kable(unclassified.genus.summary.stats.table, format ="simple")
 
-# write.table(unclassified.genus.summary.stats.table,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "unclassified-genus-summary-table.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+unclassified.genus.summary.stats.table.fname <-
+  file.path(community.composition.tables,
+            "unclassified-genus-summary-table.tsv")
+if (! file.exists(unclassified.genus.summary.stats.table.fname)){
+  write.table(unclassified.genus.summary.stats.table,
+              file = unclassified.genus.summary.stats.table.fname,
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ## 8. Rarefy the table and check the percentage of unclassified taxa. ####
 #'
 #' ## Rarefy the table and check the percentage of unclassified taxa. ####
-#' Convert the data frame into wide format: rows are samples and columns
-#' are taxa
-get_rarefied_table<-function(tax.df,tax.rank,host.classes){
-  tax.df.wide<-tax.df%>%
-    filter(class %in% host.classes,Abundance!=0)%>%
-    dplyr::select(Sample,Abundance,class,all_of(tax.rank))%>%
-    filter(Abundance!=0)%>%
-    pivot_wider(names_from = all_of(tax.rank),
-                values_from = "Abundance",
-                values_fill = 0)%>%
-    as.data.frame()%>%
-    column_to_rownames("Sample")%>% # Set sample names as row names
-    dplyr::select(-class)
-  # Find the smallest sample size
-  min.n_seqs.all<-tax.df%>%
-    filter(class %in% host.classes,Abundance!=0)%>%
-    dplyr::select(Sample,all_of(tax.rank),Abundance)%>%
-    group_by(Sample)%>%
-    summarize(n_seqs=sum(Abundance))%>%
-    summarize(min=min(n_seqs))%>%
-    pull(min)
-  print(paste("Smallest sample size:", min.n_seqs.all))
-  
-  ### Rarefied asv table with vegan ####
-  set.seed(1)
-  tax.df.rare<-rrarefy(tax.df.wide,sample=min.n_seqs.all)
-  tax.df.rare<-tax.df.rare%>%
-    as_tibble(rownames="Sample")%>%
-    pivot_longer(-Sample)%>%
-    as.data.frame()%>%
-    left_join(unique(tax.df[,c("Sample","class")]),
-              by="Sample")
-  if(tax.rank=="OTU"){
-    tax.df.rare<-tax.df.rare%>%
-      rename(OTU=name,Abundance=value)%>%
-      filter(Abundance!=0)  
-  }else{
-    # rename the 'name' column corresponding to the tax.rank
-    tax.df.rare[,paste(tax.rank)]<-tax.df.rare$name
-    tax.df.rare<-tax.df.rare%>%
-      dplyr::select(-name)%>%
-      rename(Abundance=value)%>%
-      filter(Abundance!=0)
-  }
-  # write.table(tax.df.rare,
-  #             file = file.path(rtables.directory,paste0(
-  #               paste(
-  #                 paste(format(Sys.time(),format="%Y%m%d"),
-  #                       format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #                 "ps.q.df.rare-nonfiltered",tax.rank,
-  #                 paste(host.classes,collapse = '-'),sep = "-"),
-  #               ".tsv")),
-  #             row.names = F,
-  #             sep = "\t")
-  # saveRDS(tax.df.rare,
-  #         file = file.path(rdafiles.directory,paste0(
-  #           paste(
-  #             paste(format(Sys.time(),format="%Y%m%d"),
-  #                   format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-  #             "ps.q.df.rare-nonfiltered",tax.rank,
-  #             paste(host.classes,collapse = '-'),sep = "-"),
-  #           ".rds")))
-  return(tax.df.rare)
-}
-
-ps.q.agg.rare<-get_rarefied_table(ps.q.agg,"OTU",custom.levels)
+ps.q.agg.asv.rare<-get_rarefied_table(ps.q.agg.asv,"OTU",custom.levels)
 ps.q.agg.phylum.rare<-get_rarefied_table(ps.q.agg.phylum,"Phylum",custom.levels)
 ps.q.agg.family.rare<-get_rarefied_table(ps.q.agg.family,"Family",custom.levels)
 ps.q.agg.genus.rare<-get_rarefied_table(ps.q.agg.genus,"Genus",custom.levels)
 ps.q.agg.genus.nmr.rare<-get_rarefied_table(ps.q.agg.genus.relab.nmr,"Genus","NMR")
-ps.q.agg.nmr.rare<-get_rarefied_table(ps.q.agg.relab.nmr,"OTU","NMR")
+ps.q.agg.asv.nmr.rare<-get_rarefied_table(ps.q.agg.asv.relab.nmr,"OTU","NMR")
 
-head(ps.q.agg.relab.nmr)
-head(ps.q.agg.genus.nmr.rare)
-head(ps.q.agg.nmr.rare)
+knitr::kable(head(ps.q.agg.asv.relab.nmr),format = "simple")
+knitr::kable(head(ps.q.agg.genus.nmr.rare), format = "simple")
+knitr::kable(head(ps.q.agg.asv.nmr.rare), format = "simple")
+
+
 #+ echo=FALSE
 ### 8.1 Add relative abundances and taxonomic information to the rarefied dataframe. ####
 #' 
 #' ### Add relative abundances and taxonomic information to the rarefied dataframe. 
 #' All hosts (genus)
 ps.q.agg.genus.rare.relab<-add_relab_to_tax_df(ps.q.agg.genus.rare,"Genus")
-head(ps.q.agg.genus.rare.relab)
+knitr::kable(head(ps.q.agg.genus.rare.relab),format = "simple")
 
 #' Add other taxonomic ranks to the dataframe
 ps.q.agg.genus.rare.relab<-ps.q.agg.genus.rare.relab%>%
   left_join(unique(ps.q.agg.genus[,c("Kingdom","Phylum","Class","Order","Family","Genus")]))
-head(ps.q.agg.genus.rare.relab)
+knitr::kable(head(ps.q.agg.genus.rare.relab),format = "simple")
 
 #' Add relative abundances to NMR dataframe (ASV level)
-ps.q.agg.nmr.rare.relab<-add_relab_to_tax_df(ps.q.agg.nmr.rare,"OTU")
-ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
-  left_join(unique(ps.q.agg[,c("Kingdom","Phylum","Class","Order","Family","Genus","OTU")]))
+ps.q.agg.asv.nmr.rare.relab<-add_relab_to_tax_df(ps.q.agg.asv.nmr.rare,"OTU")
+ps.q.agg.asv.nmr.rare.relab<-ps.q.agg.asv.nmr.rare.relab%>%
+  left_join(unique(ps.q.agg.asv[,c("Kingdom","Phylum","Class","Order","Family","Genus","OTU")]))
 
 ### 8.2 Plot a rarefaction curve. ####
 # ps.q.mat<-as(t(otu_table(ps.q)),"matrix") # from phyloseq
@@ -268,12 +233,10 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 #   labs(x="Sample size",
 #        y="ASV")+
 #   theme(legend.position = "none")
-# ggsave(paste0("./images/lineplots/",
-#               paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                           format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                     "rarecurve",
+# ggsave(file.path(community.composition.figures,
+#               paste0(paste("rarecurve",
 #                     truncationlvl,agglom.rank,
-#                     sep = "-"),".png"),
+#                     sep = "-"),".png")),
 #        plot=last_plot(),
 #        width = 4500,height = 3000,
 #        units = "px",dpi=300,device = "png")
@@ -283,17 +246,24 @@ ps.q.agg.nmr.rare.relab<-ps.q.agg.nmr.rare.relab%>%
 ### 8.3 Create a summary stats table for the rarefied dataframe. ####
 #' 
 #' ### Create a summary stats table for the rarefied dataframe.
-n.asv.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.rare,"OTU")
+n.asv.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.asv.rare,"OTU")
 n.phylum.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.phylum.rare,"Phylum")
 n.family.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.family.rare,"Family")
 n.genus.per.host.rare<-get_n_uniq_taxa_per_host(ps.q.agg.genus.rare,"Genus")
 
-summary.stats.table.rare<-create_summary_stats_table(ps.q.agg.rare,
+summary.stats.table.rare<-create_summary_stats_table(ps.q.agg.asv.rare,
                                                 n.asv.per.host.rare,
                                                 n.phylum.per.host.rare,
                                                 n.family.per.host.rare,
                                                 n.genus.per.host.rare)
-summary.stats.table.rare
+knitr::kable(summary.stats.table.rare, format ="simple")
+summary.stats.table.rare.fname<-file.path(community.composition.tables,
+                                     "summary-table-rarefied.tsv")
+if(!file.exists(summary.stats.table.rare.fname)){
+  write.table(summary.stats.table.rare,
+              file=summary.stats.table.rare.fname,
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ## 9. Calculate summary stats of unclassified genera in rarefied data. ####
@@ -301,13 +271,15 @@ summary.stats.table.rare
 #' ## Calculate summary stats of unclassified genera in rarefied data.
 unclassified.genus.summary.stats.table.rare<-get_unclassified_summary_stats(ps.q.agg.genus.rare.relab,
                                                                             "Genus")
-print(unclassified.genus.summary.stats.table.rare)
-# write.table(unclassified.genus.summary.stats.table.rare,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "unclassified-genus-summary-table-rarefied.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(unclassified.genus.summary.stats.table.rare, format ="simple")
+unclassified.genus.summary.stats.table.rare.fname<-
+  file.path(community.composition.tables,
+            paste("unclassified-genus-summary-table-rarefied.tsv",sep="-"))
+if(!file.exists(unclassified.genus.summary.stats.table.rare.fname)){
+  write.table(unclassified.genus.summary.stats.table.rare,
+              file = unclassified.genus.summary.stats.table.rare.fname,
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ## 10. Check the most abundant phyla, families, genera in NMR and other hosts. ####
@@ -324,11 +296,11 @@ ps.q.agg.dominant.phyla.all_hosts<-ps.q.agg.phylum.relab%>%
   group_by(class,Phylum)%>%
   arrange(class,desc(MeanRelativeAbundance))%>%
   ungroup()
-head(ps.q.agg.dominant.phyla.all_hosts)
+knitr::kable(head(ps.q.agg.dominant.phyla.all_hosts), format = "simple")
 
 ps.q.agg.dominant.phyla.nmr<-ps.q.agg.dominant.phyla.all_hosts%>%
   filter(class=="NMR")
-head(ps.q.agg.dominant.phyla.nmr)
+knitr::kable(head(ps.q.agg.dominant.phyla.nmr), format ="simple")
 
 #' Families:
 ps.q.agg.dominant.families.all_hosts<-ps.q.agg.family.relab%>%
@@ -341,11 +313,11 @@ ps.q.agg.dominant.families.all_hosts<-ps.q.agg.family.relab%>%
   group_by(class,Phylum,Family)%>%
   arrange(class,desc(MeanRelativeAbundance))%>%
   ungroup()
-head(ps.q.agg.dominant.families.all_hosts)
+knitr::kable(head(ps.q.agg.dominant.families.all_hosts), format = "simple")
 
 ps.q.agg.dominant.families.nmr<-ps.q.agg.dominant.families.all_hosts%>%
   filter(class=="NMR")
-head(ps.q.agg.dominant.families.nmr) 
+knitr::kable(head(ps.q.agg.dominant.families.nmr),format = "simple")
 
 #' Genera:
 ps.q.agg.dominant.genera.all_hosts<-ps.q.agg.genus.relab%>%
@@ -358,84 +330,93 @@ ps.q.agg.dominant.genera.all_hosts<-ps.q.agg.genus.relab%>%
   group_by(class,Phylum,Family,Genus)%>%
   arrange(class,desc(MeanRelativeAbundance))%>%
   ungroup()
-head(ps.q.agg.dominant.genera.all_hosts)
+knitr::kable(head(ps.q.agg.dominant.genera.all_hosts), format = "simple")
 
 ps.q.agg.dominant.genera.nmr<-ps.q.agg.dominant.genera.all_hosts%>%
   filter(class=="NMR")
-head(ps.q.agg.dominant.genera.nmr)
+knitr::kable(head(ps.q.agg.dominant.genera.nmr), format = "simple")
 
-# write.table(ps.q.agg.dominant.phyla.nmr,
-#             file=file.path(rtables.directory,
-#                            # paste("20240523_12_02_33", 
-#                             paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-phyla-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# 
-# write.table(ps.q.agg.dominant.families.nmr,
-#             file=file.path(rtables.directory,
-#                            # paste("20240523_12_07_02",
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-families-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# 
-# write.table(ps.q.agg.dominant.genera.nmr,
-#             file=file.path(rtables.directory,
-#                            # paste("20240523_12_31_19",
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-genera-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# # For all hosts
-# write.table(ps.q.agg.dominant.phyla.all_hosts,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-phyla-table-all_hosts.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# 
-# write.table(ps.q.agg.dominant.families.all_hosts,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-families-table-all_hosts.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# 
-# write.table(ps.q.agg.dominant.genera.all_hosts,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "dominant-genera-table-all_hosts.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+ps.q.agg.dominant.phyla.nmr.fname <- 
+  file.path(community.composition.tables,# paste("20240523_12_02_33",
+            "dominant-phyla-table-nmr.tsv")
+if(!file.exists(ps.q.agg.dominant.phyla.nmr.fname)){
+  write.table(ps.q.agg.dominant.phyla.nmr,
+              file = ps.q.agg.dominant.phyla.nmr.fname,
+              row.names = F,sep = "\t")
+}
 
+ps.q.agg.dominant.families.nmr.fname <-
+  file.path(community.composition.tables,# paste("20240523_12_07_02",
+            "dominant-families-table-nmr.tsv")
+if(!file.exists(ps.q.agg.dominant.families.nmr.fname)){
+  write.table(ps.q.agg.dominant.families.nmr,
+              file = ps.q.agg.dominant.families.nmr.fname,
+              row.names = F, sep = "\t")
+}
+ps.q.agg.dominant.genera.nmr.fname <-
+  file.path(community.composition.tables,# paste("20240523_12_31_19",
+            "dominant-genera-table-nmr.tsv")
+if(!file.exists(ps.q.agg.dominant.genera.nmr.fname)){
+  write.table(ps.q.agg.dominant.genera.nmr,
+              file=ps.q.agg.dominant.genera.nmr.fname,
+              row.names = F,sep = "\t")
+}
+
+# For all hosts
+ps.q.agg.dominant.phyla.all_hosts.fname <- 
+  file.path(community.composition.tables,
+            "dominant-phyla-table-all_hosts.tsv")
+if(!file.exists(ps.q.agg.dominant.phyla.all_hosts.fname)){
+  write.table(ps.q.agg.dominant.phyla.all_hosts,
+              file = ps.q.agg.dominant.phyla.all_hosts.fname,
+              row.names = F,sep = "\t")
+}
+
+ps.q.agg.dominant.families.all_hosts.fname <-
+  file.path(community.composition.tables,
+            "dominant-families-table-all_hosts.tsv")
+if(!file.exists (ps.q.agg.dominant.families.all_hosts.fname)){
+  write.table(ps.q.agg.dominant.families.all_hosts,
+              file = ps.q.agg.dominant.families.all_hosts.fname,
+              row.names = F,sep = "\t")
+}
+
+ps.q.agg.dominant.genera.all_hosts.fname <-
+  file.path(community.composition.tables,
+            "dominant-genera-table-all_hosts.tsv")
+if(! file.exists (ps.q.agg.dominant.genera.all_hosts.fname)){
+  write.table(ps.q.agg.dominant.genera.all_hosts,
+            file = ps.q.agg.dominant.genera.all_hosts.fname,
+            row.names = F,sep = "\t")
+}
 #+ echo=FALSE
 ## 11. Check how much Bacteroidaceae are in NMR.  ####
 #'
 #' ## Check how much Bacteroidaceae are in NMR.
 bacteroidaceae.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Family=="Bacteroidaceae")
-bacteroidaceae.nmr
-# write.table(bacteroidaceae.nmr,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "bacteroidaceae-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-
+knitr::kable(bacteroidaceae.nmr, format = "simple")
+bacteroidaceae.nmr.fname<- file.path(community.composition.tables,
+                                     "bacteroidaceae-table-nmr.tsv")
+if(! file.exists (bacteroidaceae.nmr.fname)){
+  write.table(bacteroidaceae.nmr,
+              file = bacteroidaceae.nmr.fname,
+              row.names = F,sep = "\t")
+}
 #+ echo=FALSE
 ### 11.1 Check the most dominant Bacteroidota families in NMR. ####
 #'
 #'### Check the most dominant Bacteroidota families in NMR.
 bacteroidota.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Phylum=="Bacteroidota")
-head(bacteroidota.nmr)
-# write.table(bacteroidota.nmr,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "bacteroidota-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(head(bacteroidota.nmr), format = "simple")
+bacteroidota.nmr.fname <-file.path(community.composition.tables,
+                                   "bacteroidota-table-nmr.tsv")
+if(! file.exists (bacteroidota.nmr.fname)){
+  write.table(bacteroidota.nmr,
+              file = bacteroidota.nmr.fname,
+              row.names = F,sep = "\t")
+}
 
 #+ echo=FALSE
 ## 12. Check Spirochaetaceae, Spirochaetota, and Treponema in NMR. ####
@@ -443,33 +424,37 @@ head(bacteroidota.nmr)
 #' ## Check Spirochaetaceae, Spirochaetota, and Treponema in NMR. 
 spirochaetaceae.nmr<-ps.q.agg.dominant.families.nmr%>%
   filter(Family=="Spirochaetaceae",class=="NMR")
-spirochaetaceae.nmr
+knitr::kable(spirochaetaceae.nmr, format = "simple")
 
 spirochaetota.nmr<-ps.q.agg.dominant.phyla.nmr%>%
   filter(Phylum=="Spirochaetota")
-spirochaetota.nmr
-# write.table(spirochaetaceae.nmr,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "spirochaetaceae-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(spirochaetota.nmr, format = "simple")
+spirochaetaceae.nmr.fname <-file.path(community.composition.tables,
+                                      "spirochaetaceae-table-nmr.tsv")
+if(! file.exists (spirochaetaceae.nmr.fname)){
+  write.table(spirochaetaceae.nmr,
+              file = spirochaetaceae.nmr.fname,
+              row.names = F,sep = "\t")
+  
+}
 
 treponema.nmr<-ps.q.agg.dominant.genera.nmr%>%
   filter(Genus=="Treponema")
-treponema.nmr
-# write.table(treponema.nmr,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "treponema-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(treponema.nmr, format = "simple")
+treponema.nmr.fname <-file.path(community.composition.tables,
+                                      "treponema-table-nmr.tsv")
+if(! file.exists (treponema.nmr.fname)){
+  write.table(treponema.nmr,
+              file = treponema.nmr.fname,
+              row.names = F,sep = "\t")
+  
+}
 
 #+ echo=FALSE
 ### 12.1 Check the number of ASVs in Treponema from NMR. ####
 #' 
 #' ### Check the number of ASVs in Treponema from NMR.
-ps.q.agg%>%
+ps.q.agg.asv%>%
   filter(Genus=="Treponema",class=="NMR")%>%
   distinct(OTU)%>%
   tally
@@ -480,13 +465,15 @@ ps.q.agg%>%
 #' ## Check Mogibacteriaceae (renamed to Anaerovoracaceae) in all hosts.
 mogibacteriaceae_anaerovoracaceae.all<-ps.q.agg.dominant.families.all_hosts%>%
   filter(Family=="Anaerovoracaceae")
-head(mogibacteriaceae_anaerovoracaceae.all)
-# write.table(mogibacteriaceae_anaerovoracaceae.all,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "mogibacteriaceae_anaerovoracaceae-all-table.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+knitr::kable(head(mogibacteriaceae_anaerovoracaceae.all), format = "simple")
+mogibacteriaceae_anaerovoracaceae.all.fname <-file.path(community.composition.tables,
+                                "mogibacteriaceae_anaerovoracaceae-all-table.tsv")
+if(! file.exists (mogibacteriaceae_anaerovoracaceae.all.fname)){
+  write.table(mogibacteriaceae_anaerovoracaceae.all,
+              file = mogibacteriaceae_anaerovoracaceae.all.fname,
+              row.names = F,sep = "\t")
+  
+}
 
 #+ echo=FALSE
 ## 14. Analyse sulfur-metabolising bacteria in NMR. ####
@@ -494,31 +481,36 @@ head(mogibacteriaceae_anaerovoracaceae.all)
 #' ## Analyse sulfur-metabolising bacteria in NMR. 
 desulfobacterota.nmr<-ps.q.agg.dominant.genera.nmr%>%
   filter(Phylum=="Desulfobacterota",class=="NMR")
-head(desulfobacterota.nmr)
+knitr::kable(head(desulfobacterota.nmr), format = "simple")
 
 #' Desulfobacterota in other hosts
 desulfobacterota.all<-ps.q.agg.dominant.genera.all_hosts%>%
   filter(Phylum=="Desulfobacterota")
-head(desulfobacterota.all)
+knitr::kable(head(desulfobacterota.all), format = "simple")
 
 #+ echo=FALSE
 ### 14.1 Total Desulfobacterota in NMR. ####
 #' 
 #' ### Total Desulfobacterota in NMR.
 ps.q.agg.dominant.phyla.nmr%>%
-  filter(Phylum=="Desulfobacterota")
-# write.table(desulfobacterota.nmr,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "desulfobacterota-table-nmr.tsv",sep="-")),
-#             row.names = F,sep = "\t")
-# write.table(desulfobacterota.all,
-#             file=file.path(rtables.directory,
-#                            paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                                        format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                                  "desulfobacterota-table-all.tsv",sep="-")),
-#             row.names = F,sep = "\t")
+  filter(Phylum=="Desulfobacterota")%>%
+  knitr::kable(format = "simple")
+desulfobacterota.nmr.fname <-file.path(community.composition.tables,
+                                                        "desulfobacterota-table-nmr.tsv")
+if(! file.exists (desulfobacterota.nmr.fname)){
+  write.table(desulfobacterota.nmr,
+              file = desulfobacterota.nmr.fname,
+              row.names = F,sep = "\t")
+  
+}
+desulfobacterota.all.fname <- file.path(community.composition.tables,
+                                        "desulfobacterota-table-all.tsv")
+if(! file.exists (desulfobacterota.all.fname)){
+  write.table(desulfobacterota.all,
+              file = desulfobacterota.all.fname,
+              row.names = F,sep = "\t")
+  
+}
 
 #+ echo=FALSE
 ### 14.2 Plot Desulfobacterota. ####
@@ -556,34 +548,21 @@ desulfobacterota.plot<-ps.q.agg.genus.relab%>%
                position = position_dodge2(width = 0.75,   
                                           preserve = "single"))+
   # ggtitle(paste0("Relative abundance of Desulfobacterota phylum members"))+
-  mytheme+
-  theme(axis.text.y = ggtext::element_markdown(size=10),
-        axis.title.y = element_blank(),
-        axis.title.x = element_text(size=12),
-        axis.text.x = element_text(size=10),
-        strip.text.x = element_text(size=10),
-        plot.title = element_text(size = 8), # size of plot title
-        plot.caption = element_text(size=8), # size of plot caption
-        legend.position = "none")
+  taxa.plot.theme
 #+ fig.height = 10, fig.width = 8
 print(desulfobacterota.plot + 
   ggtitle(paste0("Relative abundance of Desulfobacterota phylum members"))+
   theme(plot.title = element_text(size = 14))
 )
 
-# for (image.format in c("png","tiff")){
-#   ggsave(paste0("./images/taxaboxplots/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "Desulfobacterota phylum members-all-hosts",
-#                       sep = "-"),".",image.format),
-#          plot=desulfobacterota.plot,
-#          width=8, height=10,units="in",
-#          # width = 4000,height = 6000,
-#          # width = 1200,
-#          # units = "px",
-#          dpi=300,device = image.format)
-# }
+for (image.format in c("png","tiff")){
+  ggsave(paste0("Desulfobacterota-phylum-members-all-hosts.",
+                      image.format),
+         plot = desulfobacterota.plot,
+         path = community.composition.figures,
+         width=8, height=10,units="in",
+         dpi=300,device = image.format)
+}
 
 
 #+ echo=FALSE
@@ -621,51 +600,38 @@ spirochaetota.plot<-ps.q.agg.genus.relab%>%
                position = position_dodge2(width = 0.75,   
                                           preserve = "single"))+
   # ggtitle(paste0("Relative abundance of Spirochaetota phylum members"))+
-  mytheme+
-  theme(axis.text.y = ggtext::element_markdown(size=10),
-        axis.title.y = element_blank(),
-        axis.title.x = element_text(size=12),
-        axis.text.x = element_text(size=10),
-        strip.text.x = element_text(size=10),
-        plot.title = element_text(size = 8), # size of plot title
-        plot.caption = element_text(size=8), # size of plot caption
-        legend.position = "none")
+  taxa.plot.theme
 #+ fig.height = 10, fig.width = 8
 print(spirochaetota.plot + 
         ggtitle(paste0("Relative abundance of Spirochaetota phylum members"))+
         theme(plot.title = element_text(size = 14))
         )
 
-# for (image.format in c("png","tiff")){
-#   ggsave(paste0("./images/taxaboxplots/",
-#                 paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                             format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                       "Spirochaetota phylum members-all-hosts",
-#                       sep = "-"),".",image.format),
-#          plot=spirochaetota.plot,
-#          width=8, height=10,units="in",
-#          # width = 4000,height = 6000,
-#          # width = 1200,
-#          # units = "px",
-#          dpi=300,device = image.format)
-# }
+for (image.format in c("png","tiff")){
+  ggsave(paste0("Spirochaetota-phylum-members-all-hosts.",
+                      image.format),
+         plot=spirochaetota.plot,
+         path = community.composition.figures,
+         width=8, height=10,units="in",
+         dpi=300,device = image.format)
+}
 
 #+ echo=FALSE
 ## 16. Analysis of naked mole-rat data ASVs. ####
 #' 
 #' ## Analysis of naked mole-rat data ASVs.
 #' Give ASVs shorter names: Genus, "ASV", OTU, OTU number. For example, Allobaculum_ASV_22.
-nmr.asv.names<-ps.q.agg.relab.nmr%>%
+nmr.asv.names<-ps.q.agg.asv.relab.nmr%>%
   dplyr::select(OTU,Genus)%>%
   group_by(Genus)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(Genus,OTU)%>%
   mutate(row.index=row_number())%>%
   mutate(ASV_name=paste(Genus,row.index,sep="_ASV_"))
-head(nmr.asv.names)
+knitr::kable(head(nmr.asv.names), format = "simple")
 
 #' The new name becomes the OTU column. The old name becomes OTU_old_name column.
-ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr<-ps.q.agg.asv.relab.nmr%>%
   left_join(nmr.asv.names[,c("Genus","OTU","ASV_name")])%>%
   rename("OTU_old_name"="OTU",
          "OTU"="ASV_name")%>%
@@ -676,13 +642,13 @@ ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
 ### 16.1 How many ASVs are shared between two age groups? ####
 #' ### How many ASVs are shared between two age groups?
 #' First, find ASVs in young samples
-otu.young<-ps.q.agg.relab.nmr%>%
+otu.young<-ps.q.agg.asv.relab.nmr%>%
   filter(agegroup=="agegroup0_10",Abundance!=0)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
   dplyr::select(OTU,agegroup,MeanRelativeAbundanceAgegroup, sdRelativeAbundance)
 #' Next, find ASVs in old samples
-otu.old<-ps.q.agg.relab.nmr%>%
+otu.old<-ps.q.agg.asv.relab.nmr%>%
   filter(agegroup=="agegroup10_16",Abundance!=0)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundanceAgegroup)%>%
@@ -704,7 +670,7 @@ length(otu.old$OTU)-length(shared.otu)
 ### 16.2 Check 103 ASV only in old individuals. ####
 #'
 #' ### Check 103 ASV only in old individuals.
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   group_by(OTU,agegroup)%>%
   mutate(n_samples=n_distinct(Sample))%>% # Find the number of old samples the ASV was found in
   filter(OTU %in% otu.old$OTU,
@@ -715,20 +681,21 @@ ps.q.agg.relab.nmr%>%
 #' No ASVs with at least 3 samples! The 103 ASVs are individual-specific.
 
 #' Which genera do the 103 old-specific ASVs belong to?
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   filter(OTU %in% otu.old$OTU, # ASV in old but not shared vector
          !OTU %in% shared.otu)%>%
   dplyr::select(OTU,Family,Genus, MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
   group_by(Family, Genus)%>%
   summarise(n=n_distinct(OTU))%>%
   arrange(desc(n))%>%
-  head
+  head%>%
+  knitr::kable(format = "simple")
 
 #+ echo=FALSE
 ### 16.3 How much % do shared ASVs take on average? ####
 #' 
 #' ### How much % do shared ASVs take on average?
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   # no separation by age
   filter(OTU%in%shared.otu)%>%
   group_by(Sample)%>%
@@ -741,7 +708,7 @@ ps.q.agg.relab.nmr%>%
 ### 16.4 How much % do shared ASVs take in each age group? ####
 #'
 #'### How much % do shared ASVs take in each age group?
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   # separation by age
   group_by(Sample,agegroup)%>%
@@ -749,7 +716,8 @@ ps.q.agg.relab.nmr%>%
   arrange(agegroup)%>%
   group_by(agegroup)%>%
   summarise(MeanRelAbSharedASVTotalAge=mean(SumRelAbSharedASV),
-            sdRelaAbSharedASVTotal = sd(SumRelAbSharedASV))
+            sdRelaAbSharedASVTotal = sd(SumRelAbSharedASV))%>%
+  knitr::kable(format = "simple")
 #' Higher variation in young individuals
 #' 
 #+ echo=FALSE
@@ -757,12 +725,12 @@ ps.q.agg.relab.nmr%>%
 #'
 #' ### Are the shared ASVs enriched in certain genera? 
 #' First, get the table of shared ASVs and their genera.
-shared.otu.genera<-ps.q.agg.relab.nmr%>%
+shared.otu.genera<-ps.q.agg.asv.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   # keep unique rows
   distinct(Genus,OTU)%>%
   group_by(Genus)
-head(shared.otu.genera)
+knitr::kable(head(shared.otu.genera), format = "simple")
 
 #' Calculate the ASVs in each genus with cumsum() and pull the most numerous genera.
 shared.otu.genera.cumsum<-shared.otu.genera%>%
@@ -775,7 +743,7 @@ shared.otu.genera.cumsum<-shared.otu.genera%>%
   # cumulative sum shows how many ASVs the top genera take
   mutate(cum_sum=cumsum(num_asvs))
 
-head(shared.otu.genera.cumsum)
+knitr::kable(head(shared.otu.genera.cumsum), format = "simple")
 #' Six genera account for 1/3 shared ASVs (225 out of 668 ASVS)
 
 #+ echo=FALSE
@@ -786,7 +754,7 @@ head(shared.otu.genera.cumsum)
 #' Lachnospiraceae Family (55 ASVs), Muribaculaceae (54 ASVS), 
 #' Treponema (42 ASVs), Bacteria Kingdom (30 ASVs), and
 #' Oscillospiraceae Family (22 ASVs).  
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   filter(Genus%in%c("Lachnospiraceae Family","Treponema",
                     "Muribaculaceae","Bacteria Kingdom",
                     "Oscillospiraceae Family"))%>%
@@ -795,7 +763,8 @@ ps.q.agg.relab.nmr%>%
   group_by(Genus,is_shared)%>%
   summarise(n_asvs=n())%>%
   ungroup()%>%
-  arrange(Genus,desc(is_shared))
+  arrange(Genus,desc(is_shared))%>%
+  knitr::kable(format = "simple")
 #' Lachnospiraceae Family: 55 ASVs are shared, 108 are not.
 #' Muribaculaceae: 54 are shared, 71 are not.
 #' Treponema: 42 ASVs are shared, 67 are not.
@@ -806,8 +775,7 @@ ps.q.agg.relab.nmr%>%
 ### 16.7 What is the average relative abundance of each genus in the top 5 of shared.otu.genera? ####
 #'
 #' ### What is the average relative abundance of each genus in the top 5 of shared.otu.genera?
-#' TODO: This might be the correction of our paper
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   # the subset command relies on the fact that we sorted the shared.otu.genera
   # by the number of ASVs. So, the unique(shared.otu.genera$Genus)[1:5] has 
   # genera with the highest number of ASVs
@@ -818,7 +786,8 @@ ps.q.agg.relab.nmr%>%
   group_by(Genus)%>%
   summarise(MeanRelAbGenus = mean(TotalGenus),
             sdRelAbGenus = sd(TotalGenus))%>%
-  arrange(-MeanRelAbGenus)
+  arrange(-MeanRelAbGenus)%>%
+  knitr::kable(format = "simple")
 
 #+ echo=FALSE
 ## 17. Plot ASVs in NMR. ####
@@ -836,7 +805,7 @@ sample.levels<-custom.md.ages%>%
 
 #' Bar plot of abundances: high variability
 #+ fig.height = 6, fig.width = 11
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   left_join(custom.md.ages)%>%
   mutate(Sample=factor(Sample,levels=sample.levels$Sample),
          NewSample=paste0(Sample," (",age,")"),
@@ -853,7 +822,7 @@ ps.q.agg.relab.nmr%>%
 #'
 #' ### 10 most abundant shared ASVs on average account for 30-40% of samples (barplot).
 #' Find the most abundant ASVs on average.
-top10.asv.average<-ps.q.agg.relab.nmr%>%
+top10.asv.average<-ps.q.agg.asv.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   group_by(OTU)%>%
   distinct(OTU,.keep_all = T)%>%
@@ -861,11 +830,12 @@ top10.asv.average<-ps.q.agg.relab.nmr%>%
   dplyr::select(Genus,OTU,MeanRelativeAbundance)%>%
   head(n=10)
 top10.asv.average%>%
-  arrange(Genus)
+  arrange(Genus)%>%
+  knitr::kable(format = "simple")
 
 #' Bar plot shows the 10 most abundant shared ASVs on average account for 30-40% of samples
 #+ fig.height = 6, fig.width = 11
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   filter(OTU%in%top10.asv.average$OTU)%>%
   mutate(new_OTU=paste0(OTU," (",Genus,")"))%>%
   ggplot(aes(x=Sample,y=RelativeAbundance,fill=new_OTU))+
@@ -880,14 +850,14 @@ ps.q.agg.relab.nmr%>%
 ### 17.2 Most abundant shared ASVs in each age group. ####
 #'
 #' ### Most abundant shared ASVs in each age group.
-top.shared.asvs.by_age<-ps.q.agg.relab.nmr%>%
+top.shared.asvs.by_age<-ps.q.agg.asv.relab.nmr%>%
   filter(OTU%in%shared.otu)%>%
   group_by(OTU,agegroup)%>%
   distinct(OTU,.keep_all = T)%>%
   arrange(-MeanRelativeAbundance)%>%
   dplyr::select(Genus,OTU,agegroup,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup)%>%
   ungroup()
-head(top.shared.asvs.by_age)
+knitr::kable(head(top.shared.asvs.by_age), format = "simple")
 
 top10.shared.asv.young<-top.shared.asvs.by_age%>%
   filter(agegroup=="agegroup0_10")%>%
@@ -936,7 +906,7 @@ names(otu.fill)<-top10.shared.asv.union$new_OTU
 ### 17.3 Barplot of the most abundant ASVs. ####
 #' 
 #' ### Barplot of the most abundant ASVs.
-top10.shared.asv.plot<-ps.q.agg.relab.nmr%>%
+top10.shared.asv.plot<-ps.q.agg.asv.relab.nmr%>%
   left_join(custom.md.ages)%>%
   filter(OTU%in%top10.shared.asv.union$OTU) %>%
   # mutate(new_OTU=paste0(OTU," (",Genus,")"))%>%
@@ -956,43 +926,28 @@ top10.shared.asv.plot<-ps.q.agg.relab.nmr%>%
        # title="Top 10 most abundant ASVs across age",
        fill="ASV"
        )+
-  mytheme +
-  theme(
-    legend.title = element_text(size=10),
-    legend.text = element_text(size=9),
-    legend.key.size = unit(0.3, 'cm'), #change legend key size
-    legend.key.spacing.y = unit(0.1, "lines"), # distant between key text
-    legend.box.spacing = unit(0.1,"lines"), # space between the plot and the legend box
-    axis.title.y = element_text(size = 10),
-    axis.text.x = element_text(angle=45,size=10,hjust=1),# rotate 
-    strip.text.x = ggtext::element_markdown(size=10),
-    panel.spacing = unit(0.8, "cm"), # increase distance between facets
-    plot.title = element_text(size = 8), # size of plot title
-    plot.caption = element_text(size=8), # size of plot caption
-    legend.position = "bottom")
+  project_theme +
+  asv.barplot.theme +
+  theme (plot.title = element_text(size = 8))
 
 #+ fig.height = 6, fig.width = 8
 print(top10.shared.asv.plot+
   ggtitle("Top 10 most abundant ASVs across age")+
   theme(plot.title = element_text(size = 14)))
 
-# for(image.format in image.formats){
-#   ggsave(file.path("./images/barplots",
-#                  paste0(paste(format(Sys.time(),format="%Y%m%d"),
-#                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                        "-top10-asv", ".",image.format)),
-#        plot=top10.shared.asv.plot,
-#        width=8, height=6,units="in",
-#        # width = 5000,height = 3500,
-#        # units = "px",
-#        dpi=300,device = image.format)
-# }
+for(image.format in image.formats){
+  ggsave(paste0("top10-asv.", image.format),
+       plot=top10.shared.asv.plot,
+       path = community.composition.figures,
+       width=8, height=6,units="in",
+       dpi=300,device = image.format)
+}
 
 #+ echo=FALSE
 ### 17.4 M40 sample is very different. #### 
 #' 
 #' ### M40 sample is very different. 
-m40.asvs<-ps.q.agg.relab.nmr%>% 
+m40.asvs<-ps.q.agg.asv.relab.nmr%>% 
   filter(Sample=="M40")%>%
   dplyr::select(OTU,Genus,RelativeAbundance,MeanRelativeAbundance,
          MeanRelativeAbundanceAgegroup)%>%
@@ -1004,7 +959,7 @@ m40.otu.fill<-createPalette(length(m40.asvs$OTU),
                             seedcolors = c("#FF0000", "#00FF00", "#0000FF"),
                             range=c(30, 80))
 names(m40.otu.fill)<-sort(m40.asvs$OTU)
-m40.asv.plot<-ps.q.agg.relab.nmr%>%
+m40.asv.plot<-ps.q.agg.asv.relab.nmr%>%
   left_join(custom.md.ages)%>%
   mutate(Sample=factor(Sample,levels=sample.levels$Sample),
          NewSample=paste0(Sample," (",age,")"),
@@ -1022,71 +977,35 @@ m40.asv.plot<-ps.q.agg.relab.nmr%>%
        fill="ASV",
        title="Top 10 most abundant ASVs in M40 sample")+
   guides(fill = guide_legend(ncol = 3))+
-  theme(
-    legend.title = element_text(size=10),
-    legend.text = element_text(size=9),
-    legend.key.size = unit(0.3, 'cm'), #change legend key size
-    legend.key.spacing.y = unit(0.1, "lines"), # distant between key text
-    legend.box.spacing = unit(0.1,"lines"), # space between the plot and the legend box
-    axis.title.y = element_text(size = 10),
-    axis.text.x = element_text(angle=45,size=10,hjust=1),# rotate 
-    strip.text.x = ggtext::element_markdown(size=10),
-    panel.spacing = unit(0.8, "cm"), # increase distance between facets
-    plot.title = element_text(size = 14), # size of plot title
-    plot.caption = element_text(size=8), # size of plot caption
-    legend.position = "bottom")
+  asv.barplot.theme
 
 #+ fig.height = 6, fig.width = 10
 print(m40.asv.plot)
-# ggsave(file.path("./images/barplots",
-#                  paste(paste(format(Sys.time(),format="%Y%m%d"),
-#                              format(Sys.time(),format = "%H_%M_%S"),sep = "_"),
-#                        "top10-asv-m40.png")),
-#        plot=last_plot(),
-#        width=8, height=6,units="in",
-#        units = "px",dpi=300,device = "png")
+ggsave(paste("top10-asv-m40.png"),
+       plot = m40.asv.plot,
+       path = community.composition.figures,
+       width=8, height=6,units="in",
+       dpi=300,device = "png")
 
 #+ echo=FALSE
-## 18. Import the rarefied dataframe ####
+## 18. Analyse age groups in detail. ####
 #'
-#' ## Import the rarefied dataframe 
-# Between NMR (ASV level)
-# ps.q.df.preprocessed.date_time<-"20240524_13_58_11"
-ps.q.df.preprocessed.date_time<-"20260211_17_14_21"
-ps.q.df.preprocessed<-read.table(
-  file.path("./output/rtables/",authorname,paste0(
-    paste(
-      ps.q.df.preprocessed.date_time,
-      paste0("ps.q.df.","rare"),"nonfiltered","OTU",
-      paste("NMR",collapse = '-'),sep = "-"),
-    ".tsv")),
-  header = T)
-
-#' Or between species (Genus level)
-ps.q.df.preprocessed<-read.table(
-  file.path("./output/rtables/",authorname,paste0(
-    paste(
-      # "20240426_22_00_04",
-      "20260211_17_14_18",
-      paste0("ps.q.df.","rare"),"nonfiltered","Genus",
-      paste(custom.levels,collapse = '-'),sep = "-"),
-    ".tsv")),
-  header = T)
+#' ## Analyse age groups in detail. 
 
 #+ echo=FALSE
 ### 18.1 Let's find which major ASVs are specific to one age group ####
 #' 
 #' ### Let's find which major ASVs are specific to one age group ####
-young.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
+young.ps.q.agg.asv.relab.nmr<-ps.q.agg.asv.relab.nmr%>%
   filter(agegroup=="agegroup0_10")%>%
   arrange(-MeanRelativeAbundanceAgegroup)
 
-old.ps.q.agg.relab.nmr<-ps.q.agg.relab.nmr%>%
+old.ps.q.agg.asv.relab.nmr<-ps.q.agg.asv.relab.nmr%>%
   filter(agegroup=="agegroup10_16")%>%
   arrange(-MeanRelativeAbundanceAgegroup)
 
-length(unique(young.ps.q.agg.relab.nmr$OTU))
-length(unique(old.ps.q.agg.relab.nmr$OTU))
+length(unique(young.ps.q.agg.asv.relab.nmr$OTU))
+length(unique(old.ps.q.agg.asv.relab.nmr$OTU))
 
 #+ echo=FALSE
 ### 18.2 How many genera are shared between two age groups ####
@@ -1118,16 +1037,36 @@ unique.to_old.genera<-setdiff(genera.old$Genus,genera.young$Genus)
 ps.q.agg.genus.relab.nmr%>%
   # add_agegroup_to_tax_df(.,"Genus",custom.md.ages)%>%
   filter(Genus %in% unique.to_old.genera)%>%
-  dplyr::select(Sample,Family,Genus,MeanRelativeAbundance,MeanRelativeAbundanceAgegroup )
+  dplyr::select(Sample,Family,Genus,MeanRelativeAbundance,
+                MeanRelativeAbundanceAgegroup )%>%
+  knitr::kable(format = "simple")
 
 # How much % do common genera take in each age group on average?
-ps.q.agg.relab.nmr%>%
+ps.q.agg.asv.relab.nmr%>%
   filter(Genus%in%shared.genera)%>%
   group_by(Sample,agegroup)%>%
   summarise(SumRelAbCommonASV=sum(RelativeAbundance))%>%
   arrange(agegroup)%>%
   group_by(agegroup)%>%
-  summarise(MeanRelAbCommonASVTotalAge=mean(SumRelAbCommonASV))
+  summarise(MeanRelAbCommonASVTotalAge=mean(SumRelAbCommonASV))%>%
+  knitr::kable(format = "simple")
+
+## 19. Check non-bacterial data ####
+ps.q.agg.genus%>%
+  filter(Kingdom != "Bacteria")%>%
+  distinct(Genus, .keep_all = T)%>%
+  select(class, Kingdom:Genus, MeanRelativeAbundance)%>%
+  knitr::kable(format = "simple")
+
+ps.q.agg.asv%>%
+  filter(Kingdom != "Bacteria")%>%
+  group_by(class, Genus)%>%
+  summarise(n = n())
+
+ps.q.agg.asv%>%
+  filter(Order == "Methanomassiliicoccales")
+  
+
 sessionInfo()
-rm(list = ls(all=TRUE))
+rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
 gc()
