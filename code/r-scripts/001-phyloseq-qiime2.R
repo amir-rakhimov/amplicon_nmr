@@ -22,55 +22,30 @@
 #' QZA files using `qiime2R` package.
 #' We will convert the QZA files directly into phyloseq objects.
 #'
+#' The final output is:
+#' 1) `phyloseq` object `ps.q`, which contains the QIIME2 
+#' output (feature table, taxonomy, and tree).
+#' 
+#' 2) `phyloseq` object `ps.q.rel`, which is same as `ps.q`, but absolute 
+#' abundance values are transformed into relative abundances.
+#' 
+#' 3) Metadata `custom.md` and `custom.md.ages`: these are tables with sample
+#' metadata. The first file contains information for all samples, while the 
+#' second one only for naked mole-rat samples. `custom.md` will be added 
+#' to `ps.q` as a `sample_data`. 
+#' 
+#' 4) Dataframe `ps.q.agg.asv`, which is a long-format version of `ps.q`. It
+#' will become a supplementary table. Contains only taxonomy, abundance, and 
+#' sample names (no other metadata). Column `OTU` is ASV IDs from QIIME2. 
+#' phyloseq uses OTU, so we keep it as it is. 
+#' 
+#' 5) Dataframes `ps.q.agg.genus`, `ps.q.agg.phylum`, and `ps.q.agg.family`, 
+#' which are similar to `ps.q.agg.asv` but they are agglomerated at genus, phylum,
+#' and family level, respectively. 
+#'  
+#' 
 #' The final output is the dataframe ps.q.agg.asv and metadata custom.md.
 #' ps.q.agg.asv and custom.md are saved as tsv files and rds files.
-#'
-#' 1) ps.q.agg.asv is an ASV table with 7-13 columns   
-#' (7 if agglomerating at Phylum, 13 if agglomerating at ASV level):  
-#' * `Sample`: samples that were sequenced.   
-#' * `Abundance`: Absolute abundance of taxa.   
-#' * `class`: short names of animal hosts. The variable is factor 
-#' with 9 levels at most (B6mouse, DMR, FVBNmouse, hare, 
-#' MSMmouse, NMR, pvo, rabbit, spalax).   
-#' The next seven columns may not all be in the table. 
-#' If you agglomerate by Genus, you don't see the Species column. 
-#' And if you agglomerate by Family, you don't see Genus and 
-#' Species. But these are taxonomic ranks for ASVs that we got 
-#' from QIIME2.  
-#' * `Kingdom`  
-#' * `Phylum`  
-#' * `Class`  
-#' * `Order`  
-#' * `Family`  
-#' * `Genus`  
-#' * `Species`  
-#' * `OTU`: ASV IDs from QIIME2. phyloseq uses OTU, so we keep it 
-#' as it is. Not included if you are not aggomerating by ASVs.  
-#' * `RelativeAbundance`: Relative abundance of taxa in each sample.
-#' We calculate it by summing the Abundance of a taxon in each sample
-#' and dividing that sum by the sum of reads in that sample.  
-#' * `MeanRelativeAbundance`: Average relative abundance of a taxon 
-#' in each host. We calculate it by summing the absolute 
-#' abundance of a taxon from all samples in a host and 
-#' dividing by the sum of reads in that host.  
-#'
-#' 2) custom.md is a dataframe with metadata. It has 5 variables:  
-#' * `class`: same as in ps.q.agg.asv  
-#' * `animal`: full names of animal hosts.  The variable is 
-#' factor with 9 levels at most ("Fukomys Damarensis", 
-#' "FVB/N mouse", "Lepus europaeus", "MSM/Ms mouse", 
-#' "naked mole rat", "Nannospalax leucodon", "Oryctolagus cuniculus", 
-#' "Pteromys volans orii", "SPF mouse, B6").
-#' "Fukomys Damarensis" is DMR, "FVB/N mouse" is FVBNmouse, "Lepus europaeus" is hare, 
-#' "MSM/Ms mouse" is MSMmouse, "naked mole rat" is NMR, 
-#' "Nannospalax leucodon" is spalax, "Oryctolagus cuniculus" is 
-#' rabbit, "Pteromys volans orii" is pvo, "SPF mouse, B6" 
-#' is B6mouse.  
-#' * `sex`: sex of tested samples. Not all samples have it. It is a factor with
-#' four levels (F, M, NR, -)  
-#' * `birthday`: date of birth of samples. Not all samples have it. 
-#' It is a Date format variable.  
-#' * `Sample`: same as in ps.q.agg.asv  
 #'
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
@@ -91,7 +66,6 @@ library(qiime2R)
 library(phyloseq)
 library(tidyverse)
 library(microViz)
-
 
 #+ echo=FALSE
 ## 2. Import data from QIIME2. #### 
@@ -114,28 +88,9 @@ dir.create(community.composition.figures,recursive = TRUE)
 #'
 #' ## Import qza files and convert them into a phyloseq object.
 ps.q<-qza_to_phyloseq(
-  features = file.path(qiime2.output.dir, paste0(paste(qza_file_date_time,
-                                              authorname,
-                                              read.end.type,
-                                              "trimmed-dada2-table",
-                                              truncationlvl,
-                                              "filtered",
-                                              sep="-"),".qza")), # feature table
-  taxonomy = file.path(qiime2.output.dir,paste0(paste(qza_file_date_time,
-                                             authorname,
-                                             read.end.type,
-                                             "trimmed-dada2",
-                                             truncationlvl,
-                                             "filtered-taxonomy",
-                                             sep="-"),".qza")), # taxonomy
-  tree = file.path(qiime2.output.dir,paste0(paste(qza_file_date_time,
-                                         authorname,
-                                         read.end.type,
-                                         "trimmed-dada2",
-                                         truncationlvl,
-                                         "filtered-rooted-tree",
-                                         sep="-"),
-                                   ".qza")) # rooted tree
+  features = file.path(qiime2.output.dir, "trimmed-dada2-table-merged-filtered.qza"), # feature table
+  taxonomy = file.path(qiime2.output.dir, "trimmed-dada2-merged-taxonomy.qza"), # taxonomy
+  tree = file.path(qiime2.output.dir, "trimmed-dada2-merged-filtered-rooted-tree.qza") # rooted tree
 )
 
 #' Change the name d__Kingdom to Kingdom.
@@ -149,14 +104,15 @@ rm(ps.q.taxtab)
 ## 4. Add custom metadata. ####
 #'
 #' ## Add custom metadata. 
-custom.md<-read.table(qiime2.metadata.filename, header = T)
+custom.md<-read.table(qiime2.metadata.filename, header = T,sep = "\t")
 colnames(custom.md)[1]<-"Sample" # set the first column name as Sample
 #' Convert the Sample column into row names because phyloseq 
 #' needs samples as rownames.
 #' 
 #' Remove absolute.filepath column.
 custom.md<-custom.md%>%
-  dplyr::select(-absolute.filepath)%>%
+  dplyr::select(-forward.absolute.filepath,
+                -reverse.absolute.filepath)%>%
   mutate(class= as.factor(class),
          sex = as.factor(sex),
          birthday = as.Date(birthday),
@@ -183,72 +139,73 @@ custom.md.ages<-custom.md%>%
          -host)%>%
   mutate(age = as.numeric(age),
          agegroup=cut(age, breaks =c(0,10,16),
-                      right = FALSE))
+                      right = FALSE))%>%
+  ungroup()
 #' We create these new levels for differential microbial abundance.
-unique_levels <-custom.md.ages %>%
-  ungroup()%>%
+unique_levels <- custom.md.ages %>%
   distinct(agegroup)%>%
   arrange(agegroup) %>%
   mutate(new_agegroup = paste0("agegroup", agegroup))%>%
   mutate(new_agegroup = gsub("\\(|\\)|\\[|\\]","",new_agegroup))%>%
   mutate(new_agegroup = gsub("\\,","_",new_agegroup))
 custom.md.ages <- custom.md.ages %>%
-  left_join(unique_levels, by = "agegroup")
-#' We preserve the old group names for visualisation.
-colnames(custom.md.ages)[which(colnames(custom.md.ages)=="agegroup")]<-"old_agegroup"
-colnames(custom.md.ages)[which(colnames(custom.md.ages)=="new_agegroup")]<-"agegroup"
+  left_join(unique_levels, by = "agegroup")%>%
+  rename("old_agegroup" = "agegroup")%>%
+  rename("agegroup" = "new_agegroup")%>%
+  dplyr::select(-old_agegroup)%>%
+  as.data.frame()%>%
+  column_to_rownames("sample_name")
 
-custom.md.ages<-custom.md.ages%>%
-  as.data.frame()
-rownames(custom.md.ages)<-custom.md.ages$sample_name
-
-custom.md.ages.fname <- file.path(new.metadata.dir,"custom.md.ages.rds")
+custom.md.ages.fname.no_ext <- file.path(new.metadata.dir,"custom.md.ages")
+custom.md.ages.fname <- paste(custom.md.ages.fname.no_ext, "rds", sep = ".")
 if(!file.exists(custom.md.ages.fname)){
   saveRDS(custom.md.ages,file = custom.md.ages.fname)
-  write.table(custom.md.ages,file=file.path(new.metadata.dir,"custom.md.ages.tsv"),
-              row.names = F,sep = "\t")
-}
-
-#' You can exclude some samples based on class. Specify the excluded classes
-#' in a vector, then use the `%in%` operator. It will remove entries 
-#' of the `class` column (animal hosts) from the `custom.md` object (metadata).
-# custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','pvo','tx',
-#                                               'ntccontrol','rabbitcontrol',
-#                                               'harecontrol'),]
-custom.md<-custom.md[!custom.md$class  %in% c('pal','ppg','tx'),]
-#' You can exclude samples based on their library size (total number of reads).
-custom.md<-custom.md[!rownames(custom.md) %in%
-                       intersect(names(which(colSums(ps.q@otu_table)<20000)),
-                                 rownames(custom.md)),]
-custom.md.fname <- file.path(new.metadata.dir,"custom.md.rds")
-if (!file.exists (custom.md.fname)){
-  saveRDS(custom.md,file = custom.md.fname)
-  write.table(custom.md,file = file.path(new.metadata.dir,"custom.md.tsv"),
+  write.table(custom.md.ages,file=paste(custom.md.ages.fname.no_ext, "tsv", sep = "."),
               row.names = F,sep = "\t")
 }
 
 #+ echo=FALSE
-### 4.2 Construct the phyloseq object directly from QIIME2 output. ####
+### 4.2 Filter metadata. ####
 #'
-#' ### Construct the phyloseq object directly from QIIME2 output. ####
-#' We combine the phyloseq object with new metadata (if we excluded samples).
-ps.foo <- phyloseq(otu_table(ps.q),
-                   sample_data(custom.md),
-                   tax_table(ps.q),
-                   phy_tree(ps.q))
-ps.q<-ps.foo
-rm(ps.foo)
+#' ### Filter metadata. ####
+#' You can exclude samples based on their library size (total number of reads).
+low.abundance.samples <- names(which(sample_sums(ps.q)<20000))
+print(low.abundance.samples)
+
+ps.q <- subset_samples(ps.q, ! sample_names(ps.q) %in% low.abundance.samples)
+
+#' You can exclude samples based config file (they failed in QIIME2).
+if( "excluded.classes" %in% ls(all.names = T) ){
+  print(excluded.classes)
+  if( excluded.classes %in% sample_data(ps.q)$class ){
+    ps.q <- subset_samples(ps.q, ! class %in% excluded.classes)
+  }
+}
+
+#' Save the sample data of the ps.q object as custom.md
+custom.md <- sample_data(ps.q)%>%
+  as.matrix()%>%
+  as.data.frame()%>%
+  mutate(class = factor(class,  levels = unique(class)),
+         sex = as.factor(sex),
+         birthday = as.Date(birthday),
+         animal = as.factor(animal))
+custom.md.fname.no_ext <- file.path(new.metadata.dir,"custom.md")
+custom.md.fname <- paste(custom.md.fname.no_ext, "rds", sep = ".")
+if (!file.exists (custom.md.fname)){
+  saveRDS(custom.md,file = custom.md.fname)
+  write.table(custom.md,file = paste(custom.md.fname.no_ext, "tsv", sep = "."),
+              row.names = F,sep = "\t")
+}
 
 #' Number of features in the unfiltered dataset:
-length(rownames(ps.q@tax_table@.Data))
+ntaxa(ps.q)
 
 #' Total frequency in the unfiltered dataset:
-sum(colSums(ps.q@otu_table@.Data))
+sum(sample_sums(ps.q))
 
 #' Summary statistics (min, median, max, quartiles) of the unfiltered dataset:
-ps.q@otu_table@.Data%>%
-  colSums()%>%
-  summary()
+summary(sample_sums(ps.q))
 
 #' Select only Bacteria. Remove chloroplast and mitochondria
 if(active.analysis == "bacteria_only"){
@@ -270,134 +227,36 @@ ps.q<-tax_fix(ps.q,unknowns = c("NA","uncultured",#"Unassigned",
                                 "wallaby_gut","uncultured_soil", 
                                 "uncultured_organism","uncultured_prokaryote",NA))
 #+ echo=FALSE
-## 5. Convert the phyloseq object into a dataframe. ####
+## 5. Calculate relative abundance: Abundance divided by total abundance in a sample. ####
 #'
-#' ## Convert the phyloseq object into a dataframe.
-ps.q.agg.asv<-ps.q %>%
-  psmelt() 
-ps.q.agg.phylum<-ps.q %>%
-  tax_glom("Phylum",NArm = FALSE) %>% # agglomerate by phylum
-  psmelt()  # transform the phyloseq object into an R dataframe
-ps.q.agg.family<-ps.q %>%
-  tax_glom("Family",NArm = FALSE) %>% # agglomerate by family
-  psmelt()  # transform the phyloseq object into an R dataframe
-ps.q.agg.genus<-ps.q %>%
-  tax_glom("Genus",NArm = FALSE) %>% # agglomerate by genus
-  psmelt()  # transform the phyloseq object into an R dataframe
-ps.list <- list("OTU" = ps.q.agg.asv, 
-               "Phylum" = ps.q.agg.phylum,
-               "Family" = ps.q.agg.family, 
-               "Genus" = ps.q.agg.genus)
-for (ps.df.index in names(ps.list)){
-  ps.df <- ps.list[[ps.df.index]]
-  print(paste("Parsing data from the", ps.df.index, "table"))
-  print(paste("Number of rows in the dataframe:", nrow(ps.df)))
-  
-  # Remove entries with zero Abundance.
-  print("Removing rows with zero Abundance")
-  ps.df <- ps.df %>%
-    filter(Abundance!=0)%>%
-    dplyr::select(-sample_Sample)%>% # remove the duplicate column
-    dplyr::select(-sex,-birthday,-animal)
-  print(paste("Number of rows in the filtered dataset:",nrow(ps.df)))
-  ### 5.1 Number of samples in the filtered dataset. ####
-  print(paste("Number of samples in the filtered dataset:"))
-  ps.df%>%
-    distinct(Sample)%>%
-    tally()%>%
-    print()
-  ### 5.2 Number of features in the filtered dataset. ####
-  print(paste("Number of features in the filtered dataset:"))
-  ps.df%>%
-    distinct(OTU)%>%
-    tally()%>%
-    print()
-  ### 5.3 Total frequency in the filtered dataset. ####
-  print(paste("Total frequency in the filtered dataset:"))
-  ps.df%>%
-    summarise(TotalAbundance=sum(Abundance))%>%
-    print()
-  ### 5.4 Summary statistics (min, median, max, quartiles) of the filtered dataset. ####
-  print(paste("Summary statistics (min, median, max, quartiles) of the filtered dataset:"))
-  ps.df%>%
-    dplyr::select(Sample,Abundance)%>%
-    group_by(Sample)%>%
-    summarise(FrequencyPerSample=sum(Abundance))%>%
-    dplyr::select(FrequencyPerSample)%>%
-    summary()%>%
-    print()
-  
-  ## 6. Add relative abundance column: Abundance divided by total abundance in a sample. ####
-  ps.df<-ps.df%>%
-    group_by(class,Sample)%>%
-    mutate(TotalSample=sum(Abundance))%>%
-    group_by_at(c("class","Sample",ps.df.index))%>%
-    mutate(RelativeAbundance=Abundance/TotalSample*100)%>%
-    ungroup()
-  
-  # Sanity check: is total relative abundance of each sample 100%?
-  print(paste("Sanity check: is total relative abundance of each sample 100%?"))
-  ps.df %>%
-    group_by(Sample) %>% # Group by sample id
-    summarise(sumRelativeAbundance = sum(RelativeAbundance)) %>% # Sum all abundances
-    mutate(diff_from_100 = sumRelativeAbundance-100, # compare each value to 100
-           is_different = as.logical(round(diff_from_100,digits = 10)))%>% 
-    arrange(desc(diff_from_100))%>% # show the most deviating samples
-    print()
-  
-  ps.df %>%
-    group_by(Sample)%>%
-    mutate(sumRelativeAbundance = sum(RelativeAbundance)) %>%
-    ungroup()%>%
-    distinct(Sample,.keep_all = T)%>%
-    ggplot(aes(x=Sample,y=sumRelativeAbundance))+
-    geom_bar(stat="identity")+
-    coord_flip()
-  print(last_plot())
-  ### 6.1 Add mean relative abundance data. ####
-  # We will group the dataset by three columns: class (animal host), 
-  # two taxonomic ranks (e.g Genus, Family), and maybe OTU (actually ASV)
-  # if we agglomerate at ASV level.
-  
-  # Group the dataframe by classes (animal hosts).
-  # First, we calculate the library size per sample.
-  # Then, inside each class, we take a agglom.rank, sum its abundances from all samples,
-  # then take a mean. This will be our MeanRelativeAbundance.
-  ps.df<-ps.df%>%
-    group_by(class)%>% # group by class (animal host),
-    mutate(TotalClass=sum(Abundance))%>%
-    group_by_at(c("class",ps.df.index))%>%
-    mutate(TotalAgglomRank=sum(Abundance))%>%
-    mutate(MeanRelativeAbundance=TotalAgglomRank/TotalClass*100)%>%
-    ungroup()
-  
-  
-  if(ps.df.index != "OTU"){
-    ps.df<-ps.df%>%
-      dplyr::select(-OTU)
-  }
-  ps.df<-ps.df%>%
-    ungroup()%>%
-    dplyr::select(-TotalClass,-TotalSample,-TotalAgglomRank)
-  # Save the tables in TSV format and as an RDS object
-  tsv.fname <- file.path(community.composition.tables,paste(
-    "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-    "table.tsv",sep="-"))
-  if(!file.exists(tsv.fname)){
-    write.table(ps.df,
-                file = tsv.fname,
-                row.names = F,sep = "\t")
-  }
-  
-  rda.fname <- file.path(community.composition.rdafiles,paste(
-    "phyloseq-qiime",authorname,ps.df.index,read.end.type,truncationlvl,
-    "table.rds",sep="-"))
-  if(!file.exists(rda.fname)){
-    saveRDS(ps.df,
-            file = rda.fname)
-  }
+#' ## 5. Calculate relative abundance: Abundance divided by total abundance in a sample. ####
+ps.q.rel <- transform_sample_counts(ps.q, function(x) 100*x/sum(x)) 
+
+#' Save phyloseq objects and the contents (OTU table, taxonomy, tree).
+if(!file.exists(ps.q.raw.fname)){
+  saveRDS(ps.q,
+          file = ps.q.raw.fname)
 }
 
+if(!file.exists(ps.q.rel.raw.fname)){
+  saveRDS(ps.q.rel,
+          file = ps.q.rel.raw.fname)
+}
+
+if(!file.exists(ps.q.raw.otu_table.fname)){
+  saveRDS(ps.q@otu_table%>% as.matrix() %>%as.data.frame(),
+          file = ps.q.raw.otu_table.fname)
+}
+if(!file.exists(ps.q.raw.tax_table.fname)){
+  saveRDS(ps.q@tax_table%>% as.matrix() %>%as.data.frame(),
+          file = ps.q.raw.tax_table.fname)
+}
+if(!file.exists(ps.q.raw.tree.fname)){
+  saveRDS(ps.q@phy_tree,
+          file = ps.q.raw.tree.fname)
+}
+
+
 sessionInfo()
-rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
+rm(list =setdiff(ls(all.names = TRUE), c("active.analysis","markdown.dir")))
 gc()
