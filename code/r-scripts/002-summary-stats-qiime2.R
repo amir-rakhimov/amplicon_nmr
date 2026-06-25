@@ -17,13 +17,12 @@
 ## Introduction ####
 #'
 #' ## Introduction
-#' In this script, we will explore the imported dataset from QIIME2 using qiime2R
-#' and phyloseq.
+#' In this script, we will explore the QIIME2 dataset imported as a phyloseq
+#' object. We will save it as RDS and tab-separated files (agglomerated by 
+#' ASV, phylum, family, and genus).
 #' 
 #' We will also rarefy the data for future analyses.
 #' 
-#' We will use the data from 001-phyloseq-qiime2.R script (ps.q.agg
-#' agglomerated tables at phylum, family, genus, and OTU level).
 
 #+ echo=FALSE
 ## 1. Load necessary libraries and scripts. ####
@@ -55,12 +54,9 @@ source(file.path(util.functions.r,"create_summary_stats.R"))
 source(file.path(util.functions.r,"multi_rarefy_phyloseq.R"))
 source(file.path(util.functions.r,"get_unclassified_summary_stats.R"))
 source(file.path(util.functions.r,"get_average_summary_stats.R"))
-source(file.path(util.functions.r,"get_average_unclassified_summary_stats_rare.R"))
-
-# source(file.path(util.functions.r,"add_relab_to_tax_df.R"))
-# source(file.path(util.functions.r,"add_agegroup_to_tax_df.R"))
-# source(file.path(util.functions.r,"get_dominant_taxa_in_host.R"))
-# source(file.path(util.functions.r,"ggplot_species.R"))
+source(file.path(util.functions.r,"get_average_unclassified_summary_stats.R"))
+#' Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
 
 #+ echo=FALSE
 ## 3. Import raw datasets as rds files. ####
@@ -88,7 +84,7 @@ ps.q.nmr <- subset_samples(ps.q, class == "NMR")
 sample_data(ps.q.nmr) <- custom.md.ages
 #' Create relative abundance data by transforming the ps.q.nmr object.
 ps.q.nmr.rel <-transform_sample_counts(ps.q.nmr, function(x) 100*x/sum(x)) 
-#' Calculate mean, SD, min, and max relative abundances of genera and ASVs by
+#' Calculate mean, SD, min, and max relative abundances of ASVs by
 #' age group.
 mean_sd_relab.nmr_ages.asv <- 
   get_mean_and_sd_relab_from_phyloseq(ps.q.nmr.rel, "agegroup", "OTU")
@@ -686,30 +682,27 @@ rm(top10.asv.average, top10.asv.average.filtered,
    otu.fill)
 #' Agglomerate the `ps.q.filtered` object and convert it into a dataframe with `psmelt()` 
 #' function. Then, save it in tab-separated format and as an rds object. 
-melt_phyloseq_and_save <-function (ps, ps.index){
-  # ps.indexes <- c("OTU", "Phylum", "Family", "Genus")
+melt_phyloseq_and_save <-function (ps, ps.index, ps.df.fname){
+  ps.indexes <- c("Kingdom","Phylum","Class","Order", "Family", "Genus","Species")
+  
   if(ps.index == "OTU"){
-    ps.df <- ps.q %>%
+    ps.df <- ps %>%
       psmelt()
   }else{
-    ps.df <- ps.q %>%
+    ps.df <- ps %>%
       tax_glom(ps.index, NArm=FALSE)%>%
       psmelt()
   }
-  ps.df <- ps.df %>%
-    dplyr::select(-sample_Sample)%>% # remove the duplicate column
-    dplyr::select(-sex,-birthday,-animal)
   
-  if(ps.index != "OTU"){
-    ps.df<-ps.df%>%
-      dplyr::select(-OTU)
+  if(ps.index == "OTU"){
+    ps.df <- ps.df %>%
+      dplyr::select(all_of(c("OTU","Sample", "Abundance", "class", ps.indexes)))
+  }else{
+    selected.indexes <- ps.indexes[1:match(ps.index, ps.indexes)] # vector of taxonomic ranks to select
+    ps.df <- ps.df %>%
+      dplyr::select(all_of(c("Sample", "Abundance", "class", selected.indexes)))
   }
   # Save the tables in TSV format and as an RDS object
-  ps.df.fname <- case_when(ps.index =="OTU" ~ ps.q.agg.asv.fname.no_ext,
-                           ps.index =="Genus" ~ ps.q.agg.genus.fname.no_ext,
-                           ps.index =="Family" ~ps.q.agg.family.fname.no_ext,
-                           ps.index =="Phylum" ~ ps.q.agg.phylum.fname.no_ext
-  ) 
   tsv.fname <- file.path(community.composition.tables, paste0(ps.df.fname,".tsv"))
   rda.fname <- file.path(community.composition.rdafiles, paste0(ps.df.fname,".rds"))
   if(!file.exists(tsv.fname)){
@@ -724,16 +717,20 @@ melt_phyloseq_and_save <-function (ps, ps.index){
   return(ps.df)
 }
 
-ps.q.agg.asv<-melt_phyloseq_and_save(ps.q, ps.index = "OTU")%>%
+ps.q.agg.asv<-melt_phyloseq_and_save(ps.q, ps.index = "OTU",
+                                     ps.df.fname = ps.q.agg.asv.fname.no_ext)%>%
   filter(Abundance!=0)%>%
   as_tibble()
-ps.q.agg.genus <- melt_phyloseq_and_save(ps.q, ps.index = "Genus")%>%
+ps.q.agg.genus <- melt_phyloseq_and_save(ps.q, ps.index = "Genus",
+                                         ps.df.fname = ps.q.agg.genus.fname.no_ext)%>%
   filter(Abundance!=0)%>%
   as_tibble()
-ps.q.agg.family <- melt_phyloseq_and_save(ps.q, ps.index = "Family")%>%
+ps.q.agg.family <- melt_phyloseq_and_save(ps.q, ps.index = "Family",
+                                          ps.df.fname = ps.q.agg.family.fname.no_ext)%>%
   filter(Abundance!=0)%>%
   as_tibble()
-ps.q.agg.phylum<-melt_phyloseq_and_save(ps.q, ps.index = "Phylum")%>%
+ps.q.agg.phylum<-melt_phyloseq_and_save(ps.q, ps.index = "Phylum",
+                                        ps.df.fname = ps.q.agg.phylum.fname.no_ext)%>%
   filter(Abundance!=0)%>%
   as_tibble()
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
@@ -744,6 +741,14 @@ mean_sd_relab.nmr_ages.asv.fname <-
 if(! file.exists (mean_sd_relab.nmr_ages.asv.fname)){
   write.table(mean_sd_relab.nmr_ages.asv,
               file = mean_sd_relab.nmr_ages.asv.fname,
+              row.names = F,sep = "\t")
+}
+mean_sd_relab.nmr_no_groups.asv.fname <-
+  file.path(community.composition.tables,
+            "mean-max-min-sd-relab-nmr_no_groups-asv.tsv")
+if(! file.exists (mean_sd_relab.nmr_no_groups.asv.fname)){
+  write.table(mean_sd_relab.nmr_no_groups.asv,
+              file = mean_sd_relab.nmr_no_groups.asv.fname,
               row.names = F,sep = "\t")
 }
 
@@ -784,10 +789,7 @@ if(!file.exists(ps.q.filtered.tree.fname)){
 #' - Number of phyla per host  
 #' - Number of families per host  
 #' - Number of genera per host  
-summary.stats<-create_summary_stats(ps.q.agg.asv,
-                                                ps.q.agg.phylum,
-                                                ps.q.agg.family,
-                                                ps.q.agg.genus)
+summary.stats<-create_summary_stats(ps.q.agg.asv)
 knitr::kable(as.data.frame(summary.stats),format = "simple")
 summary.stats.fname<-file.path(community.composition.tables,
   "summary-table.tsv")
@@ -798,9 +800,9 @@ if(!file.exists(summary.stats.fname)){
 }
 
 #+ echo=FALSE
-## 9. Calculate average, min, max, and SD relative abundances from phyloseq object. ####
+## 9. Calculate average, min, max, and SD relative abundances from phyloseq object (unrarefied). ####
 #'
-#' ## Calculate average, min, max, and SD relative abundances from phyloseq object.
+#' ## Calculate average, min, max, and SD relative abundances from phyloseq object (unrarefied).
 mean_sd_relab.all_hosts.phyla <- get_mean_and_sd_relab_from_phyloseq(ps.q.rel, "class", "Phylum")
 mean_sd_relab.all_hosts.families <- get_mean_and_sd_relab_from_phyloseq(ps.q.rel, "class", "Family")
 mean_sd_relab.all_hosts.genera <- get_mean_and_sd_relab_from_phyloseq(ps.q.rel, "class", "Genus")
@@ -863,7 +865,7 @@ knitr::kable(unclassified.genus.summary.stats, format ="simple")
 
 unclassified.genus.summary.stats.fname <-
   file.path(community.composition.tables,
-            "unclassified-genus-summary-table-raw.tsv")
+            "unclassified-genus-summary-table.tsv")
 if (! file.exists(unclassified.genus.summary.stats.fname)){
   write.table(unclassified.genus.summary.stats,
               file = unclassified.genus.summary.stats.fname,
@@ -876,80 +878,36 @@ if (! file.exists(unclassified.genus.summary.stats.fname)){
 #' ## Rarefy the table and check the percentage of unclassified taxa. ####
 #' First, perform multiple rarefaction:
 print(paste("Rarefying data with", rare.num_samples, "subsamples"))
-ps.q.agg.asv.rare<-multi_rarefy_phyloseq(ps.q,
-                                         tax.rank = "OTU",
-                                         niter = rare.num_samples,
-                                         output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                           paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
-                                                 paste(custom.levels,collapse = '-'),sep = "-"),
-                                           ".rds")))
-ps.q.agg.phylum.rare<-multi_rarefy_phyloseq(ps.q,
-                                            tax.rank = "Phylum",
-                                            niter = rare.num_samples,
-                                            output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                              paste("ps.q.rare","Phylum",paste0(rare.num_samples,"_iter"),
-                                                    paste(custom.levels,collapse = '-'),sep = "-"),
-                                              ".rds")))
-ps.q.agg.family.rare<-multi_rarefy_phyloseq(ps.q,
-                                            tax.rank = "Family",
-                                            niter = rare.num_samples,
-                                            output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                              paste("ps.q.rare","Family",paste0(rare.num_samples,"_iter"),
-                                                    paste(custom.levels,collapse = '-'),sep = "-"),
-                                              ".rds")))
-ps.q.agg.genus.rare<-multi_rarefy_phyloseq(ps.q,
-                                          tax.rank = "Genus",
-                                          niter = rare.num_samples,
-                                          output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                            paste("ps.q.rare","Genus",paste0(rare.num_samples,"_iter"),
-                                                  paste(custom.levels,collapse = '-'),sep = "-"),
-                                            ".rds")))
+rarefied.fname.all<-file.path(community.composition.rdafiles,paste0(
+  paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
+        paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
+if(!file.exists(rarefied.fname.all)){
+  ps.q.agg.asv.rare<-multi_rarefy_phyloseq(ps.q,
+                                           niter = rare.num_samples,
+                                           output.filename.rds = rarefied.fname.all)
+}else{
+  ps.q.agg.asv.rare<- readRDS(rarefied.fname.all)
+}
+
+#' Agglomerate all subsamples to genus.
+ps.q.agg.genus.rare<-map(ps.q.agg.asv.rare, ~tax_glom(.x, taxrank = "Genus"))
+
 #' Rarefy naked mole-rat data specifically.
-ps.q.agg.genus.nmr.rare<-multi_rarefy_phyloseq(subset_samples(ps.q, 
-                                                              class =="NMR"),
-                                               "Genus",
+rarefied.fname.nmr<-file.path(community.composition.rdafiles,paste0(
+  paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
+        paste("NMR",collapse = '-'),sep = "-"),
+  ".rds"))
+if(!file.exists(rarefied.fname.nmr)){
+  ps.q.agg.asv.nmr.rare<-multi_rarefy_phyloseq(subset_samples(ps.q, class =="NMR"),
                                                niter = rare.num_samples,
-                                               output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                                 paste("ps.q.rare","Genus",paste0(rare.num_samples,"_iter"),
-                                                       paste("NMR",collapse = '-'),sep = "-"),
-                                                 ".rds")))
-ps.q.agg.asv.nmr.rare<-multi_rarefy_phyloseq(subset_samples(ps.q, class =="NMR"),
-                                             "OTU",
-                                             niter = rare.num_samples,
-                                             output.filename.rds =  file.path(community.composition.rdafiles,paste0(
-                                               paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
-                                                     paste("NMR",collapse = '-'),sep = "-"),
-                                               ".rds")))
+                                               output.filename.rds = rarefied.fname.nmr )
+}
 
 #+ echo=FALSE
-### 11.1 Add relative abundances and taxonomic information to the rarefied dataframe. ####
+### 11.1 Create a summary stats table for the rarefied data ####
 #' 
-#' ### Add relative abundances and taxonomic information to the rarefied dataframe. 
-#' All hosts (genus)
-#' ps.q.agg.genus.rare.relab<-add_relab_to_tax_df(ps.q.agg.genus.rare,"Genus")
-#' knitr::kable(head(ps.q.agg.genus.rare.relab),format = "simple")
-#' 
-#' #' Add other taxonomic ranks to the dataframe
-#' ps.q.agg.genus.rare.relab<-ps.q.agg.genus.rare.relab%>%
-#'   left_join(unique(ps.q.agg.genus[,c("Kingdom","Phylum","Class","Order","Family","Genus")]))
-#' knitr::kable(head(ps.q.agg.genus.rare.relab),format = "simple")
-#' 
-#' #' Add relative abundances to NMR dataframe (ASV level)
-#' ps.q.agg.asv.nmr.rare.relab<-add_relab_to_tax_df(ps.q.agg.asv.nmr.rare,"OTU")
-#' ps.q.agg.asv.nmr.rare.relab<-ps.q.agg.asv.nmr.rare.relab%>%
-#'   left_join(unique(ps.q.agg.asv[,c("Kingdom","Phylum","Class","Order","Family","Genus","OTU")]))
-
-
-
-#+ echo=FALSE
-### 11.3 Create a summary stats table for the rarefied dataframe. ####
-#' 
-#' ### Create a summary stats table for the rarefied dataframe.
-summary.stats.rare<-get_average_summary_stats(rare.asv = ps.q.agg.asv.rare,
-                                                    rare.phylum = ps.q.agg.phylum.rare,
-                                                    rare.family = ps.q.agg.family.rare,
-                                                    rare.genus =  ps.q.agg.genus.rare,
-                                   metadata = custom.md)
+#' ### Create a summary stats table for the rarefied data.
+summary.stats.rare<-get_average_summary_stats(ps.list.rare.asv = ps.q.agg.asv.rare)
 knitr::kable(summary.stats.rare, format ="simple")
 summary.stats.rare.fname<-file.path(community.composition.tables,
                                      "summary-table-rarefied.tsv")
@@ -960,12 +918,11 @@ if(!file.exists(summary.stats.rare.fname)){
 }
 
 #+ echo=FALSE
-## 12. Calculate summary stats of unclassified genera in rarefied data. ####
+### 11.2 Calculate summary stats of unclassified genera in rarefied data. ####
 #' 
-#' ## Calculate summary stats of unclassified genera in rarefied data.
+#' ### Calculate summary stats of unclassified genera in rarefied data.
 unclassified.genus.summary.stats.rare<-
-  get_average_unclassified_summary_stats_rare(ps.q.agg.genus.rare,"Genus",
-                                              custom.md)%>%
+  get_average_unclassified_summary_stats(ps.q.agg.genus.rare,"Genus")%>%
   arrange(as.character(class))
 knitr::kable(unclassified.genus.summary.stats.rare, format ="simple")
 unclassified.genus.summary.stats.rare.fname<-
@@ -986,11 +943,11 @@ if(!file.exists(unclassified.genus.summary.stats.rare.fname)){
 ### 13.1 Check how much Bacteroidaceae are in NMR.  ####
 #'
 #' ### Check how much Bacteroidaceae and Bacteroidota are in NMR.
-bacteroidaceae.nmr<-mean_sd_relab.all_hosts.families%>%
+bacteroidaceae.nmr <- mean_sd_relab.all_hosts.families%>%
   filter(class=="NMR")%>%
   filter(Family=="Bacteroidaceae")
 knitr::kable(bacteroidaceae.nmr, format = "simple")
-bacteroidaceae.nmr.fname<- file.path(community.composition.tables,
+bacteroidaceae.nmr.fname <- file.path(community.composition.tables,
                                      "bacteroidaceae-table-nmr.tsv")
 if(! file.exists (bacteroidaceae.nmr.fname)){
   write.table(bacteroidaceae.nmr,
@@ -1249,8 +1206,9 @@ ps.q.agg.asv%>%
   stat_summary(fun=median, geom="point", shape=23, size=2, color="black",fill="white",
                position = position_dodge2(width = 0.75,   
                                           preserve = "single"))+
-  # ggtitle(paste0("Relative abundance of Desulfobacterota phylum members"))+
-  taxa.plot.theme
+  ggtitle(paste0("Relative abundance of non-bacterial genera"))+
+  taxa.plot.theme+
+  theme(plot.title = element_text(size = 14))
 #' Very few taxa were detected.
 
 sessionInfo()
