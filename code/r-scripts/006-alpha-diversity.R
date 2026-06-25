@@ -37,8 +37,6 @@ library(vegan)
 ## 2. Specifying parameters and directory/file names. #### 
 #'
 #' ## Specifying parameters and directory/file names. 
-#' The taxonomic rank that was used for agglomeration:
-agglom.rank<-"Genus"
 # cmdargs <- commandArgs(trailingOnly = TRUE)
 # active.analysis <- cmdargs[1]
 unlockBinding("params", env = .GlobalEnv)
@@ -47,10 +45,10 @@ print(paste("The analysis focus is:", active.analysis))
 
 source(here::here("config/R/config.R"))# config file with global variables
 source(here::here("config/R/themes.R"))# config file with themes
-ps.q.agg<-readRDS(file=file.path(
-  community.composition.rdafiles,
-  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
+source(file.path(util.functions.r,"get_average_rarefied_diversity.R"))
+#' The taxonomic rank that was used for agglomeration:
+agglom.rank<-"Genus"
+ps.q<-readRDS(file= ps.q.filtered.fname)
 custom.md <- readRDS(custom.md.path)
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
@@ -65,19 +63,11 @@ metric.labs <- c('sobs'= case_when(agglom.rank == "OTU" ~
 plot.metrics<-c("sobs","shannon","invsimpson")
 div.indices<-c("sobs","shannon", "invsimpson")
 
-#' Remove rows with 0 Abundance, if there's any.
-ps.q.agg <- ps.q.agg%>%
-    filter(class%in%custom.levels,Abundance!=0)
-
-#' Import rarefied dataframe and select Sample, Abundance, 
-#' class, and agglom.rank columns.
-ps.q.df.preprocessed<-readRDS(
-  file.path(community.composition.rdafiles,
-            paste0(
-              paste("ps.q.df.rare-nonfiltered",agglom.rank,
-                    paste(custom.levels,collapse = '-'),sep = "-"),
-              ".rds")))%>%
-  filter(class%in%custom.levels)
+#' Import rarefied dataframe 
+ps.q.agg.asv.rare <-readRDS(file.path(community.composition.rdafiles,paste0(
+  paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
+        paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
+)
 #+ echo=FALSE
 ## 3. Alpha diversity analysis. ####
 #' 
@@ -86,7 +76,8 @@ ps.q.df.preprocessed<-readRDS(
 ### 3.1 Compute alpha diversity metrics. ####
 #' 
 #' ### Compute alpha diversity metrics.
-all.div<-get_alpha_diversity(ps.q.df.preprocessed,agglom.rank)
+all.div<-get_average_rarefied_diversity(ps.q.agg.asv.rare,agglom.rank)%>%
+  left_join(custom.md, by= "Sample")
 
 #+ echo=FALSE
 ### 3.2 Alpha diversity tests. ####
