@@ -24,28 +24,17 @@
 #'
 #' The final output is:
 #' 1) `phyloseq` object `ps.q`, which contains the QIIME2 
-#' output (feature table, taxonomy, and tree).
+#' output (feature table, taxonomy, and tree). Saved as an RDS object.
 #' 
 #' 2) `phyloseq` object `ps.q.rel`, which is same as `ps.q`, but absolute 
 #' abundance values are transformed into relative abundances.
+#' Saved as an RDS object.
 #' 
 #' 3) Metadata `custom.md` and `custom.md.ages`: these are tables with sample
 #' metadata. The first file contains information for all samples, while the 
 #' second one only for naked mole-rat samples. `custom.md` will be added 
-#' to `ps.q` as a `sample_data`. 
+#' to `ps.q` as a `sample_data`. Saved as an RDS object and a TSV file.
 #' 
-#' 4) Dataframe `ps.q.agg.asv`, which is a long-format version of `ps.q`. It
-#' will become a supplementary table. Contains only taxonomy, abundance, and 
-#' sample names (no other metadata). Column `OTU` is ASV IDs from QIIME2. 
-#' phyloseq uses OTU, so we keep it as it is. 
-#' 
-#' 5) Dataframes `ps.q.agg.genus`, `ps.q.agg.phylum`, and `ps.q.agg.family`, 
-#' which are similar to `ps.q.agg.asv` but they are agglomerated at genus, phylum,
-#' and family level, respectively. 
-#'  
-#' 
-#' The final output is the dataframe ps.q.agg.asv and metadata custom.md.
-#' ps.q.agg.asv and custom.md are saved as tsv files and rds files.
 #'
 #+ echo=FALSE
 ## 1. Load necessary libraries. ####
@@ -170,12 +159,14 @@ if(!file.exists(custom.md.ages.fname)){
 #' ### Filter metadata. ####
 #' You can exclude samples based on their library size (total number of reads).
 low.abundance.samples <- names(which(sample_sums(ps.q)<20000))
+print("Samples with library size < 20000:")
 print(low.abundance.samples)
 
 ps.q <- subset_samples(ps.q, ! sample_names(ps.q) %in% low.abundance.samples)
 
 #' You can exclude samples based config file (they failed in QIIME2).
 if( "excluded.classes" %in% ls(all.names = T) ){
+  print("Excluded hosts:")
   print(excluded.classes)
   if( excluded.classes %in% sample_data(ps.q)$class ){
     ps.q <- subset_samples(ps.q, ! class %in% excluded.classes)
