@@ -10,8 +10,8 @@
 #' knitr::opts_knit$set(root.dir = '/home/rakhimov/projects/amplicon_nmr')
 #' ```
 #+ echo=FALSE
-# Barplots ####
-#' # Barplots
+# Barplot ####
+#' # Barplot
 #'
 #+ echo=FALSE
 ## Introduction ####
@@ -28,6 +28,7 @@
 #'
 #' ## Load necessary libraries.
 # install.packages(c("tidyverse","ggtext","Polychrome"))
+library(phyloseq)
 library(tidyverse)
 library(Polychrome)
 library(ggtext)
@@ -50,10 +51,36 @@ source(here::here("config/R/themes.R"))# config file with themes
 #'
 #' ## Import datasets.
 #' Import abundance table as an rds file (NOT rarefied): 
-ps.q.agg<-readRDS(file=file.path(
-  community.composition.rdafiles,
-  paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
-        truncationlvl,"table.rds",sep = "-")))
+# ps.q.agg<-readRDS(file=file.path(
+#   community.composition.rdafiles,
+#   paste("phyloseq-qiime",authorname,agglom.rank,read.end.type,
+#         truncationlvl,"table.rds",sep = "-")))%>%
+#   as_tibble()
+ps.q<-readRDS(file= ps.q.filtered.fname)
+ps.q.rel <-readRDS(file= ps.q.rel.filtered.fname)
+if(agglom.rank=="OTU"){
+  ps.q.agg.rel<-ps.q.rel%>%
+    psmelt()
+  ps.q.agg <- ps.q%>%
+    psmelt()
+}else{
+  ps.q.agg.rel<-ps.q.rel%>%
+    tax_glom(taxrank = agglom.rank)%>%
+    psmelt()%>%
+    select(-OTU)
+  ps.q.agg<-ps.q%>%
+    tax_glom(taxrank = agglom.rank)%>%
+    psmelt()%>%
+    select(-OTU)
+}
+#' Join the dataframe of relative abundances with absolute abundances.
+ps.q.agg <-  ps.q.agg.rel %>%
+  rename("RelativeAbundance" = "Abundance")%>%
+  left_join(ps.q.agg[,c("Sample",agglom.rank,"Abundance")])
+#' Add mean relative abundance data.
+mean_sd_relab.all_hosts<- read.table(file.path(community.composition.tables,
+                                               paste0("mean-max-min-sd-relab-all_hosts-",agglom.rank,".tsv")),
+                                     sep = "\t", header = T)
 custom.md <- readRDS(custom.md.path)
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
@@ -112,10 +139,12 @@ if(agglom.rank%in%custom_order){
 #' Next, unclassified taxa, then classified taxa. 
 #' We use the str_detect to find unclassified taxa because these have 
 #' Kingdom or Phylum in the name.
-new.df<-ps.q.agg%>%
+new.df<- ps.q.agg%>%
   unite("taxon",Kingdom:all_of(agglom.rank),sep = ";",remove = FALSE)%>%
   mutate(is_unclassified = grepl
          ("Kingdom|Phylum|Class|Order|Family|Genus|Species",taxon))%>% # add column to show that a taxon was unclassified
+  left_join(mean_sd_relab.all_hosts) %>%
+  mutate(MeanRelativeAbundance = ifelse(is.na(MeanRelativeAbundance), 0, MeanRelativeAbundance))%>%
   mutate(taxon=ifelse(is_unclassified,
                        get(agglom.rank),
                        paste0(get(agglom.rank), " (",get(preceding.rank),
@@ -230,5 +259,5 @@ for(image.format in image.formats){
          dpi=800,device = image.format)
 }
 sessionInfo()
-rm(list =setdiff(ls(all.names = TRUE), "active.analysis"))
+rm(list =setdiff(ls(all.names = TRUE), c("active.analysis","markdown.dir")))
 gc()
