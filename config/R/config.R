@@ -1,14 +1,13 @@
 project.root <- here::here()
 qiime2.results.path <-"results/1-qiime2"
 # Truncation level that we chose in QIIME2:
-truncationlvl<-"234"
+truncationlvl<-"225_225"
 # Name of the folder with QIIME2 output:
 authorname<-"shared"
-# qza_file_date_time<-"20240425_02_57_13"
-qza_file_date_time<-"20260209_16_33_25"
+qza_file_date_time<-"20260521_191423"
 # Single reads or paired reads (decided in QIIME2):
-read.end.type<-"single"
-qiime2.run_id <- paste(qza_file_date_time,read.end.type,truncationlvl,sep="-")
+read.end.type<-"paired_end"
+qiime2.run_id <- paste(qza_file_date_time,authorname,read.end.type,sep="-")
 
 results<- function(...) file.path(project.root, "results","1-qiime2", 
                                   qiime2.run_id, ...)
@@ -48,7 +47,7 @@ diffabund.rdafiles <-file.path(params$diffabund_dir, "rdafiles")
 diffabund.figures <-file.path(params$diffabund_dir, "figures")
 
 # 001
-qiime2.output.dir<-results("01-qiime2_output") # directory with QZA files
+qiime2.output.dir<-results("01-qiime2_output", "merged-data",truncationlvl) # directory with QZA files
 
 qiime2.metadata.dir<- ifelse(authorname == "shared", 
                              file.path("./data/metadata",
@@ -58,45 +57,50 @@ qiime2.metadata.dir<- ifelse(authorname == "shared",
 
 # Specify the name of your metadata file.
 qiime2.metadata.filename<-file.path(qiime2.metadata.dir,
-                             paste("filenames",read.end.type,
-                                   authorname,"raw-supercomp.tsv", 
-                                   sep = "-"))
+                             paste("filenames-paired-all.tsv"))
 biosample.md<-read.table(file.path(qiime2.metadata.dir,"biosample_metadata_for_ncbi.tsv"),
                          sep = "\t", header= T)
 
 new.metadata.dir <- file.path("./data/metadata/shared")
+# Specify animal hosts to be removed from the metadata
+excluded.classes <- c("pvo")
 
 # 002
+# Directory with necessary functions
 util.functions.r <- "../utils/R"
-## 2. Specifying parameters and directory/file names. #### 
-# Import datasets as rds files.
-ps.q.agg.asv.fname <- file.path(
-  community.composition.rdafiles,
-  # paste("20240620_12_38_18","phyloseq-qiime",authorname,"OTU",read.end.type,# old
-  # paste("20260211_17_01_07","phyloseq-qiime",authorname,"OTU",read.end.type, # new 
-  paste("phyloseq-qiime",authorname,"OTU",read.end.type, # new 
-        truncationlvl,"table.rds",sep = "-"))
+# Phyloseq object
+ps.q.raw.fname <- file.path(community.composition.rdafiles,paste(
+  "phyloseq-qiime",authorname,truncationlvl,
+  "ps.q.raw.rds",sep="-"))
+ps.q.rel.raw.fname <- file.path(community.composition.rdafiles,paste(
+  "phyloseq-qiime",authorname,truncationlvl,
+  "ps.q.rel.raw.rds",sep="-"))
+ps.q.raw.otu_table.fname <- file.path(community.composition.rdafiles,paste(
+  "phyloseq-qiime",authorname,truncationlvl,
+  "ps.q.raw.otu_table.rds",sep="-"))
+ps.q.raw.tax_table.fname <- file.path(community.composition.rdafiles,paste(
+  "phyloseq-qiime",authorname,truncationlvl,
+  "ps.q.raw.tax_table.rds",sep="-"))
+ps.q.raw.tree.fname <- file.path(community.composition.rdafiles,paste(
+  "phyloseq-qiime",authorname,truncationlvl,
+  "ps.q.raw.tree.rds",sep="-"))
+rare.num_samples <- 100
+# For saving phyloseq objects as dataframes
+ps.q.agg.asv.fname.no_ext <- paste("phyloseq-qiime",authorname,"OTU",read.end.type, # new 
+                                  truncationlvl,"table",sep = "-")
+ps.q.agg.genus.fname.no_ext <-paste("phyloseq-qiime",authorname,"Genus",read.end.type,
+                                    truncationlvl,"table",sep = "-")
+ps.q.agg.family.fname.no_ext <- paste("phyloseq-qiime",authorname,"Family",read.end.type,
+                                      truncationlvl,"table",sep = "-")
+ps.q.agg.phylum.fname.no_ext <- paste("phyloseq-qiime",authorname,"Phylum",read.end.type,
+                                      truncationlvl,"table",sep = "-")
 
-ps.q.agg.genus.fname<-file.path(
-  community.composition.rdafiles,
-  # paste("20240620_12_40_41","phyloseq-qiime",authorname,"Genus",read.end.type,
-  # paste("20260211_17_01_10","phyloseq-qiime",authorname,"Genus",read.end.type,
-  paste("phyloseq-qiime",authorname,"Genus",read.end.type,
-        truncationlvl,"table.rds",sep = "-"))
+ps.q.filtered.fname <- gsub("raw", "filtered", ps.q.raw.fname)
+ps.q.rel.filtered.fname <- gsub("raw", "filtered", ps.q.rel.raw.fname)
+ps.q.filtered.otu_table.fname <- gsub("raw", "filtered", ps.q.raw.otu_table.fname)
+ps.q.filtered.tax_table.fname <- gsub("raw", "filtered", ps.q.raw.tax_table.fname)
+ps.q.filtered.tree.fname <- gsub("raw", "filtered", ps.q.raw.tree.fname)
 
-ps.q.agg.family.fname <- file.path(
-  community.composition.rdafiles,
-  # paste("20240917_10_54_12-phyloseq-qiime",authorname,"Family",read.end.type,
-  # paste("20260211_17_01_09-phyloseq-qiime",authorname,"Family",read.end.type,
-  paste("phyloseq-qiime",authorname,"Family",read.end.type,
-        truncationlvl,"table.rds",sep = "-"))
-
-ps.q.agg.phylum.fname <- file.path(
-  community.composition.rdafiles,
-  # paste("20240917_21_29_36-phyloseq-qiime",authorname,"Phylum",read.end.type,
-  # paste("20260211_17_01_08-phyloseq-qiime",authorname,"Phylum",read.end.type,
-  paste("phyloseq-qiime",authorname,"Phylum",read.end.type,
-        truncationlvl,"table.rds",sep = "-"))
 
 #' Import metadata:
 custom.md.path<-file.path(new.metadata.dir,"custom.md.rds")
@@ -112,53 +116,10 @@ pretty.level.names<-c("NMR" = "*H. glaber*", # better labels for facets
                       "MSMmouse" = "MSM/Ms mouse",
                       "FVBNmouse" = "FVB/N mouse",
                       "spalax" = "*N. leucodon*",
-                      "pvo" = "*P. v. orii*",
+                      # "pvo" = "*P. v. orii*",
                       "hare" = "*L. europaeus*",
                       "rabbit" = "*O. cuniculus*")
 image.formats<-c("png","tiff")
 
 
 
-# 004
-# ps.q.agg.date_time<-"20260211_17_01_10"
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-
-# 005
-#' Import abundance table as an rds file (NOT rarefied): 
-# ps.q.agg.date_time<-"20260211_17_01_10"
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-#' Import the rarefied abundance table:
-# ps.q.df.pca.input.date_time<-"20260211_17_14_19"
-
-# 006
-#' Import abundance table as an rds file (NOT rarefied): 
-# ps.q.agg.date_time<-"20260211_17_01_10"
-# 20260211_17_01_07 ps.q.agg.date_time ASV level, all hosts
-# 20260211_17_01_10 ps.q.agg.date_time genus level, all hosts
-# 20260211_17_01_09 ps.q.agg.date_time family level, all hosts
-# 20260211_17_01_08 ps.q.agg.date_time phylum level, all hosts
-#' Import the rarefied abundance table (rds  file):
-# ps.q.df.preprocessed.date_time<-"20260211_17_14_19"
-# 20260211_17_14_19 rarefied table for all hosts, genus level
-# 20260211_17_14_20 rarefied table file for NMR, genus level
-# 20260211_17_14_21 rarefied table file for NMR, ASV level
-
-# 008
-#' Import rarefied data (rds).
-#' ps.q.df.preprocessed.date_time<-"20260211_17_14_21" # ASV NMR
-#' #' Import abundance table as an rds file (NOT rarefied): 
-#' ps.q.agg.date_time<-"20260211_17_01_07" # ASV
-
-# 009
-#' Import datasets as rds files.
-# ps.q.agg.asv<-readRDS(file=file.path(
-#   rdafiles.directory,
-#   # paste("20240620_12_38_18","phyloseq-qiime",authorname,"OTU",read.end.type,# old
-#   paste("20260211_17_01_07","phyloseq-qiime",authorname,"OTU",read.end.type, # new 
-#         truncationlvl,"table.rds",sep = "-")))
