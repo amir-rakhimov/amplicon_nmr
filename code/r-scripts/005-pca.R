@@ -59,39 +59,50 @@ ps.q<-readRDS(file= ps.q.filtered.fname)
 custom.md <- readRDS(custom.md.path)
 custom.levels<-intersect(names(pretty.level.names),custom.md$class)
 
-ps.q.agg.asv.rare <-readRDS(file.path(community.composition.rdafiles,paste0(
-  paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
+
+rclr_avg.fname <-file.path(diversity.rdafiles,paste0(
+  paste("ps.q.rare.rclr.average",agglom.rank,paste0(rare.num_samples,"_iter"),
         paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
-)
-
-ps.q.agg.agglom_rank.rare<-map(ps.q.agg.asv.rare, ~tax_glom(.x, taxrank = agglom.rank))
-
-ps.q.agg.agglom_rank.rare.melt <-map(ps.q.agg.agglom_rank.rare, ~psmelt(.x) %>% 
-                           filter(Abundance !=0) %>% 
-                             dplyr::select(Sample, Abundance, all_of(agglom.rank))%>%
-                             pivot_wider(names_from = all_of(agglom.rank),
-                                         values_from = Abundance,
-                                         values_fill = 0)%>%
-                             column_to_rownames("Sample"))
-
-
-rclr_list<-lapply(ps.q.agg.agglom_rank.rare.melt, function(wide.df){
-  # Samples are rows, taxa are columns
-  wide.df.rclr <-decostand(wide.df, method = "rclr", logbase = exp(1))
+if(!file.exists(rclr_avg.fname)){
+  ps.q.agg.asv.rare <-readRDS(file.path(community.composition.rdafiles,paste0(
+    paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
+          paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
+  )
   
-  missing.taxa <- setdiff(ps.q@tax_table%>%as.data.frame()%>%distinct(get(agglom.rank))%>%pull, 
-                          colnames(wide.df.rclr))
+  ps.q.agg.agglom_rank.rare<-map(ps.q.agg.asv.rare, ~tax_glom(.x, taxrank = agglom.rank))
   
-  missing.taxa.df <- matrix(nrow= nrow(wide.df.rclr),
-                            ncol = length(missing.taxa),
-                            data = 0,
-                            dimnames = list(rownames(wide.df.rclr),missing.taxa))
-  wide.df.rclr <- cbind(wide.df.rclr, missing.taxa.df)
-  wide.df.rclr <- wide.df.rclr%>%select(order(colnames(.)))
+  ps.q.agg.agglom_rank.rare.melt <-map(ps.q.agg.agglom_rank.rare, ~psmelt(.x) %>% 
+                                         filter(Abundance !=0) %>% 
+                                         dplyr::select(Sample, Abundance, all_of(agglom.rank))%>%
+                                         pivot_wider(names_from = all_of(agglom.rank),
+                                                     values_from = Abundance,
+                                                     values_fill = 0)%>%
+                                         column_to_rownames("Sample"))
   
-})
+  
+  rclr_list<-lapply(ps.q.agg.agglom_rank.rare.melt, function(wide.df){
+    # Samples are rows, taxa are columns
+    wide.df.rclr <-decostand(wide.df, method = "rclr", logbase = exp(1))
+    
+    missing.taxa <- setdiff(ps.q@tax_table%>%as.data.frame()%>%distinct(get(agglom.rank))%>%pull, 
+                            colnames(wide.df.rclr))
+    
+    missing.taxa.df <- matrix(nrow= nrow(wide.df.rclr),
+                              ncol = length(missing.taxa),
+                              data = 0,
+                              dimnames = list(rownames(wide.df.rclr),missing.taxa))
+    wide.df.rclr <- cbind(wide.df.rclr, missing.taxa.df)
+    wide.df.rclr <- wide.df.rclr%>%select(order(colnames(.)))
+    
+  })
+  
+  rclr_avg <- Reduce ("+", rclr_list)/ length(rclr_list)
+  saveRDS(rclr_avg,
+          file = rclr_avg.fname)
+}else{
+  rclr_avg <-readRDS(rclr_avg.fname)
+}
 
-rclr_avg <- Reduce ("+", rclr_list)/ length(rclr_list)
 prcomp.rclr_avg<- prcomp(rclr_avg, center = TRUE, scale. = FALSE)
 pca.q <-prcomp.rclr_avg
 
