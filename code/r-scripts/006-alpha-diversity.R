@@ -33,6 +33,7 @@
 # library(phyloseq)
 library(tidyverse)
 library(vegan)
+library(phyloseq)
 #+ echo=FALSE
 ## 2. Specifying parameters and directory/file names. #### 
 #'
@@ -76,8 +77,18 @@ ps.q.agg.asv.rare <-readRDS(file.path(community.composition.rdafiles,paste0(
 ### 3.1 Compute alpha diversity metrics. ####
 #' 
 #' ### Compute alpha diversity metrics.
-all.div<-get_average_rarefied_diversity(ps.q.agg.asv.rare,agglom.rank)%>%
-  left_join(custom.md, by= "Sample")
+all.div.fname <-file.path(diversity.rdafiles,paste0(
+  paste("ps.q.rare.diversity.average",agglom.rank,paste0(rare.num_samples,"_iter"),
+        paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
+if(!file.exists(all.div.fname)){
+  all.div<-get_average_rarefied_diversity(ps.q.agg.asv.rare,agglom.rank)%>%
+    left_join(custom.md, by= "Sample")
+  saveRDS(all.div,
+          file = all.div.fname)
+}else{
+  all.div<- readRDS(all.div.fname)
+}
+
 
 #+ echo=FALSE
 ### 3.2 Alpha diversity tests. ####
