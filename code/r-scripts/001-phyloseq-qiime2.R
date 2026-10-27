@@ -65,7 +65,7 @@ library(microViz)
 # active.analysis <- cmdargs[1]
 unlockBinding("params", env = .GlobalEnv)
 active.analysis <- params$active.analysis
-print(paste("The analysis focus is:", active.analysis))
+message("The analysis focus is: ", active.analysis)
 source(here::here("config/R/config.R"))# config file with global variables
 
 dir.create(community.composition.tables,recursive = TRUE)
