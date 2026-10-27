@@ -23,9 +23,11 @@ rmarkdown::render(file.path(markdown.dir,"002-summary-stats-qiime2.Rmd"),
 
 knitr::spin("code/r-scripts/003-compare-data.R", knit = FALSE)
 file.rename("code/r-scripts/003-compare-data.Rmd",
-            "markdown/003-compare-data.Rmd")
-rmarkdown::render('./markdown/003-compare-data.Rmd', 'html_document',
-                  knit_root_dir=here::here())
+            file.path(markdown.dir,"003-compare-data.Rmd"))
+rmarkdown::render(file.path(markdown.dir,"003-compare-data.Rmd"), 
+                  'html_document',
+                  knit_root_dir=here::here(),
+                  params=list(active.analysis=active.analysis))
 
 knitr::spin("code/r-scripts/004-barplots-qiime2.R", knit = FALSE)
 file.rename("code/r-scripts/004-barplots-qiime2.Rmd",
@@ -60,19 +62,12 @@ rmarkdown::render(file.path(markdown.dir,"007-diffabund-tests.Rmd"),
                   knit_root_dir=here::here(),
                   params=list(active.analysis=active.analysis))
 
-knitr::spin("code/r-scripts/008-diversity-inside-custom-host.R", knit = FALSE)
-file.rename("code/r-scripts/008-diversity-inside-custom-host.Rmd",
-            file.path(markdown.dir,"008-diversity-inside-custom-host.Rmd"))
-
-rmarkdown::render(file.path(markdown.dir,"008-diversity-inside-custom-host.Rmd"), 
-                  'html_document',
-                  knit_root_dir=here::here(),
-                  params=list(active.analysis=active.analysis))
-
-
+library(bookdown)
 render_book(input = file.path(markdown.dir), 
-            output_format = "bookdown::html_document2", clean = TRUE,
+            output_format = "bookdown::html_document2", 
+            params = list(active.analysis=active.analysis),
+            clean = TRUE,
             envir = parent.frame(),
-            output_dir =file.path("markdown", paste(active.analysis,"16S_bind", sep = "_")) , 
+            output_dir =file.path( paste(active.analysis,"16S_bind", sep = "_")) , 
             new_session = TRUE, preview = FALSE,
             config_file = file.path(markdown.dir,"_bookdown.yml"))
