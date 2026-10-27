@@ -14,7 +14,7 @@ read_type=paired_end
 nthreads_qc=4
 nthreads_dada2=16
 nthreads_train_classifier=25
-nthreads_classify=20
+nthreads_classify=30
 analysed_data=shared
 
 # RUN_ID="$(date +%Y%m%d_%H%M%S)"-"${analysed_data}"-"${read_type}"
@@ -32,7 +32,7 @@ qiime2_output_dir="${OUTDIR}"/01-qiime2_output
 # SILVA database files directory
 silva_data_dir="${OUTDIR}"/02-silva_data
 # FASTQ files directory
-fastq_dir=data/0-raw/fastq
+fastq_dir="${project_home_dir}"/data/0-raw/fastq
 # QC output directory (only FastQC and MultiQC)
 fastqc_raw_output_dir=data/1-qc/fastqc_raw/"${RUN_ID}"
 multiqc_raw_output_dir=data/1-qc/multiqc_raw/"${RUN_ID}"
@@ -55,3 +55,6 @@ rev_primer=GACTACHVGGGTATCTAATCC
 ref_db_trunc_len=465
 # ref_db_trunc_len=234
 
+sratoolkit_scripts_dir=$HOME/sratoolkit.3.3.0-ubuntu64/bin
+sra_files_dir="${project_home_dir}"/data/sra-files
+all_metadata_dir="${project_home_dir}"/data/metadata
