@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH -t 360:00:00
 #SBATCH -N 4
-#SBATCH -n 20
+#SBATCH -n 30
 #SBATCH --mem-per-cpu 8g
 #SBATCH -J qiime2-merge-data-and-classify
 #SBATCH --output jobreports/%x_%j-out.txt
