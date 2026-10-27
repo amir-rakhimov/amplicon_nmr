@@ -1,0 +1,11 @@
+book_filename: "amplicon_nmr"
+new_session: yes
+rmd_files:
+  - index.Rmd
+  - 001-phyloseq-qiime2.Rmd
+  - 002-summary-stats-qiime2.Rmd
+  - 003-compare-data.R
+  - 004-barplots-qiime2.Rmd
+  - 005-pca.Rmd
+  - 006-alpha-diversity.Rmd
+  - 007-diffabund-tests.Rmd
