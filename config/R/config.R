@@ -1,5 +1,5 @@
 project.root <- here::here()
-qiime2.results.path <-"results/1-qiime2"
+qiime2.results.path <- file.path(project.root, "results/1-qiime2")
 # Truncation level that we chose in QIIME2:
 truncationlvl<-"225_225"
 # Name of the folder with QIIME2 output:
