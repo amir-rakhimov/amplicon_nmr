@@ -42,7 +42,7 @@ agglom.rank<-"Genus"
 # active.analysis <- cmdargs[1]
 unlockBinding("params", env = .GlobalEnv)
 active.analysis <- params$active.analysis
-print(paste("The analysis focus is:", active.analysis))
+message("The analysis focus is: ", active.analysis)
 
 source(here::here("config/R/config.R"))# config file with global variables
 source(here::here("config/R/themes.R"))# config file with themes
@@ -67,11 +67,11 @@ if(agglom.rank=="OTU"){
   ps.q.agg.rel<-ps.q.rel%>%
     tax_glom(taxrank = agglom.rank)%>%
     psmelt()%>%
-    select(-OTU)
+    dplyr::select(-OTU)
   ps.q.agg<-ps.q%>%
     tax_glom(taxrank = agglom.rank)%>%
     psmelt()%>%
-    select(-OTU)
+    dplyr::select(-OTU)
 }
 #' Join the dataframe of relative abundances with absolute abundances.
 ps.q.agg <-  ps.q.agg.rel %>%
