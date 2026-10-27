@@ -82,7 +82,7 @@ manuscript.pca.plot.theme<-theme(
   axis.text.y = element_text(size=10),
   axis.title = element_text(size = 10),
   plot.title = element_text(size = 14),
-  legend.text = ggtext::element_markdown(size = 10),
+  legend.text = element_text(size = 10),
   legend.title = element_text(size = 10),
   legend.position = "right",
   plot.caption = ggtext::element_markdown(hjust = 0, size=13),
