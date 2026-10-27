@@ -44,7 +44,7 @@ library(ggrepel)
 # active.analysis <- cmdargs[1]
 unlockBinding("params", env = .GlobalEnv)
 active.analysis <- params$active.analysis
-print(paste("The analysis focus is:", active.analysis))
+message("The analysis focus is: ", active.analysis)
 
 source(here::here("config/R/config.R"))# config file with global variables
 source(here::here("config/R/themes.R"))# config file with themes
@@ -57,6 +57,8 @@ source(file.path(util.functions.r,"get_average_summary_stats.R"))
 source(file.path(util.functions.r,"get_average_unclassified_summary_stats.R"))
 #' Suppress summarise info
 options(dplyr.summarise.inform = FALSE)
+
+dir.create(file.path(manuscript.figures),recursive = TRUE)
 
 #+ echo=FALSE
 ## 3. Import raw datasets as rds files. ####
@@ -125,7 +127,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
     mutate(row.index=row_number())%>%
     mutate(ASV_name=paste(Genus,row.index,sep="_ASV_"))%>%  
     ungroup()
-  print( paste("Total number of ASVs:", nrow(nmr.asv.names)))
+  message( paste("Total number of ASVs:", nrow(nmr.asv.names)))
   
   #' The `ASV_name` column is renamed to `OTU_tidy`.
   ps.q.nmr.rel.asv<- ps.rel %>%
@@ -139,7 +141,6 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
            "OTU_tidy"="ASV_name")%>%
     relocate(OTU_tidy,.before = Sample)%>%
     relocate(OTU,.after = Genus)
-  
   
   #+ echo=FALSE
   ### 4.1 How many ASVs are shared between two age groups? ####
@@ -162,21 +163,43 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
                   minRelativeAbundance, maxRelativeAbundance,
                   n_samples)
   #' `r nrow(otu.young)` ASVs in young individuals:
-  print(paste( nrow(otu.young), "ASVs are found in young individuals" ))
+  message( nrow(otu.young), " ASVs are found in young individuals" )
   #' `r nrow(otu.old)` ASVs in old individuals:
-  print(paste(nrow(otu.old), "ASVs are found in old individuals" ))
+  message(nrow(otu.old), " ASVs are found in old individuals" )
+  
+  #' Genera in young and old individuals (not necessarily unique)
+  message("Number of genera in young individuals:")
+  mean_sd_rel.ages.asv %>%
+    filter(OTU %in% otu.young$OTU)%>%
+    summarise(n_genus = n_distinct(Genus))%>%
+    knitr::kable(format = "simple")%>%
+    print()
+  
+  message("Number of genera shared between young and old individuals:")
+  mean_sd_rel.ages.asv %>%
+    filter(OTU %in% otu.old$OTU)%>%
+    summarise(n_genus = n_distinct(Genus))%>%
+    knitr::kable(format = "simple")%>%
+    print()
   
   #' Shared ASVs:
   shared.otu <- intersect(otu.young$OTU,otu.old$OTU)
-  print(paste(length(shared.otu), "ASVs are shared between young and old individuals" ))
+  message(length(shared.otu), " ASVs are shared between young and old individuals" )
+  
+  #' Genera in shared ASVs:
+  mean_sd_rel.ages.asv %>%
+    filter(OTU %in% shared.otu )%>%
+    summarise(n_genus = n_distinct(Genus))%>%
+    knitr::kable(format = "simple")%>%
+    print()
   
   #' ASVs unique to young samples: `r nrow(otu.young)` - `r length(shared.otu)` = 
   #' `r nrow(otu.young)-length(shared.otu)`
-  print(paste (nrow(otu.young) - length(shared.otu), "ASVs are unique to young individuals") )
+  message (nrow(otu.young) - length(shared.otu), " ASVs are unique to young individuals")
   
   #' ASVs unique to old samples: `r nrow(otu.old)` - `r length(shared.otu)` = 
   #' `r nrow(otu.old)-length(shared.otu)`
-  print(paste (nrow(otu.old) - length(shared.otu), "ASVs are unique to old individuals") )
+  message (nrow(otu.old) - length(shared.otu), " ASVs are unique to old individuals") 
   
   #+ echo=FALSE
   ### 4.2 Find ASVs that are unique to young and old individuals. ####
@@ -185,7 +208,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   
   #' Which genera do the `r length(otu.young$OTU)-length(shared.otu)` young-specific ASVs belong to? 
   #' Showing only the first 10 rows because there's too many.
-  print("Showing genera that possess young-specific ASVS (first 10 rows only)")
+  message("Showing genera that possess young-specific ASVS (first 10 rows only)")
   mean_sd_rel.ages.asv%>%
     filter(OTU %in% otu.young$OTU, # ASV in old but not shared vector
            !OTU %in% shared.otu)%>%
@@ -198,7 +221,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
     print()
   
   #' Which genera do the `r length(otu.old$OTU)-length(shared.otu)` old-specific ASVs belong to?
-  print("Showing genera that possess old-specific ASVS (first 10 rows only)")
+  message("Showing genera that possess old-specific ASVS (first 10 rows only)")
   mean_sd_rel.ages.asv%>%
     filter(OTU %in% otu.old$OTU, # ASV in old but not shared vector
            !OTU %in% shared.otu)%>%
@@ -212,7 +235,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   
   #' Are there any ASVs that are unique to young individuals AND present in at 
   #' least 3 samples? Showing only the first 10 rows because there's too many.
-  print("Showing ASVs unique to young individuals AND present in at least 3 samples (first 10 rows only)")
+  message("Showing ASVs unique to young individuals AND present in at least 3 samples (first 10 rows only)")
   mean_sd_rel.ages.asv%>%
     filter(OTU %in% otu.young$OTU,
            !OTU %in% shared.otu)%>%
@@ -224,7 +247,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
     knitr::kable(format = "simple")%>%
     print()
   
-  print("Showing ASVs unique to old individuals AND present in at least 3 samples (first 10 rows only)")
+  message("Showing ASVs unique to old individuals AND present in at least 3 samples (first 10 rows only)")
   #' Are there any ASVs that are unique to old individuals AND present in at 
   #' least 3 samples? 
   mean_sd_rel.ages.asv%>%
@@ -242,7 +265,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   ### 4.3 How much % do `r length(shared.otu)` shared ASVs take on average? ####
   #' 
   #' ### How much % do `r length(shared.otu)` shared ASVs take on average?
-  print("Showing how much % do shared ASVs take on average")
+  message("Showing how much % do shared ASVs take on average")
   ps.q.nmr.rel.asv%>%
     filter(OTU%in%shared.otu)%>%
     group_by(Sample)%>%
@@ -256,7 +279,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   ### 4.4 How much % do `r length(shared.otu)` shared ASVs take in each age group? ####
   #'
   #'### How much % do `r length(shared.otu)` shared ASVs take in each age group?
-  print("Showing how much % do shared ASVs take in each age group")
+  message("Showing how much % do shared ASVs take in each age group")
   ps.q.nmr.rel.asv%>%
     filter(OTU %in% shared.otu)%>%
     # separation by age
@@ -289,12 +312,12 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
     # cumulative sum shows how many ASVs the top genera take
     mutate(cum_sum=cumsum(num_asvs))
   
-  knitr::kable(head(shared.otu.genera.cumsum), format = "simple")%>%
-    print()
   print(paste0("Six genera account for ",
               round(shared.otu.genera.cumsum$cum_sum[6]/length(shared.otu) *100),
               "% shared ASVs (", shared.otu.genera.cumsum$cum_sum[6],
-              " out of ",length(shared.otu), ")"))
+              " out of ",length(shared.otu), "):"))
+  knitr::kable(head(shared.otu.genera.cumsum), format = "simple")%>%
+    print()
   
   #+ echo=FALSE
   ### 4.6 How many ASVs of the top 5 genera in `shared.otu.genera.cumsum` are shared? ####
@@ -310,7 +333,7 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
     arrange(Genus,desc(is_shared))%>%
     pivot_wider(names_from = is_shared,
                 values_from = n_asvs)
-  print("Showing the number of ASVs shared and not shared between young and old samlples")
+  message("Showing the number of ASVs shared and not shared between young and old samlples")
   top.shared.and.not_shared%>%
     knitr::kable(format = "simple")%>%
     print()
@@ -319,14 +342,27 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   ### 4.7 What is the relative abundance of shared ASVs at the genus level? ####
   #'
   #' ### What is the relative abundance of shared ASVs at the genus level?
+  # First, find the top 5 genera by the number of ASVs
   shared.otu.in.top.5.genera.by.asv.cumsum <- mean_sd_rel.ages.asv%>%
     filter(OTU %in% shared.otu)%>%
     # keep unique rows
     distinct(Genus,OTU)%>%
     filter(Genus %in% shared.otu.genera.cumsum$Genus[1:5])%>%
     pull(OTU)
-  print(paste("Top 5 genera comprise",length(shared.otu.in.top.5.genera.by.asv.cumsum),"shared ASVs."))
+  message("Top 5 genera (by the number of ASVs) comprise ",length(shared.otu.in.top.5.genera.by.asv.cumsum)," shared ASVs.")
   
+  message("Average relative abundance of shared ASVs in the top 5 genera (by the number of ASVs):")
+  ps.q.nmr.rel.asv%>%
+    filter(OTU %in% shared.otu.in.top.5.genera.by.asv.cumsum)%>%
+    filter(Genus %in% shared.otu.genera.cumsum$Genus[1:5])%>%
+    group_by(Sample,Genus)%>%
+    summarise(TotalGenus=sum(RelativeAbundance))%>%
+    group_by(Genus)%>%
+    summarise(MeanRelativeAbundance = mean(TotalGenus),
+              SDRelativeAbundance = sd(TotalGenus))%>%
+    arrange(-MeanRelativeAbundance)%>%
+    knitr::kable(format = "simple")%>%
+    print()
   
   #' Bar plot of abundances: Even if the number of shared ASVs might be high, 
   #' the relative abundance in top 5 genera is up to 25%
@@ -369,13 +405,13 @@ analyse_nmr_asvs <-function(ps, # phyloseq object with raw abundances
   
   #' How many top ASVS are common between two age groups ?
   intersect(top10.shared.asv.young$OTU_tidy,top10.shared.asv.old$OTU_tidy)
-  print(paste(length(intersect(top10.shared.asv.young$OTU,top10.shared.asv.old$OTU)),
-              "top ASVs are shared between young and old individuals"))
+  message(length(intersect(top10.shared.asv.young$OTU,top10.shared.asv.old$OTU)),
+              " top ASVs are shared between young and old individuals")
 
   #' Union of the top 10 ASVs in each of the two age groups.
   top10.shared.asv.union <- sort(union(top10.shared.asv.young$OTU_tidy,
                                        top10.shared.asv.old$OTU_tidy))
-  print(paste(length(top10.shared.asv.union), "top ASVs were identified among two groups"))
+  message(length(top10.shared.asv.union), " top ASVs were identified among two groups")
   #' Make the names shorter for the barplot
   top10.shared.asv.union<-top10.shared.asv.union%>%
     as_tibble()%>%
@@ -440,8 +476,8 @@ top10.asv.average%>%
 
 #' This union contains mostly the same ASVs as the list of 10 most abundant 
 #' ASVs on average
-print(paste(length(intersect(nmr.raw$top10.shared.asv.union$OTU_tidy, top10.asv.average$OTU_tidy) ),
-            "out of", length(nmr.raw$top10.shared.asv.union$OTU_tidy), "top ASVs are identical among two groups"))
+message (length(intersect(nmr.raw$top10.shared.asv.union$OTU_tidy, top10.asv.average$OTU_tidy) ),
+            " out of ", length(nmr.raw$top10.shared.asv.union$OTU_tidy), " top ASVs are identical among two groups")
 
 #' Bar plot shows the 10 most abundant shared ASVs on average account for 
 #' 30-40% of samples
@@ -484,10 +520,15 @@ top10.shared.asv.plot<-nmr.raw$ps.q.nmr.rel.asv%>%
        y="Relative abundance (%)",
        fill="ASV"
   )+
-  project_theme +
+  project_theme
+
+#' Save the plot as an RDS object.
+saveRDS(top10.shared.asv.plot,
+        file = file.path(manuscript.figures,"top10.shared.asv.plot.raw.rds"))
+
+top10.shared.asv.plot <- top10.shared.asv.plot +
   asv.barplot.theme +
   theme (plot.title = element_text(size = 8))
-
 #+ fig.height = 6, fig.width = 8
 print(top10.shared.asv.plot+
         ggtitle("Top 10 most abundant ASVs across age in raw data")+
@@ -522,7 +563,7 @@ m40.asvs <- nmr.raw$ps.q.nmr.rel.asv%>%
          OTU_tidy_short = gsub("Muribaculaceae_", "Murib. ",OTU_tidy_short),
          OTU_tidy_short = gsub("Paludicola_", "Palud. ",OTU_tidy_short),
   )%>%
-  select(-RelativeAbundance)
+  dplyr::select(-RelativeAbundance)
 
 m40.asvs.uniq <- setdiff(m40.asvs$OTU_tidy_short, nmr.raw$top10.shared.asv.union$OTU_tidy_short)
 names(otu.fill) <- c(nmr.raw$top10.shared.asv.union$OTU_tidy_short, m40.asvs.uniq)
@@ -625,7 +666,7 @@ nmr.filtered$ps.q.nmr.rel.asv%>%
 ### 6.2 Barplot of the most abundant ASVs in the filtered data. ####
 #' 
 #' ### Barplot of the most abundant ASVs in the filtered data. 
-top10.shared.asv.plot.filtered<-nmr.filtered$ps.q.nmr.rel.asv%>%
+top10.shared.asv.plot.filtered <- nmr.filtered$ps.q.nmr.rel.asv%>%
   # left_join(custom.md.ages)%>%
   filter(OTU_tidy%in%nmr.filtered$top10.shared.asv.union$OTU_tidy) %>%
   # mutate(OTU_tidy_short=paste0(OTU," (",Genus,")"))%>%
@@ -641,7 +682,14 @@ top10.shared.asv.plot.filtered<-nmr.filtered$ps.q.nmr.rel.asv%>%
        y="Relative abundance (%)",
        fill="ASV"
   )+
-  project_theme +
+  project_theme 
+
+#' Save the plot as an RDS object.
+saveRDS(top10.shared.asv.plot.filtered,
+        file = file.path(manuscript.figures,"top10.shared.asv.plot.filtered.rds"))
+
+
+top10.shared.asv.plot.filtered <- top10.shared.asv.plot.filtered +
   asv.barplot.theme +
   theme (plot.title = element_text(size = 8))
 
@@ -741,7 +789,7 @@ mean_sd_relab.nmr_ages.asv.fname <-
 if(! file.exists (mean_sd_relab.nmr_ages.asv.fname)){
   write.table(mean_sd_relab.nmr_ages.asv,
               file = mean_sd_relab.nmr_ages.asv.fname,
-              row.names = F,sep = "\t")
+              row.names = FALSE,sep = "\t")
 }
 mean_sd_relab.nmr_no_groups.asv.fname <-
   file.path(community.composition.tables,
@@ -749,7 +797,7 @@ mean_sd_relab.nmr_no_groups.asv.fname <-
 if(! file.exists (mean_sd_relab.nmr_no_groups.asv.fname)){
   write.table(mean_sd_relab.nmr_no_groups.asv,
               file = mean_sd_relab.nmr_no_groups.asv.fname,
-              row.names = F,sep = "\t")
+              row.names = FALSE,sep = "\t")
 }
 
 #' Save filtered phyloseq objects and the contents (OTU table, taxonomy, tree).
@@ -774,6 +822,35 @@ if(!file.exists(ps.q.filtered.tax_table.fname)){
 if(!file.exists(ps.q.filtered.tree.fname)){
   saveRDS(ps.q@phy_tree,
           file = ps.q.filtered.tree.fname)
+}
+
+ps.q.filtered.otu_table.fname.tsv <- file.path(community.composition.tables, 
+                                               gsub("rds", "tsv",basename(ps.q.filtered.otu_table.fname))
+)
+if(!file.exists(ps.q.filtered.otu_table.fname.tsv)){
+  write.table(ps.q@otu_table%>% as.matrix() %>%as.data.frame() %>% rownames_to_column("OTU"),
+              file = ps.q.filtered.otu_table.fname.tsv,
+              sep = "\t", 
+              row.names = FALSE)
+  
+}
+ps.q.filtered.tax_table.fname.tsv <- 
+  file.path(community.composition.tables, 
+            gsub("rds", "tsv",basename(ps.q.filtered.tax_table.fname)))
+if(!file.exists(ps.q.filtered.tax_table.fname.tsv)){
+  write.table(ps.q@tax_table%>% as.matrix() %>%as.data.frame()%>% rownames_to_column("OTU"),
+              file = ps.q.filtered.tax_table.fname.tsv,
+              sep = "\t", 
+              row.names = FALSE)
+  
+}
+ps.q.filtered.tree.fname.nwk <- 
+  file.path(community.composition.tables, 
+            gsub("rds", "nwk",basename(ps.q.filtered.tree.fname)))
+if(!file.exists(ps.q.filtered.tree.fname.nwk)){
+  ape::write.tree(ps.q@phy_tree,
+                  file = ps.q.filtered.tree.fname.nwk)
+  
 }
 
 #+ echo=FALSE
@@ -877,7 +954,7 @@ if (! file.exists(unclassified.genus.summary.stats.fname)){
 #'
 #' ## Rarefy the table and check the percentage of unclassified taxa. ####
 #' First, perform multiple rarefaction:
-print(paste("Rarefying data with", rare.num_samples, "subsamples"))
+message("Rarefying data with ", rare.num_samples, " subsamples")
 rarefied.fname.all<-file.path(community.composition.rdafiles,paste0(
   paste("ps.q.rare","OTU",paste0(rare.num_samples,"_iter"),
         paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
@@ -890,7 +967,14 @@ if(!file.exists(rarefied.fname.all)){
 }
 
 #' Agglomerate all subsamples to genus.
-ps.q.agg.genus.rare<-map(ps.q.agg.asv.rare, ~tax_glom(.x, taxrank = "Genus"))
+genus.rarefied.fname.all<-file.path(community.composition.rdafiles,paste0(
+  paste("ps.q.rare","Genus",paste0(rare.num_samples,"_iter"),
+        paste(custom.levels,collapse = '-'),sep = "-"),".rds"))
+if(!file.exists(genus.rarefied.fname.all)){
+  ps.q.agg.genus.rare<-map(ps.q.agg.asv.rare, ~tax_glom(.x, taxrank = "Genus"))
+}else{
+  ps.q.agg.genus.rare<- readRDS(genus.rarefied.fname.all)
+}
 
 #' Rarefy naked mole-rat data specifically.
 rarefied.fname.nmr<-file.path(community.composition.rdafiles,paste0(
